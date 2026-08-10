@@ -105,17 +105,17 @@ export const DEFAULT_QUICK_PRESETS: QuickPreset[] = [
 export const DEFAULT_FIRE_CONFIG: FIREConfig = {
   currentAge: 30,
   targetRetirementAge: 42,
-  currentNetWorth: 3850000, // 3,850,000 NTD current assets
-  monthlyIncome: 95000, // 95,000 NTD income
-  monthlyExpenses: 32000, // 32,000 NTD expense
-  monthlyTax: 4500, // 4,500 NTD tax
-  monthlyInvestment: 52000, // 52,000 NTD investment
-  targetAnnualExpensePostRetirement: 480000, // 480,000 NTD annual expense post-retirement (40k/month)
-  expectedInvestmentReturnRate: 7.2, // 7.2% expected annual return
-  expectedInflationRate: 2.2, // 2.2% expected inflation
-  safeWithdrawalRate: 4.0, // 4% rule
+  currentNetWorth: 3850000,
+  monthlyIncome: 95000,
+  monthlyExpenses: 32000,
+  monthlyTax: 4500,
+  monthlyInvestment: 52000,
+  targetAnnualExpensePostRetirement: 480000,
+  expectedInvestmentReturnRate: 7.2,
+  expectedInflationRate: 2.2,
+  safeWithdrawalRate: 4.0,
   currencySymbol: 'NT$',
-  themeColor: 'cyan',
+  themeColor: 'sakura', // 預設使用淡櫻花粉主題
 };
 
 export const INITIAL_TRANSACTIONS: Transaction[] = [
@@ -125,36 +125,20 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
   { id: 't-103', type: 'investment', amount: 40000, mainCategory: '投資資產', subCategory: '指數型ETF (VOO/0050)', date: '2026-08-06', note: '定期定額買入 0050' },
   { id: 't-104', type: 'investment', amount: 15000, mainCategory: '投資資產', subCategory: '台美股票定期定額', date: '2026-08-08', note: '美股 VOO 扣款' },
   { id: 't-105', type: 'tax', amount: 4500, mainCategory: '稅金規費', subCategory: '二代健保補充保費', date: '2026-08-05', note: '薪資預扣稅款與補充保費' },
-  
+
   { id: 't-106', type: 'expense', amount: 85, mainCategory: '飲食', subCategory: '早餐', date: '2026-08-10', note: '燕麥拿鐵 + 鮪魚蛋餅', isQuickPreset: true },
   { id: 't-107', type: 'expense', amount: 140, mainCategory: '飲食', subCategory: '午餐', date: '2026-08-10', note: '健康餐盒', isQuickPreset: true },
   { id: 't-108', type: 'expense', amount: 65, mainCategory: '飲食', subCategory: '點心', date: '2026-08-10', note: '無糖綠茶 + 堅果', isQuickPreset: true },
   { id: 't-109', type: 'expense', amount: 220, mainCategory: '飲食', subCategory: '晚餐', date: '2026-08-09', note: '日式拉麵' },
   { id: 't-110', type: 'expense', amount: 130, mainCategory: '飲食', subCategory: '宵夜', date: '2026-08-08', note: '週末宵夜串燒' },
-  
+
   { id: 't-111', type: 'expense', amount: 18000, mainCategory: '居住', subCategory: '房租/房貸', date: '2026-08-01', note: '8月房屋租金' },
   { id: 't-112', type: 'expense', amount: 2150, mainCategory: '居住', subCategory: '水電費用', date: '2026-08-03', note: '夏季台電電費' },
   { id: 't-113', type: 'expense', amount: 699, mainCategory: '居住', subCategory: '寬頻網路', date: '2026-08-02', note: '光世代網路費' },
-  
+
   { id: 't-114', type: 'expense', amount: 390, mainCategory: '娛樂', subCategory: '串流訂閱', date: '2026-08-04', note: 'Netflix & Spotify 家庭方案' },
   { id: 't-115', type: 'expense', amount: 1250, mainCategory: '娛樂', subCategory: '朋友聚會', date: '2026-08-07', note: '週末好友燒肉聚餐' },
   { id: 't-116', type: 'expense', amount: 500, mainCategory: '交通', subCategory: '機車/汽車加油', date: '2026-08-05', note: '95 無鉛汽油加滿' },
   { id: 't-117', type: 'expense', amount: 1280, mainCategory: '交通', subCategory: '公車捷運', date: '2026-08-01', note: 'TPASS 行政院通勤月票' },
   { id: 't-118', type: 'expense', amount: 890, mainCategory: '日用品', subCategory: '生活耗材', date: '2026-08-06', note: '全聯採買衛生紙、洗髮精' },
-  
-  // July 2026
-  { id: 't-201', type: 'income', amount: 95000, mainCategory: '收入', subCategory: '正職薪資', date: '2026-07-05', note: '7月薪資' },
-  { id: 't-202', type: 'income', amount: 18000, mainCategory: '收入', subCategory: '副業接案', date: '2026-07-18', note: '網頁設計副業尾款' },
-  { id: 't-203', type: 'investment', amount: 50000, mainCategory: '投資資產', subCategory: '指數型ETF (VOO/0050)', date: '2026-07-06', note: '0050/VOO定期扣款' },
-  { id: 't-204', type: 'tax', amount: 4500, mainCategory: '稅金規費', subCategory: '二代健保補充保費', date: '2026-07-05' },
-  { id: 't-205', type: 'expense', amount: 18000, mainCategory: '居住', subCategory: '房租/房貸', date: '2026-07-01' },
-  { id: 't-206', type: 'expense', amount: 9800, mainCategory: '飲食', subCategory: '外送平台', date: '2026-07-15', note: '7月飲食總計月結估算' },
-  { id: 't-207', type: 'expense', amount: 3200, mainCategory: '娛樂', subCategory: '旅遊住宿', date: '2026-07-22', note: '宜蘭週末輕旅行民宿' },
-
-  // June 2026
-  { id: 't-301', type: 'income', amount: 95000, mainCategory: '收入', subCategory: '正職薪資', date: '2026-06-05' },
-  { id: 't-302', type: 'tax', amount: 28000, mainCategory: '稅金規費', subCategory: '綜合所得稅', date: '2026-06-02', note: '114年度綜合所得稅結算申報' },
-  { id: 't-303', type: 'investment', amount: 45000, mainCategory: '投資資產', subCategory: '指數型ETF (VOO/0050)', date: '2026-06-06' },
-  { id: 't-304', type: 'expense', amount: 18000, mainCategory: '居住', subCategory: '房租/房貸', date: '2026-06-01' },
-  { id: 't-305', type: 'expense', amount: 10500, mainCategory: '飲食', subCategory: '午餐', date: '2026-06-15' },
 ];
