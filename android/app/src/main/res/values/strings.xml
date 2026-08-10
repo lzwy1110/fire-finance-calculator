@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FIRE 財務與退休進度計算器</string>
+    <string name="title_activity_main">FIRE 財務與退休進度計算器</string>
+    <string name="package_name">com.firecalculator.app</string>
+    <string name="custom_url_scheme">com.firecalculator.app</string>
+</resources>
