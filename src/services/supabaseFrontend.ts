@@ -14,7 +14,7 @@ export function getCustomCredentials(): { url: string; key: string } {
 }
 
 export function saveCustomCredentials(url: string, key: string): void {
-  const cleanUrl = url.trim().replace(/\/+$/, '');
+  const cleanUrl = url.trim().replace(/\/+$/, '').replace(/\/rest\/v1$/i, '').replace(/\/+$/, '');
   const cleanKey = key.trim();
 
   if (cleanUrl) localStorage.setItem(STORAGE_KEY_CUSTOM_URL, cleanUrl);
@@ -42,8 +42,8 @@ export function getFrontendSupabaseClient(): SupabaseClient | null {
     key = ((import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '').trim();
   }
 
-  // 清除 URL 末尾多餘的斜線
-  url = url.replace(/\/+$/, '');
+  // 清除 URL 末尾多餘的斜線與 /rest/v1 等多餘路徑 (常見的輸入錯誤)
+  url = url.replace(/\/+$/, '').replace(/\/rest\/v1$/i, '').replace(/\/+$/, '');
 
   if (!url || !key || url.includes('your-project') || key.includes('your-anon-key')) {
     return null;
@@ -83,13 +83,13 @@ export async function testSupabaseDirectConnection(): Promise<{ success: boolean
   try {
     const { error } = await supabase.from('fire_configs').select('sync_code').limit(1);
     if (error) {
-      if (error.code === '42P01' || error.code === 'PGRST125' || error.message.includes('relation')) {
+      if (error.code === '42P01') {
         return {
           success: false,
           message: `已連接 Supabase，但尚未在資料庫建表！請前往 Supabase 控制台的 SQL Editor 執行專案中的 supabase/schema.sql。`,
         };
       }
-      return { success: false, message: `Supabase 查詢錯誤 [${error.code}]: ${error.message}` };
+      return { success: false, message: `Supabase 查詢測試回應 [${error.code || 'ERR'}]: ${error.message}` };
     }
     return { success: true, message: '🎉 成功直連 Supabase 資料庫！' };
   } catch (err: any) {
