@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Palette, DollarSign, Settings, Check, Sparkles, RefreshCw, Layers } from 'lucide-react';
+import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers } from 'lucide-react';
 import { FIREConfig } from '../types';
 import { THEME_PRESETS, CURRENCY_OPTIONS, getThemePreset } from '../utils/theme';
 
@@ -22,6 +22,9 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   const [isCustomColor, setIsCustomColor] = useState(false);
   const [customColorHex, setCustomColorHex] = useState('#ff69b4');
 
+  // Widget Category Configuration State
+  const [widgetCats, setWidgetCats] = useState<string[]>(['飲食', '娛樂', '交通', '日用', '收入', '投資']);
+
   useEffect(() => {
     setFormData(config);
     const isStandardCurrency = CURRENCY_OPTIONS.some((c) => c.symbol === config.currencySymbol);
@@ -38,6 +41,17 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
     } else {
       setIsCustomColor(false);
     }
+
+    // Load custom widget categories from localStorage
+    try {
+      const savedCats = localStorage.getItem('widget_custom_cats');
+      if (savedCats) {
+        const parsed = JSON.parse(savedCats);
+        if (Array.isArray(parsed) && parsed.length === 6) {
+          setWidgetCats(parsed);
+        }
+      }
+    } catch (e) {}
   }, [config, isOpen]);
 
   if (!isOpen) return null;
@@ -68,17 +82,28 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
     }
   };
 
+  const handleWidgetCatChange = (index: number, val: string) => {
+    const updated = [...widgetCats];
+    updated[index] = val;
+    setWidgetCats(updated);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalCurrency = isCustomCurrency
       ? customCurrencyInput.trim() || 'NT$'
       : formData.currencySymbol;
-    
+
     const finalConfig = {
       ...formData,
       currencySymbol: finalCurrency,
-      themeColor: isCustomColor ? customColorHex : formData.themeColor || 'cyan',
+      themeColor: isCustomColor ? customColorHex : formData.themeColor || 'sakura',
     };
+
+    // Save Widget custom categories
+    try {
+      localStorage.setItem('widget_custom_cats', JSON.stringify(widgetCats));
+    } catch (e) {}
 
     onSaveConfig(finalConfig);
     onClose();
@@ -106,7 +131,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 系統與介面偏好設定
               </h2>
               <p className="text-xs text-gray-400">
-                自訂主題視覺色彩、預算顯示貨幣與 FIRE 退休財務模型參數
+                自訂主題視覺色彩、預算顯示貨幣、Android 桌面小工具分類與 FIRE 模型
               </p>
             </div>
           </div>
@@ -182,12 +207,42 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 2: 貨幣種類設定 */}
+          {/* SECTION 2: Android 桌面 Widget 小工具大類配置 */}
+          <div className="bg-white/5 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <label className="text-sm font-bold text-white flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-pink-400" />
+                設定 2: Android 桌面 Widget 6 大類別自訂配置
+              </label>
+              <span className="text-xs text-gray-400 font-mono">桌面小工具預覽</span>
+            </div>
+
+            <p className="text-xs text-gray-400">
+              設定要在 Android 桌面 AppWidget 第一步顯示的 6 個主要大類別名稱：
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+              {widgetCats.map((catName, idx) => (
+                <div key={idx} className="space-y-1">
+                  <span className="text-[10px] text-pink-400 font-bold block">位置 {idx + 1}:</span>
+                  <input
+                    type="text"
+                    value={catName}
+                    onChange={(e) => handleWidgetCatChange(idx, e.target.value)}
+                    className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white focus:border-pink-500 focus:outline-none"
+                    placeholder={`類別 ${idx + 1}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* SECTION 3: 貨幣種類設定 */}
           <div className="bg-white/5 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-bold text-white flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-emerald-400" />
-                設定 2: 顯示貨幣種類 (Currency Symbol)
+                設定 3: 顯示貨幣種類 (Currency Symbol)
               </label>
               <span className="text-xs font-mono text-gray-400">
                 符號: <span className="font-bold text-emerald-400">{formData.currencySymbol}</span>
@@ -231,7 +286,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 3: FIRE 退休演算法核心參數 */}
+          {/* SECTION 4: FIRE 退休演算法核心參數 */}
           <div className="bg-white/5 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-4">
             <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-white/5 pb-2">
               <Layers className="w-3.5 h-3.5 text-cyan-400" /> FIRE 退休財務模型參數

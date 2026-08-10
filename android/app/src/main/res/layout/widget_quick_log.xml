@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp"
+    android:padding="10dp"
     android:background="@drawable/widget_bg_dark"
     android:gravity="center_horizontal">
 
@@ -14,11 +14,11 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingBottom="6dp">
+        android:paddingBottom="4dp">
 
         <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
             android:src="@drawable/ic_sakura_flame" />
 
         <TextView
@@ -51,7 +51,7 @@
                 android:layout_height="wrap_content"
                 android:text="NT$ 0"
                 android:textColor="#ffffff"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
@@ -62,7 +62,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingVertical="4dp"
+        android:paddingVertical="3dp"
         android:paddingHorizontal="6dp"
         android:background="#1f0a17">
 
@@ -98,17 +98,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="6dp">
+            android:layout_marginTop="4dp">
 
             <TextView
                 android:id="@+id/btn_cat_food"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="3dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="🍔 飲食"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -119,11 +119,11 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
-                android:layout_marginEnd="3dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="🎮 娛樂"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -134,10 +134,10 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
+                android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="🚗 交通"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -148,17 +148,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="6dp">
+            android:layout_marginTop="4dp">
 
             <TextView
                 android:id="@+id/btn_cat_daily"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="3dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="🛍️ 日用"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -169,11 +169,11 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
-                android:layout_marginEnd="3dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="💰 收入"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -184,10 +184,10 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
+                android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="🚀 投資"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -207,17 +207,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="6dp">
+            android:layout_marginTop="4dp">
 
             <TextView
                 android:id="@+id/btn_sub_1"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="3dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="早餐"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -228,11 +228,11 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
-                android:layout_marginEnd="3dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="午餐"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -243,10 +243,10 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
+                android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="晚餐"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -257,17 +257,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="6dp">
+            android:layout_marginTop="4dp">
 
             <TextView
                 android:id="@+id/btn_sub_4"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="3dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="宵夜"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -278,11 +278,11 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
-                android:layout_marginEnd="3dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="飲料"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -293,10 +293,10 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
+                android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
+                android:paddingVertical="7dp"
                 android:text="生鮮"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -304,7 +304,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- STEP 3: Amount Selection Grid -->
+    <!-- STEP 3: Amount Numeric Keypad Grid -->
     <LinearLayout
         android:id="@+id/layout_step_amount"
         android:layout_width="match_parent"
@@ -312,101 +312,293 @@
         android:orientation="vertical"
         android:visibility="gone">
 
+        <!-- Real-time Entered Amount Display Bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="6dp">
+            android:gravity="center"
+            android:paddingVertical="4dp"
+            android:background="#240a1b"
+            android:layout_marginTop="2dp">
 
             <TextView
-                android:id="@+id/btn_amt_50"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/widget_button_sakura"
-                android:gravity="center"
-                android:paddingVertical="8dp"
-                android:text="$ 50"
-                android:textColor="#000000"
-                android:textSize="11sp"
+                android:text="輸入金額: NT$ "
+                android:textColor="#f472b6"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/btn_amt_85"
+                android:id="@+id/txt_entered_amount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textColor="#ffffff"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Keypad Row 1 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="3dp">
+
+            <TextView
+                android:id="@+id/key_1"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/widget_button_sakura"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
-                android:text="$ 85"
-                android:textColor="#000000"
-                android:textSize="11sp"
+                android:paddingVertical="5dp"
+                android:text="1"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/btn_amt_130"
+                android:id="@+id/key_2"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
-                android:background="@drawable/widget_button_sakura"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
-                android:text="$ 130"
-                android:textColor="#000000"
+                android:paddingVertical="5dp"
+                android:text="2"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/key_3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="3"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/key_plus100"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="+100"
+                android:textColor="#f472b6"
                 android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Keypad Row 2 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="6dp">
+            android:layout_marginTop="3dp">
 
             <TextView
-                android:id="@+id/btn_amt_180"
+                android:id="@+id/key_4"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/widget_button_sakura"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
-                android:text="$ 180"
-                android:textColor="#000000"
+                android:paddingVertical="5dp"
+                android:text="4"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/key_5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="5"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/key_6"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="6"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/key_plus500"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="+500"
+                android:textColor="#f472b6"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Keypad Row 3 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="3dp">
+
+            <TextView
+                android:id="@+id/key_7"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="7"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/key_8"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="8"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/key_9"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="9"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/key_del"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="⌫ 刪除"
+                android:textColor="#ff8888"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Keypad Row 4: Clear, 0, 00, Confirm -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="3dp">
+
+            <TextView
+                android:id="@+id/key_clear"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="C 清空"
+                android:textColor="#ffaa66"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/btn_amt_250"
+                android:id="@+id/key_0"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/widget_button_sakura"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="8dp"
-                android:text="$ 250"
-                android:textColor="#000000"
-                android:textSize="11sp"
+                android:paddingVertical="5dp"
+                android:text="0"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/btn_amt_500"
+                android:id="@+id/key_00"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="3dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="5dp"
+                android:text="00"
+                android:textColor="#ffffff"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/key_confirm"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.2"
+                android:layout_marginStart="2dp"
                 android:background="@drawable/widget_button_sakura"
                 android:gravity="center"
-                android:paddingVertical="8dp"
-                android:text="$ 500"
+                android:paddingVertical="5dp"
+                android:text="✅ 確定"
                 android:textColor="#000000"
                 android:textSize="11sp"
                 android:textStyle="bold" />
