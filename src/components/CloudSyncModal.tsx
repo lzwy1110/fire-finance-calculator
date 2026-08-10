@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Cloud, Copy, Check, Download, Upload, ShieldCheck, RefreshCw, X, Database, Server, AlertCircle, Sparkles } from 'lucide-react';
+import { Cloud, Copy, Check, Download, Upload, ShieldCheck, RefreshCw, X, Database, Server, Key, Link2, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { createFullBackupJSON, restoreFromBackupJSON, syncWithCloudCodeAsync, autoSyncToCloud } from '../utils/storage';
-import { checkBackendHealth, HealthCheckResponse, pushCloudData } from '../services/api';
+import { checkBackendHealth, HealthCheckResponse } from '../services/api';
+import { getCustomCredentials, saveCustomCredentials, testSupabaseDirectConnection } from '../services/supabaseFrontend';
 import { getThemePreset } from '../utils/theme';
 
 interface CloudSyncModalProps {
@@ -27,7 +28,13 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   const [inputSyncCode, setInputSyncCode] = useState('');
   const [syncStatusMsg, setSyncStatusMsg] = useState<{ text: string; isError?: boolean } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  
+
+  // Custom Supabase Credentials state
+  const [customUrl, setCustomUrl] = useState('');
+  const [customKey, setCustomKey] = useState('');
+  const [showCredsForm, setShowCredsForm] = useState(false);
+  const [credsSavedMsg, setCredsSavedMsg] = useState<{ text: string; isError?: boolean } | null>(null);
+
   // Health & Supabase status
   const [healthStatus, setHealthStatus] = useState<HealthCheckResponse | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
@@ -41,7 +48,29 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
   useEffect(() => {
     fetchHealth();
+    const creds = getCustomCredentials();
+    setCustomUrl(creds.url);
+    setCustomKey(creds.key);
+    if (creds.url || creds.key) {
+      setShowCredsForm(true);
+    }
   }, []);
+
+  const handleSaveCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    saveCustomCredentials(customUrl, customKey);
+    setCredsSavedMsg({ text: '⏳ 憑證已儲存，正在測試與 Supabase 連線...' });
+
+    const testRes = await testSupabaseDirectConnection();
+    if (testRes.success) {
+      setCredsSavedMsg({ text: testRes.message });
+      fetchHealth();
+      autoSyncToCloud();
+      onDataRestored();
+    } else {
+      setCredsSavedMsg({ text: testRes.message, isError: true });
+    }
+  };
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(syncCode);
@@ -54,7 +83,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     if (!inputSyncCode.trim()) return;
 
     setIsSyncing(true);
-    setSyncStatusMsg({ text: '⏳ 正在與 Supabase / 後端資料庫連線並同步中...' });
+    setSyncStatusMsg({ text: '⏳ 正在與 Supabase 資料庫連線並同步中...' });
 
     const result = await syncWithCloudCodeAsync(inputSyncCode);
     setIsSyncing(false);
@@ -74,13 +103,13 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   const handleManualPushToSupabase = async () => {
     setIsSyncing(true);
     setSyncStatusMsg({ text: '⏳ 正在將本地資料推送到 Supabase 資料庫...' });
-    
+
     autoSyncToCloud();
-    
+
     setTimeout(() => {
       setIsSyncing(false);
       setSyncStatusMsg({ text: '✅ 本地財務與 FIRE 規劃數據已成功同步至 Supabase！' });
-    }, 1000);
+    }, 1200);
   };
 
   const handleDownloadBackup = () => {
@@ -131,7 +160,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-zinc-100">全棧 Supabase 數據同步與備份</h3>
                 <span className="px-2 py-0.5 text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-md">
-                  Express + Supabase
+                  Vercel + Supabase
                 </span>
               </div>
               <p className="text-xs text-zinc-400">前後端一體化多裝置即時財務數據互通</p>
@@ -149,7 +178,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
         <div className="bg-zinc-950/90 border border-zinc-800 p-4 rounded-2xl space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
-              <Server className="w-4 h-4 text-sky-400" /> 後端 API 與 Supabase 資料庫狀態
+              <Server className="w-4 h-4 text-sky-400" /> API 與 Supabase 資料庫連線狀態
             </span>
             <button
               onClick={fetchHealth}
@@ -163,14 +192,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800 flex items-center justify-between">
-              <span className="text-zinc-400">Node.js/Express API:</span>
-              <span className={`font-mono font-bold ${healthStatus ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {healthStatus ? '● 運行中 (3001)' : '○ 離線模式'}
-              </span>
-            </div>
-
-            <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800 flex items-center justify-between">
-              <span className="text-zinc-400">Supabase DB:</span>
+              <span className="text-zinc-400">資料庫連線:</span>
               <span
                 className={`font-mono font-bold ${
                   healthStatus?.supabase?.dbStatus === 'connected'
@@ -181,10 +203,17 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
                 }`}
               >
                 {healthStatus?.supabase?.dbStatus === 'connected'
-                  ? '● 連線正常'
+                  ? '● 已連通 Supabase'
                   : healthStatus?.supabase?.configured
                   ? '⚠️ 需建表/連線中'
-                  : '○ 離線存儲'}
+                  : '○ 離線存儲模式'}
+              </span>
+            </div>
+
+            <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800 flex items-center justify-between">
+              <span className="text-zinc-400">同步通道:</span>
+              <span className="font-mono font-bold text-sky-400">
+                {healthStatus?.supabase?.dbStatus === 'connected' ? '前端直連 / API' : '本機 LocalStorage'}
               </span>
             </div>
           </div>
@@ -197,12 +226,77 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           )}
         </div>
 
+        {/* Custom Supabase Credentials Form (Toggleable Panel) */}
+        <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowCredsForm((prev) => !prev)}
+            className="w-full flex items-center justify-between text-xs font-bold text-amber-300 hover:text-amber-200 transition"
+          >
+            <span className="flex items-center gap-1.5">
+              <Key className="w-4 h-4 text-amber-400" /> 填入/修改 Supabase 資料庫憑證 (網頁端直連)
+            </span>
+            {showCredsForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showCredsForm && (
+            <form onSubmit={handleSaveCredentials} className="space-y-3 pt-2 border-t border-zinc-800/80 animate-fadeIn">
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-400 mb-1 flex items-center gap-1">
+                  <Link2 className="w-3 h-3 text-sky-400" /> Supabase Project URL:
+                </label>
+                <input
+                  type="text"
+                  placeholder="例如: https://xxxx.supabase.co"
+                  value={customUrl}
+                  onChange={(e) => setCustomUrl(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-100 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-400 mb-1 flex items-center gap-1">
+                  <Key className="w-3 h-3 text-emerald-400" /> Supabase Anon Public Key:
+                </label>
+                <input
+                  type="password"
+                  placeholder="例如: eyJhbGciOiJIUzI1Ni..."
+                  value={customKey}
+                  onChange={(e) => setCustomKey(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-100 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  儲存憑證並測試連線
+                </button>
+              </div>
+
+              {credsSavedMsg && (
+                <div
+                  className={`p-2.5 rounded-xl text-xs font-semibold ${
+                    credsSavedMsg.isError
+                      ? 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
+                      : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+                  }`}
+                >
+                  {credsSavedMsg.text}
+                </div>
+              )}
+            </form>
+          )}
+        </div>
+
         {/* Sync Code Box */}
         <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 space-y-2">
           <div className="text-xs font-semibold text-zinc-400 flex items-center justify-between">
             <span>您的裝置專屬 Supabase 雲端同步碼</span>
             <span className="text-emerald-400 text-[11px] flex items-center gap-1 font-bold">
-              <ShieldCheck className="w-3.5 h-3.5" /> 雲端備份防護中
+              <ShieldCheck className="w-3.5 h-3.5" /> 雲端數據防護中
             </span>
           </div>
 

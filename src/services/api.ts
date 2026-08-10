@@ -1,4 +1,13 @@
 import { CategoryItem, CloudBackupData, FIREConfig, QuickPreset, Transaction } from '../types';
+import {
+  deleteTransactionDirect,
+  fetchSupabaseDataDirect,
+  isFrontendSupabaseReady,
+  pushSupabaseDataDirect,
+  saveFIREConfigDirect,
+  saveTransactionDirect,
+  testSupabaseDirectConnection,
+} from './supabaseFrontend';
 
 export interface HealthCheckResponse {
   status: string;
@@ -35,41 +44,78 @@ export interface SyncDataResponse {
 const API_BASE_URL = '';
 
 /**
- * 檢查後端伺服器與 Supabase 連線狀態
+ * 檢查後端 API / 前端直連 Supabase 狀態
  */
 export async function checkBackendHealth(): Promise<HealthCheckResponse | null> {
+  // 1. 嘗試 Express API
   try {
     const res = await fetch(`${API_BASE_URL}/api/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
-    if (!res.ok) return null;
-    return await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.status === 'ok') {
+        return data;
+      }
+    }
   } catch (err) {
-    console.warn('[Backend Health Check Offline]:', err);
-    return null;
+    // API offline
   }
+
+  // 2. 退回測試前端 Supabase 直連
+  if (isFrontendSupabaseReady()) {
+    const directTest = await testSupabaseDirectConnection();
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      supabase: {
+        configured: true,
+        dbStatus: directTest.success ? 'connected' : 'error',
+        message: `[前端直連] ${directTest.message}`,
+      },
+    };
+  }
+
+  return null;
 }
 
 /**
- * 從 Supabase/後端讀取同步資料
+ * 從 Supabase (API 或前端直連) 讀取數據
  */
 export async function fetchCloudData(syncCode: string): Promise<FetchDataResponse | null> {
+  // 1. 嘗試 API 路由
   try {
     const res = await fetch(`${API_BASE_URL}/api/data?syncCode=${encodeURIComponent(syncCode)}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
-    if (!res.ok) return null;
-    return await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success) return data;
+    }
   } catch (err) {
-    console.warn('[Cloud Fetch Data Offline]:', err);
-    return null;
+    // API offline or 404
   }
+
+  // 2. 前端 Supabase 直連 fallback
+  if (isFrontendSupabaseReady()) {
+    const directData = await fetchSupabaseDataDirect(syncCode);
+    if (directData) {
+      return {
+        success: true,
+        mode: 'supabase',
+        syncCode,
+        data: directData,
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
- * 推送數據備份至 Supabase/後端
+ * 推送數據至 Supabase (API 或前端直連)
  */
 export async function pushCloudData(payload: {
   syncCode: string;
@@ -78,22 +124,39 @@ export async function pushCloudData(payload: {
   fireConfig?: FIREConfig;
   quickPresets?: QuickPreset[];
 }): Promise<SyncDataResponse | null> {
+  // 1. 嘗試 API 路由
   try {
     const res = await fetch(`${API_BASE_URL}/api/data/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) return null;
-    return await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success) return data;
+    }
   } catch (err) {
-    console.warn('[Cloud Push Sync Data Offline]:', err);
-    return null;
+    // API failed
   }
+
+  // 2. 前端 Supabase 直連 fallback
+  if (isFrontendSupabaseReady()) {
+    const success = await pushSupabaseDataDirect(payload);
+    if (success) {
+      return {
+        success: true,
+        mode: 'supabase',
+        lastSyncedAt: new Date().toISOString(),
+        message: '全量數據已成功透過前端直連同步至 Supabase！',
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
- * 新增/更新單筆交易至後端與 Supabase
+ * 新增/更新單筆交易至 Supabase
  */
 export async function saveTransactionToCloud(syncCode: string, transaction: Transaction): Promise<boolean> {
   try {
@@ -102,10 +165,12 @@ export async function saveTransactionToCloud(syncCode: string, transaction: Tran
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ syncCode, transaction }),
     });
-    return res.ok;
+    if (res.ok) return true;
   } catch (err) {
-    return false;
+    // fall back
   }
+
+  return await saveTransactionDirect(syncCode, transaction);
 }
 
 /**
@@ -116,10 +181,12 @@ export async function deleteTransactionFromCloud(syncCode: string, id: string): 
     const res = await fetch(`${API_BASE_URL}/api/transactions/${id}?syncCode=${encodeURIComponent(syncCode)}`, {
       method: 'DELETE',
     });
-    return res.ok;
+    if (res.ok) return true;
   } catch (err) {
-    return false;
+    // fall back
   }
+
+  return await deleteTransactionDirect(syncCode, id);
 }
 
 /**
@@ -132,8 +199,10 @@ export async function saveFIREConfigToCloud(syncCode: string, config: FIREConfig
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ syncCode, config }),
     });
-    return res.ok;
+    if (res.ok) return true;
   } catch (err) {
-    return false;
+    // fall back
   }
+
+  return await saveFIREConfigDirect(syncCode, config);
 }
