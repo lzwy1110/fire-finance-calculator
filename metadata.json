@@ -1,0 +1,6 @@
+{
+  "name": "FIRE 財務與退休進度計算器",
+  "description": "整合收入、支出、稅金、投資計算與FIRE退休天數預估，支援便利快速記帳、手機桌面小工具模擬、月度/年度總結、圖表分析與雲端數據備份。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
