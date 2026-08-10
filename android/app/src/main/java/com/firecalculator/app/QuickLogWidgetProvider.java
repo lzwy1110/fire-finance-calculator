@@ -32,6 +32,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
     public static final String ACTION_KEY_PLUS = "com.firecalculator.app.WIDGET_KEY_PLUS";
     public static final String ACTION_CONFIRM = "com.firecalculator.app.WIDGET_CONFIRM";
     public static final String ACTION_RESET = "com.firecalculator.app.WIDGET_RESET";
+    public static final String ACTION_PREV_STEP = "com.firecalculator.app.WIDGET_PREV_STEP";
 
     public static final String EXTRA_CAT = "extra_cat";
     public static final String EXTRA_SUB = "extra_sub";
@@ -124,7 +125,6 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                 final int finalAmt = amt;
 
                 try {
-                    // Read actual App transactions JSON array from SharedPreferences
                     String txsJsonStr = prefs.getString("app_transactions_json", "[]");
                     JSONArray arr = new JSONArray(txsJsonStr);
 
@@ -141,14 +141,12 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                     newTx.put("note", "來自 Android 桌面小工具 1 秒速記");
                     newTx.put("isQuickPreset", true);
 
-                    // Insert at beginning of array
                     JSONArray newArr = new JSONArray();
                     newArr.put(newTx);
                     for (int i = 0; i < arr.length(); i++) {
                         newArr.put(arr.get(i));
                     }
 
-                    // Save updated transactions array directly to App database storage
                     prefs.edit()
                             .putString("app_transactions_json", newArr.toString())
                             .putInt("step", 0)
@@ -156,7 +154,6 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                             .putString("last_logged", "✅ 已記【" + cat + "/" + sub + "】$" + finalAmt)
                             .apply();
 
-                    // Background thread: Push to Supabase Cloud Database silently without opening App
                     new Thread(() -> {
                         try {
                             String syncCode = prefs.getString("sync_code", "DEFAULT_FIRE_SYNC_CODE");
@@ -196,6 +193,12 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         } else if (ACTION_RESET.equals(action)) {
             prefs.edit().putInt("step", 0).putString("entered_amt", "0").apply();
             updateAllWidgets(context);
+
+        } else if (ACTION_PREV_STEP.equals(action)) {
+            int currentStep = prefs.getInt("step", 0);
+            int prevStep = Math.max(0, currentStep - 1);
+            prefs.edit().putInt("step", prevStep).apply();
+            updateAllWidgets(context);
         }
     }
 
@@ -214,7 +217,6 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
 
         String todayStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
 
-        // Calculate Today's Total Expense directly from actual App transactions database!
         int todayExpense = calculateTodayExpense(prefs, todayStr);
         int step = prefs.getInt("step", 0);
         String cat = prefs.getString("selected_cat", "飲食");
@@ -226,8 +228,9 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         views.setTextViewText(R.id.txt_today_expense, "NT$ " + todayExpense);
         views.setTextViewText(R.id.txt_entered_amount, enteredAmt);
 
-        // Attach Reset Intent
+        // Attach Navigation Intents
         views.setOnClickPendingIntent(R.id.btn_reset_step, createBroadcastIntent(context, ACTION_RESET, null, null, null, 0, 99));
+        views.setOnClickPendingIntent(R.id.btn_prev_step, createBroadcastIntent(context, ACTION_PREV_STEP, null, null, null, 0, 98));
 
         // Attach Launch App Modal PendingIntent for btn_launch_app_modal
         Intent customLaunchIntent = new Intent(context, MainActivity.class);
@@ -241,6 +244,13 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         );
         views.setOnClickPendingIntent(R.id.btn_launch_app_modal, pendingLaunch);
 
+        // Control Previous Step Button Visibility
+        if (step > 0) {
+            views.setViewVisibility(R.id.btn_prev_step, View.VISIBLE);
+        } else {
+            views.setViewVisibility(R.id.btn_prev_step, View.GONE);
+        }
+
         if (step == 0) {
             // STEP 1: Main Category Selection
             views.setViewVisibility(R.id.layout_step_main, View.VISIBLE);
@@ -250,7 +260,6 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             String hint = lastLogged.isEmpty() ? "第一步：請選擇【大類】" : lastLogged;
             views.setTextViewText(R.id.txt_step_hint, hint);
 
-            // Read custom main categories from SharedPreferences if configured
             String cat1 = prefs.getString("cfg_cat_1", "飲食");
             String cat2 = prefs.getString("cfg_cat_2", "娛樂");
             String cat3 = prefs.getString("cfg_cat_3", "交通");
@@ -278,7 +287,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             views.setViewVisibility(R.id.layout_step_sub, View.VISIBLE);
             views.setViewVisibility(R.id.layout_step_amount, View.GONE);
 
-            views.setTextViewText(R.id.txt_step_hint, "第二步：已選【" + cat + "】，請選擇細類");
+            views.setTextViewText(R.id.txt_step_hint, "第二步：【" + cat + "】選細類");
 
             String[] subList = getSubCategories(context, prefs, cat);
             views.setTextViewText(R.id.btn_sub_1, subList[0]);
@@ -301,7 +310,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             views.setViewVisibility(R.id.layout_step_sub, View.GONE);
             views.setViewVisibility(R.id.layout_step_amount, View.VISIBLE);
 
-            views.setTextViewText(R.id.txt_step_hint, "第三步：【" + cat + "/" + sub + "】輸入金額點擊確定");
+            views.setTextViewText(R.id.txt_step_hint, "第三步：【" + cat + "/" + sub + "】輸入金額");
 
             views.setOnClickPendingIntent(R.id.key_1, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "1", 0, 31));
             views.setOnClickPendingIntent(R.id.key_2, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "2", 0, 32));

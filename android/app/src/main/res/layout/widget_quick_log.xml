@@ -56,7 +56,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Step Progress / Breadcrumb Indicator -->
+    <!-- Step Progress / Breadcrumb Indicator with Previous Step & Reset Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -67,12 +67,23 @@
         android:background="#1f0a17">
 
         <TextView
+            android:id="@+id/btn_prev_step"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="◀ 上一步"
+            android:textColor="#f472b6"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:paddingEnd="6dp"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/txt_step_hint"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="第一步：請選擇【大類】"
-            android:textColor="#f472b6"
+            android:textColor="#ffffff"
             android:textSize="10sp"
             android:textStyle="bold" />
 
@@ -80,7 +91,7 @@
             android:id="@+id/btn_reset_step"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="↩ 重選"
+            android:text="🧹 重選"
             android:textColor="#888888"
             android:textSize="10sp"
             android:paddingHorizontal="4dp" />
