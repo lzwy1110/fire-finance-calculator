@@ -7,6 +7,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -187,6 +188,18 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         // Attach Reset Intent
         views.setOnClickPendingIntent(R.id.btn_reset_step, createBroadcastIntent(context, ACTION_RESET, null, null, null, 0, 99));
 
+        // Attach Launch App Modal PendingIntent for btn_launch_app_modal
+        Intent customLaunchIntent = new Intent(context, MainActivity.class);
+        customLaunchIntent.setData(Uri.parse("fireflow://quick-add"));
+        customLaunchIntent.setAction(Intent.ACTION_VIEW);
+        PendingIntent pendingLaunch = PendingIntent.getActivity(
+            context,
+            200,
+            customLaunchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        views.setOnClickPendingIntent(R.id.btn_launch_app_modal, pendingLaunch);
+
         if (step == 0) {
             // STEP 1: Main Category Selection
             views.setViewVisibility(R.id.layout_step_main, View.VISIBLE);
@@ -226,7 +239,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
 
             views.setTextViewText(R.id.txt_step_hint, "第二步：已選【" + cat + "】，請選擇細類");
 
-            String[] subList = getSubCategories(cat);
+            String[] subList = getSubCategories(context, prefs, cat);
             views.setTextViewText(R.id.btn_sub_1, subList[0]);
             views.setTextViewText(R.id.btn_sub_2, subList[1]);
             views.setTextViewText(R.id.btn_sub_3, subList[2]);
@@ -288,7 +301,22 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         return "🏷️";
     }
 
-    private String[] getSubCategories(String cat) {
+    private String[] getSubCategories(Context context, SharedPreferences prefs, String cat) {
+        try {
+            String customSubsJson = prefs.getString("custom_subs_json", "{}");
+            JSONObject obj = new JSONObject(customSubsJson);
+            if (obj.has(cat)) {
+                JSONArray arr = obj.getJSONArray(cat);
+                if (arr.length() >= 6) {
+                    String[] res = new String[6];
+                    for (int i = 0; i < 6; i++) {
+                        res[i] = arr.getString(i);
+                    }
+                    return res;
+                }
+            }
+        } catch (Exception ignored) {}
+
         if ("娛樂".equals(cat)) return new String[]{"電影", "遊戲", "聚會", "戶外", "訂閱", "旅遊"};
         if ("交通".equals(cat)) return new String[]{"捷運", "加油", "公車", "高鐵", "叫車", "停車"};
         if ("日用".equals(cat)) return new String[]{"耗材", "清潔", "廚房", "家電", "雜貨", "個人"};

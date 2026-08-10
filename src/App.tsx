@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { registerPlugin } from '@capacitor/core';
 import {
   CategoryItem,
   FIREConfig,
@@ -32,6 +33,13 @@ import { CloudSyncModal } from './components/CloudSyncModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
 import { SystemSettingsModal } from './components/SystemSettingsModal';
 import { applyThemeToCSSVariables } from './utils/theme';
+
+interface WidgetBridgePluginType {
+  getPendingWidgetTransactions: () => Promise<{ pending_txs: string }>;
+  saveWidgetCustomConfig: (options: { cats?: string; subs?: string }) => Promise<void>;
+}
+
+const WidgetBridge = registerPlugin<WidgetBridgePluginType>('WidgetBridge');
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'monthly' | 'yearly' | 'ledger' | 'analytics'>('dashboard');
@@ -91,8 +99,48 @@ export default function App() {
     applyThemeToCSSVariables(fireConfig.themeColor);
   }, [fireConfig.themeColor]);
 
-  // Handle App Launch from Android Widget Deep Link
+  // Sync Categories & Sub-Categories to Android Widget Bridge whenever categories change
   useEffect(() => {
+    if (categories.length > 0) {
+      try {
+        const subsMap: Record<string, string[]> = {};
+        categories.forEach((c) => {
+          if (c.subCategories && c.subCategories.length > 0) {
+            subsMap[c.name] = c.subCategories.slice(0, 6);
+          }
+        });
+        WidgetBridge.saveWidgetCustomConfig({
+          subs: JSON.stringify(subsMap),
+        }).catch(() => {});
+      } catch (e) {}
+    }
+  }, [categories]);
+
+  // Handle App Launch & Resume: Ingest Widget Pending Transactions
+  useEffect(() => {
+    const ingestWidgetTransactions = () => {
+      WidgetBridge.getPendingWidgetTransactions().then((res) => {
+        if (res && res.pending_txs) {
+          try {
+            const parsed = JSON.parse(res.pending_txs);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              parsed.forEach((t) => {
+                handleAddTransaction({
+                  type: t.type || 'expense',
+                  amount: t.amount || 0,
+                  mainCategory: t.mainCategory || '飲食',
+                  subCategory: t.subCategory || '午餐',
+                  date: t.date || new Date().toISOString().slice(0, 10),
+                  note: t.note || '來自 Android 桌面小工具 1 秒速記',
+                  isQuickPreset: true,
+                });
+              });
+            }
+          } catch (e) {}
+        }
+      }).catch(() => {});
+    };
+
     const handleWidgetUrl = (urlStr: string) => {
       if (!urlStr) return;
       try {
@@ -125,11 +173,18 @@ export default function App() {
       }
     };
 
+    ingestWidgetTransactions();
     handleWidgetUrl(window.location.href);
 
     import('@capacitor/app').then(({ App: CapApp }) => {
       CapApp.addListener('appUrlOpen', (data) => {
         handleWidgetUrl(data.url);
+        ingestWidgetTransactions();
+      });
+      CapApp.addListener('appStateChange', (state) => {
+        if (state.isActive) {
+          ingestWidgetTransactions();
+        }
       });
     }).catch(() => {});
   }, []);

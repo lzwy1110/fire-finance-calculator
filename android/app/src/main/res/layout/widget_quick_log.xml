@@ -604,4 +604,18 @@
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
+
+    <!-- Bottom Action Button: Launch App Quick Add Modal -->
+    <TextView
+        android:id="@+id/btn_launch_app_modal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:background="@drawable/widget_button_sakura"
+        android:gravity="center"
+        android:paddingVertical="6dp"
+        android:text="⚡ + 自訂 (開啟 App 記帳彈窗)"
+        android:textColor="#000000"
+        android:textSize="11sp"
+        android:textStyle="bold" />
 </LinearLayout>
