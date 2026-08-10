@@ -36,6 +36,8 @@ import { applyThemeToCSSVariables } from './utils/theme';
 
 interface WidgetBridgePluginType {
   getPendingWidgetTransactions: () => Promise<{ pending_txs: string }>;
+  loadWidgetAppData: () => Promise<{ app_transactions_json: string }>;
+  saveWidgetAppData: (options: { transactions: any[]; todayExpense: number }) => Promise<void>;
   saveWidgetCustomConfig: (options: { cats?: string; subs?: string }) => Promise<void>;
 }
 
@@ -99,6 +101,21 @@ export default function App() {
     applyThemeToCSSVariables(fireConfig.themeColor);
   }, [fireConfig.themeColor]);
 
+  // Two-way Sync: Push App Transactions to Android Widget Bridge so Widget "Today Expense" is 100% identical to App Database!
+  useEffect(() => {
+    if (transactions) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayTotal = transactions
+        .filter((t) => t.date === todayStr && t.type !== 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      WidgetBridge.saveWidgetAppData({
+        transactions: transactions as any,
+        todayExpense: todayTotal,
+      }).catch(() => {});
+    }
+  }, [transactions]);
+
   // Sync Categories & Sub-Categories to Android Widget Bridge whenever categories change
   useEffect(() => {
     if (categories.length > 0) {
@@ -142,24 +159,26 @@ export default function App() {
     }
   };
 
-  // Handle App Launch & Resume: Ingest Widget Pending Transactions
+  // Handle App Launch & Resume: Ingest Widget Recorded Transactions
   useEffect(() => {
     const ingestWidgetTransactions = () => {
-      WidgetBridge.getPendingWidgetTransactions().then((res) => {
-        if (res && res.pending_txs) {
+      WidgetBridge.loadWidgetAppData().then((res) => {
+        if (res && res.app_transactions_json) {
           try {
-            const parsed = JSON.parse(res.pending_txs);
+            const parsed = JSON.parse(res.app_transactions_json);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              parsed.forEach((t) => {
-                handleAddTransaction({
-                  type: t.type || 'expense',
-                  amount: t.amount || 0,
-                  mainCategory: t.mainCategory || '飲食',
-                  subCategory: t.subCategory || '午餐',
-                  date: t.date || new Date().toISOString().slice(0, 10),
-                  note: t.note || '來自 Android 桌面小工具 1 秒速記',
-                  isQuickPreset: true,
-                });
+              setTransactions((prev) => {
+                const existingIds = new Set(prev.map((t) => t.id));
+                const newItems = parsed.filter((t: any) => !existingIds.has(t.id));
+                if (newItems.length > 0) {
+                  const merged = [...newItems, ...prev];
+                  saveTransactions(merged);
+
+                  // Sync newly ingested items to Supabase cloud
+                  newItems.forEach((item) => syncSingleTransactionToCloud(item));
+                  return merged;
+                }
+                return prev;
               });
             }
           } catch (e) {}

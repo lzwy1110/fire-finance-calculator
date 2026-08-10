@@ -14,6 +14,10 @@ import android.widget.RemoteViews;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -116,48 +120,70 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             if (amt > 0) {
                 String cat = prefs.getString("selected_cat", "飲食");
                 String sub = prefs.getString("selected_sub", "午餐");
-
                 String todayStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
-                String lastDate = prefs.getString("today_date", "");
-                int currentExpense = prefs.getInt("today_expense", 0);
-
-                if (!todayStr.equals(lastDate)) {
-                    currentExpense = 0;
-                }
-
-                if (!"收入".equals(cat)) {
-                    currentExpense += amt;
-                }
 
                 try {
-                    String queueJson = prefs.getString("pending_txs", "[]");
-                    JSONArray arr = new JSONArray(queueJson);
-                    JSONObject obj = new JSONObject();
-                    obj.put("id", "t-widget-" + System.currentTimeMillis());
-                    obj.put("type", "收入".equals(cat) ? "income" : "投資".equals(cat) ? "investment" : "expense");
-                    obj.put("amount", amt);
-                    obj.put("mainCategory", cat);
-                    obj.put("subCategory", sub);
-                    obj.put("date", todayStr);
-                    obj.put("note", "來自 Android 桌面小工具 1 秒速記");
-                    obj.put("isQuickPreset", true);
-                    arr.put(obj);
+                    // Read actual App transactions JSON array from SharedPreferences
+                    String txsJsonStr = prefs.getString("app_transactions_json", "[]");
+                    JSONArray arr = new JSONArray(txsJsonStr);
 
+                    JSONObject newTx = new JSONObject();
+                    String txId = "t-widget-" + System.currentTimeMillis();
+                    String txType = "收入".equals(cat) ? "income" : "投資".equals(cat) ? "investment" : "expense";
+
+                    newTx.put("id", txId);
+                    newTx.put("type", txType);
+                    newTx.put("amount", amt);
+                    newTx.put("mainCategory", cat);
+                    newTx.put("subCategory", sub);
+                    newTx.put("date", todayStr);
+                    newTx.put("note", "來自 Android 桌面小工具 1 秒速記");
+                    newTx.put("isQuickPreset", true);
+
+                    // Insert at beginning of array
+                    JSONArray newArr = new JSONArray();
+                    newArr.put(newTx);
+                    for (int i = 0; i < arr.length(); i++) {
+                        newArr.put(arr.get(i));
+                    }
+
+                    // Save updated transactions array directly to App database storage
                     prefs.edit()
-                            .putString("pending_txs", arr.toString())
-                            .putString("today_date", todayStr)
-                            .putInt("today_expense", currentExpense)
+                            .putString("app_transactions_json", newArr.toString())
                             .putInt("step", 0)
                             .putString("entered_amt", "0")
                             .putString("last_logged", "✅ 已記【" + cat + "/" + sub + "】$" + amt)
                             .apply();
 
-                    // Instantly trigger App sync via Deep Link Intent
-                    Intent syncIntent = new Intent(context, MainActivity.class);
-                    syncIntent.setData(Uri.parse("fireflow://quick-log-sync"));
-                    syncIntent.setAction(Intent.ACTION_VIEW);
-                    syncIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    context.startActivity(syncIntent);
+                    // Background thread: Push to Supabase Cloud Database silently without opening App
+                    new Thread(() -> {
+                        try {
+                            String syncCode = prefs.getString("sync_code", "DEFAULT_FIRE_SYNC_CODE");
+                            URL url = new URL("https://xzghqvvvgwvhbngytnpx.supabase.co/rest/v1/fire_transactions");
+                            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                            conn.setRequestMethod("POST");
+                            conn.setRequestProperty("Content-Type", "application/json");
+                            conn.setRequestProperty("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6Z2hxdnZ2Z3d2aGJuZ3l0bnB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEzMjQ5NTMsImV4cCI6MjA1NjkwMDk1M30.7sN1-2Ew629JpE99_W0i0T-16Z1T80g09T_wXy1z_W0");
+                            conn.setRequestProperty("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6Z2hxdnZ2Z3d2aGJuZ3l0bnB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEzMjQ5NTMsImV4cCI6MjA1NjkwMDk1M30.7sN1-2Ew629JpE99_W0i0T-16Z1T80g09T_wXy1z_W0");
+                            conn.setDoOutput(true);
+
+                            JSONObject body = new JSONObject();
+                            body.put("sync_code", syncCode);
+                            body.put("tx_id", txId);
+                            body.put("type", txType);
+                            body.put("amount", amt);
+                            body.put("main_category", cat);
+                            body.put("sub_category", sub);
+                            body.put("tx_date", todayStr);
+                            body.put("note", "來自 Android 桌面小工具 1 秒速記");
+
+                            byte[] out = body.toString().getBytes(StandardCharsets.UTF_8);
+                            try (OutputStream os = conn.getOutputStream()) {
+                                os.write(out);
+                            }
+                            conn.getResponseCode();
+                        } catch (Exception ignored) {}
+                    }).start();
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -186,8 +212,9 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_quick_log);
 
         String todayStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
-        String lastDate = prefs.getString("today_date", "");
-        int todayExpense = todayStr.equals(lastDate) ? prefs.getInt("today_expense", 0) : 0;
+
+        // Calculate Today's Total Expense directly from actual App transactions database!
+        int todayExpense = calculateTodayExpense(prefs, todayStr);
         int step = prefs.getInt("step", 0);
         String cat = prefs.getString("selected_cat", "飲食");
         String sub = prefs.getString("selected_sub", "午餐");
@@ -299,6 +326,27 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         appWidgetManager.updateAppWidget(appWidgetId, views);
     }
 
+    private int calculateTodayExpense(SharedPreferences prefs, String todayStr) {
+        try {
+            String txsJsonStr = prefs.getString("app_transactions_json", "[]");
+            JSONArray arr = new JSONArray(txsJsonStr);
+            int total = 0;
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                String date = obj.optString("date", "");
+                String type = obj.optString("type", "expense");
+                int amount = obj.optInt("amount", 0);
+
+                if (todayStr.equals(date) && !"income".equals(type)) {
+                    total += amount;
+                }
+            }
+            return total;
+        } catch (Exception e) {
+            return prefs.getInt("today_expense", 0);
+        }
+    }
+
     private String getCatIcon(String cat) {
         if ("飲食".equals(cat)) return "🍔";
         if ("娛樂".equals(cat)) return "🎮";
@@ -350,7 +398,6 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         if (digit != null) intent.putExtra(EXTRA_DIGIT, digit);
         if (plus > 0) intent.putExtra(EXTRA_PLUS, plus);
 
-        // Make intent data URI unique so Android PendingIntent cache doesn't swallow broadcast extras!
         String uniqueUri = "widget://" + action + "/" + reqCode + "/" + (cat != null ? cat : "") + "/" + (sub != null ? sub : "") + "/" + (digit != null ? digit : "");
         intent.setData(Uri.parse(uniqueUri));
 
