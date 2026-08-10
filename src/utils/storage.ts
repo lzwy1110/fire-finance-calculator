@@ -8,14 +8,13 @@ const STORAGE_KEY_CONFIG = 'fire_planner_config_v1';
 const STORAGE_KEY_PRESETS = 'fire_planner_presets_v1';
 const STORAGE_KEY_SYNC_CODE = 'fire_planner_sync_code_v1';
 const STORAGE_KEY_CLOUD_SIMULATION = 'fire_planner_cloud_db_v1';
-const STORAGE_KEY_SUPABASE_CREDS = 'fire_planner_supabase_credentials_v1';
 
 export function loadTransactions(): Transaction[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
-    if (!raw) return INITIAL_TRANSACTIONS;
+    if (raw === null) return INITIAL_TRANSACTIONS;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_TRANSACTIONS;
+    return Array.isArray(parsed) ? parsed : INITIAL_TRANSACTIONS;
   } catch (e) {
     console.error('Failed to load transactions:', e);
     return INITIAL_TRANSACTIONS;
@@ -44,9 +43,9 @@ export function removeSingleTransactionFromCloud(id: string): void {
 export function loadCategories(): CategoryItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CATEGORIES);
-    if (!raw) return DEFAULT_CATEGORIES;
+    if (raw === null) return DEFAULT_CATEGORIES;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_CATEGORIES;
+    return Array.isArray(parsed) ? parsed : DEFAULT_CATEGORIES;
   } catch (e) {
     return DEFAULT_CATEGORIES;
   }
@@ -85,9 +84,9 @@ export function saveFIREConfig(config: FIREConfig): void {
 export function loadQuickPresets(): QuickPreset[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PRESETS);
-    if (!raw) return DEFAULT_QUICK_PRESETS;
+    if (raw === null) return DEFAULT_QUICK_PRESETS;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_QUICK_PRESETS;
+    return Array.isArray(parsed) ? parsed : DEFAULT_QUICK_PRESETS;
   } catch (e) {
     return DEFAULT_QUICK_PRESETS;
   }
@@ -155,16 +154,15 @@ export async function syncWithCloudCodeAsync(inputCode: string): Promise<CloudBa
   const cleanCode = inputCode.trim().toUpperCase();
   if (!cleanCode) return null;
 
-  // 1. 嘗試從 Supabase / 後端 API 抓取
   try {
     const apiRes = await fetchCloudData(cleanCode);
     if (apiRes && apiRes.success && apiRes.data) {
       const { transactions, categories, fireConfig, quickPresets } = apiRes.data;
 
-      if (transactions && transactions.length > 0) saveTransactions(transactions);
-      if (categories && categories.length > 0) saveCategories(categories);
+      if (Array.isArray(transactions)) saveTransactions(transactions);
+      if (Array.isArray(categories) && categories.length > 0) saveCategories(categories);
       if (fireConfig) saveFIREConfig(fireConfig);
-      if (quickPresets && quickPresets.length > 0) saveQuickPresets(quickPresets);
+      if (Array.isArray(quickPresets) && quickPresets.length > 0) saveQuickPresets(quickPresets);
 
       setSyncCode(cleanCode);
 
@@ -182,7 +180,6 @@ export async function syncWithCloudCodeAsync(inputCode: string): Promise<CloudBa
     console.warn('[Sync API Error, trying local storage fallback]:', e);
   }
 
-  // 2. 離線 fallback: LocalStorage 擬真數據庫
   return syncWithCloudCodeLocal(cleanCode);
 }
 
@@ -237,7 +234,7 @@ export function restoreFromBackupJSON(jsonString: string): boolean {
 }
 
 export function resetAllDataToDefault(): void {
-  localStorage.removeItem(STORAGE_KEY_TRANSACTIONS);
+  localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify([]));
   localStorage.removeItem(STORAGE_KEY_CATEGORIES);
   localStorage.removeItem(STORAGE_KEY_CONFIG);
   localStorage.removeItem(STORAGE_KEY_PRESETS);

@@ -128,10 +128,10 @@ app.get('/api/data', async (req: Request, res: Response) => {
       mode: 'supabase',
       syncCode,
       data: {
-        transactions,
-        categories: categories.length > 0 ? categories : null,
+        transactions: txRes.error ? null : transactions,
+        categories: catRes.error ? null : (categories.length > 0 ? categories : null),
         fireConfig,
-        quickPresets: quickPresets.length > 0 ? quickPresets : null,
+        quickPresets: presetRes.error ? null : (quickPresets.length > 0 ? quickPresets : null),
       },
     });
   } catch (err: any) {
@@ -187,21 +187,25 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
       await supabase.from('categories').upsert(catRows);
     }
 
-    if (Array.isArray(transactions) && transactions.length > 0) {
-      const txRows = transactions.map((t: any) => ({
-        id: t.id,
-        sync_code: targetSyncCode,
-        type: t.type,
-        amount: t.amount,
-        main_category: t.mainCategory,
-        sub_category: t.subCategory || '',
-        date: t.date,
-        note: t.note || '',
-        tags: t.tags || [],
-        is_quick_preset: Boolean(t.isQuickPreset),
-        updated_at: new Date().toISOString(),
-      }));
-      await supabase.from('transactions').upsert(txRows);
+    if (Array.isArray(transactions)) {
+      if (transactions.length > 0) {
+        const txRows = transactions.map((t: any) => ({
+          id: t.id,
+          sync_code: targetSyncCode,
+          type: t.type,
+          amount: t.amount,
+          main_category: t.mainCategory,
+          sub_category: t.subCategory || '',
+          date: t.date,
+          note: t.note || '',
+          tags: t.tags || [],
+          is_quick_preset: Boolean(t.isQuickPreset),
+          updated_at: new Date().toISOString(),
+        }));
+        await supabase.from('transactions').upsert(txRows);
+      } else {
+        await supabase.from('transactions').delete().eq('sync_code', targetSyncCode);
+      }
     }
 
     if (Array.isArray(quickPresets) && quickPresets.length > 0) {

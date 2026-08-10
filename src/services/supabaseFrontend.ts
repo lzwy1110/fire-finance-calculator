@@ -163,10 +163,10 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
     }));
 
     return {
-      transactions: transactions.length > 0 ? transactions : null,
-      categories: categories.length > 0 ? categories : null,
+      transactions: txRes.error ? null : transactions,
+      categories: catRes.error ? null : (categories.length > 0 ? categories : null),
       fireConfig,
-      quickPresets: quickPresets.length > 0 ? quickPresets : null,
+      quickPresets: presetRes.error ? null : (quickPresets.length > 0 ? quickPresets : null),
     };
   } catch (err) {
     console.error('[Supabase Direct Fetch Error]:', err);
@@ -225,21 +225,26 @@ export async function pushSupabaseDataDirect(payload: {
       await supabase.from('categories').upsert(catRows);
     }
 
-    if (Array.isArray(transactions) && transactions.length > 0) {
-      const txRows = transactions.map((t) => ({
-        id: t.id,
-        sync_code: targetSyncCode,
-        type: t.type,
-        amount: t.amount,
-        main_category: t.mainCategory,
-        sub_category: t.subCategory || '',
-        date: t.date,
-        note: t.note || '',
-        tags: t.tags || [],
-        is_quick_preset: Boolean(t.isQuickPreset),
-        updated_at: new Date().toISOString(),
-      }));
-      await supabase.from('transactions').upsert(txRows);
+    if (Array.isArray(transactions)) {
+      if (transactions.length > 0) {
+        const txRows = transactions.map((t) => ({
+          id: t.id,
+          sync_code: targetSyncCode,
+          type: t.type,
+          amount: t.amount,
+          main_category: t.mainCategory,
+          sub_category: t.subCategory || '',
+          date: t.date,
+          note: t.note || '',
+          tags: t.tags || [],
+          is_quick_preset: Boolean(t.isQuickPreset),
+          updated_at: new Date().toISOString(),
+        }));
+        await supabase.from('transactions').upsert(txRows);
+      } else {
+        // If user cleared all transactions, delete from Supabase
+        await supabase.from('transactions').delete().eq('sync_code', targetSyncCode);
+      }
     }
 
     if (Array.isArray(quickPresets) && quickPresets.length > 0) {
