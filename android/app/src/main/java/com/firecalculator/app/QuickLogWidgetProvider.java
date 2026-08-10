@@ -118,9 +118,10 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             try { amt = Integer.parseInt(current); } catch (Exception ignored) {}
 
             if (amt > 0) {
-                String cat = prefs.getString("selected_cat", "飲食");
-                String sub = prefs.getString("selected_sub", "午餐");
-                String todayStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+                final String cat = prefs.getString("selected_cat", "飲食");
+                final String sub = prefs.getString("selected_sub", "午餐");
+                final String todayStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+                final int finalAmt = amt;
 
                 try {
                     // Read actual App transactions JSON array from SharedPreferences
@@ -128,12 +129,12 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                     JSONArray arr = new JSONArray(txsJsonStr);
 
                     JSONObject newTx = new JSONObject();
-                    String txId = "t-widget-" + System.currentTimeMillis();
-                    String txType = "收入".equals(cat) ? "income" : "投資".equals(cat) ? "investment" : "expense";
+                    final String txId = "t-widget-" + System.currentTimeMillis();
+                    final String txType = "收入".equals(cat) ? "income" : "投資".equals(cat) ? "investment" : "expense";
 
                     newTx.put("id", txId);
                     newTx.put("type", txType);
-                    newTx.put("amount", amt);
+                    newTx.put("amount", finalAmt);
                     newTx.put("mainCategory", cat);
                     newTx.put("subCategory", sub);
                     newTx.put("date", todayStr);
@@ -152,7 +153,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                             .putString("app_transactions_json", newArr.toString())
                             .putInt("step", 0)
                             .putString("entered_amt", "0")
-                            .putString("last_logged", "✅ 已記【" + cat + "/" + sub + "】$" + amt)
+                            .putString("last_logged", "✅ 已記【" + cat + "/" + sub + "】$" + finalAmt)
                             .apply();
 
                     // Background thread: Push to Supabase Cloud Database silently without opening App
@@ -171,7 +172,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                             body.put("sync_code", syncCode);
                             body.put("tx_id", txId);
                             body.put("type", txType);
-                            body.put("amount", amt);
+                            body.put("amount", finalAmt);
                             body.put("main_category", cat);
                             body.put("sub_category", sub);
                             body.put("tx_date", todayStr);
