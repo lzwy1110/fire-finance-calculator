@@ -69,7 +69,7 @@ app.get('/api/data', async (req: Request, res: Response) => {
     const [txRes, catRes, configRes, presetRes] = await Promise.all([
       supabase.from('transactions').select('*').eq('sync_code', syncCode).order('date', { ascending: false }),
       supabase.from('categories').select('*').eq('sync_code', syncCode),
-      supabase.from('fire_configs').select('*').eq('sync_code', syncCode).single(),
+      supabase.from('fire_configs').select('*').eq('sync_code', syncCode).maybeSingle(),
       supabase.from('quick_presets').select('*').eq('sync_code', syncCode),
     ]);
 

@@ -5,29 +5,32 @@ const STORAGE_KEY_CUSTOM_URL = 'fire_planner_custom_supabase_url';
 const STORAGE_KEY_CUSTOM_KEY = 'fire_planner_custom_supabase_key';
 
 let customSupabaseClient: SupabaseClient | null = null;
+let currentClientKey = '';
 
 export function getCustomCredentials(): { url: string; key: string } {
-  const url = localStorage.getItem(STORAGE_KEY_CUSTOM_URL) || '';
-  const key = localStorage.getItem(STORAGE_KEY_CUSTOM_KEY) || '';
+  const url = (localStorage.getItem(STORAGE_KEY_CUSTOM_URL) || '').trim();
+  const key = (localStorage.getItem(STORAGE_KEY_CUSTOM_KEY) || '').trim();
   return { url, key };
 }
 
 export function saveCustomCredentials(url: string, key: string): void {
-  if (url.trim()) localStorage.setItem(STORAGE_KEY_CUSTOM_URL, url.trim());
+  const cleanUrl = url.trim().replace(/\/+$/, '');
+  const cleanKey = key.trim();
+
+  if (cleanUrl) localStorage.setItem(STORAGE_KEY_CUSTOM_URL, cleanUrl);
   else localStorage.removeItem(STORAGE_KEY_CUSTOM_URL);
 
-  if (key.trim()) localStorage.setItem(STORAGE_KEY_CUSTOM_KEY, key.trim());
+  if (cleanKey) localStorage.setItem(STORAGE_KEY_CUSTOM_KEY, cleanKey);
   else localStorage.removeItem(STORAGE_KEY_CUSTOM_KEY);
 
-  customSupabaseClient = null; // reset client instance
+  customSupabaseClient = null;
+  currentClientKey = '';
 }
 
 /**
  * 取得前端直連之 Supabase Client
  */
 export function getFrontendSupabaseClient(): SupabaseClient | null {
-  if (customSupabaseClient) return customSupabaseClient;
-
   // 1. 優先使用使用者手動輸入於 LocalStorage 的憑證
   const custom = getCustomCredentials();
   let url = custom.url;
@@ -35,16 +38,25 @@ export function getFrontendSupabaseClient(): SupabaseClient | null {
 
   // 2. 其次使用 Vite 打包環境變數 (Vercel Project Settings)
   if (!url || !key) {
-    url = (import.meta.env.VITE_SUPABASE_URL as string) || '';
-    key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
+    url = ((import.meta.env.VITE_SUPABASE_URL as string) || '').trim();
+    key = ((import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '').trim();
   }
+
+  // 清除 URL 末尾多餘的斜線
+  url = url.replace(/\/+$/, '');
 
   if (!url || !key || url.includes('your-project') || key.includes('your-anon-key')) {
     return null;
   }
 
+  const clientKey = `${url}___${key}`;
+  if (customSupabaseClient && currentClientKey === clientKey) {
+    return customSupabaseClient;
+  }
+
   try {
     customSupabaseClient = createClient(url, key);
+    currentClientKey = clientKey;
     return customSupabaseClient;
   } catch (err) {
     console.error('[Frontend Supabase Client Init Error]:', err);
@@ -71,10 +83,10 @@ export async function testSupabaseDirectConnection(): Promise<{ success: boolean
   try {
     const { error } = await supabase.from('fire_configs').select('sync_code').limit(1);
     if (error) {
-      if (error.code === '42P01') {
+      if (error.code === '42P01' || error.code === 'PGRST125' || error.message.includes('relation')) {
         return {
           success: false,
-          message: `連線成功，但尚未建立資料表！請在 Supabase SQL Editor 執行 supabase/schema.sql。`,
+          message: `已連接 Supabase，但尚未在資料庫建表！請前往 Supabase 控制台的 SQL Editor 執行專案中的 supabase/schema.sql。`,
         };
       }
       return { success: false, message: `Supabase 查詢錯誤 [${error.code}]: ${error.message}` };
@@ -96,7 +108,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
     const [txRes, catRes, configRes, presetRes] = await Promise.all([
       supabase.from('transactions').select('*').eq('sync_code', syncCode).order('date', { ascending: false }),
       supabase.from('categories').select('*').eq('sync_code', syncCode),
-      supabase.from('fire_configs').select('*').eq('sync_code', syncCode).single(),
+      supabase.from('fire_configs').select('*').eq('sync_code', syncCode).maybeSingle(),
       supabase.from('quick_presets').select('*').eq('sync_code', syncCode),
     ]);
 
