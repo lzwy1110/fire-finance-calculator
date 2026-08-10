@@ -91,6 +91,49 @@ export default function App() {
     applyThemeToCSSVariables(fireConfig.themeColor);
   }, [fireConfig.themeColor]);
 
+  // Handle App Launch from Android Widget Deep Link
+  useEffect(() => {
+    const handleWidgetUrl = (urlStr: string) => {
+      if (!urlStr) return;
+      try {
+        const urlObj = new URL(urlStr);
+        if (urlObj.protocol === 'fireflow:' || urlStr.includes('quick-add') || urlStr.includes('quick_add')) {
+          const cat = urlObj.searchParams.get('cat');
+          const sub = urlObj.searchParams.get('sub');
+          const amt = urlObj.searchParams.get('amt');
+
+          if (cat && sub && amt) {
+            const parsedAmt = parseFloat(amt);
+            if (!isNaN(parsedAmt)) {
+              handleAddTransaction({
+                type: cat === '收入' ? 'income' : cat === '投資資產' ? 'investment' : cat === '稅金規費' ? 'tax' : 'expense',
+                amount: parsedAmt,
+                mainCategory: cat,
+                subCategory: sub,
+                date: new Date().toISOString().slice(0, 10),
+                note: '來自 Android 桌面小工具 1 秒速記',
+                isQuickPreset: true,
+              });
+            }
+          }
+          setIsQuickAddOpen(true);
+        }
+      } catch (e) {
+        if (urlStr.includes('quick-add')) {
+          setIsQuickAddOpen(true);
+        }
+      }
+    };
+
+    handleWidgetUrl(window.location.href);
+
+    import('@capacitor/app').then(({ App: CapApp }) => {
+      CapApp.addListener('appUrlOpen', (data) => {
+        handleWidgetUrl(data.url);
+      });
+    }).catch(() => {});
+  }, []);
+
   // Add Transaction
   const handleAddTransaction = (t: Omit<Transaction, 'id'>) => {
     const newRecord: Transaction = {

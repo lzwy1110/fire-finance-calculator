@@ -6,47 +6,150 @@
     android:orientation="vertical"
     android:padding="12dp"
     android:background="@drawable/widget_bg_dark"
-    android:gravity="center">
+    android:gravity="center_horizontal">
 
+    <!-- Header Bar -->
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:paddingBottom="8dp">
 
         <ImageView
-            android:layout_width="22dp"
-            android:layout_height="22dp"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
             android:src="@drawable/ic_sakura_flame" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:layout_marginStart="6dp"
-            android:text="FIRE Flow"
+            android:text="FIRE Flow ⚡ 1秒速記"
             android:textColor="#f472b6"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="wrap_content"
+    <!-- Quick Preset Cards Grid (Row 1) -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="⚡ 1 秒極速記帳"
-        android:textColor="#ffffff"
-        android:textSize="13sp"
-        android:textStyle="bold" />
+        android:orientation="horizontal"
+        android:layout_marginTop="4dp">
 
+        <TextView
+            android:id="@+id/btn_preset_1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/widget_item_bg"
+            android:gravity="center"
+            android:paddingVertical="7dp"
+            android:text="☕ 早餐 $85"
+            android:textColor="#ffffff"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btn_preset_2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/widget_item_bg"
+            android:gravity="center"
+            android:paddingVertical="7dp"
+            android:text="🍱 午餐 $130"
+            android:textColor="#ffffff"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Quick Preset Cards Grid (Row 2) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="6dp">
+
+        <TextView
+            android:id="@+id/btn_preset_3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/widget_item_bg"
+            android:gravity="center"
+            android:paddingVertical="7dp"
+            android:text="🍲 晚餐 $180"
+            android:textColor="#ffffff"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btn_preset_4"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/widget_item_bg"
+            android:gravity="center"
+            android:paddingVertical="7dp"
+            android:text="🚇 捷運 $35"
+            android:textColor="#ffffff"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Quick Preset Cards Grid (Row 3) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="6dp">
+
+        <TextView
+            android:id="@+id/btn_preset_5"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/widget_item_bg"
+            android:gravity="center"
+            android:paddingVertical="7dp"
+            android:text="⛽ 加油 $150"
+            android:textColor="#ffffff"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btn_preset_6"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/widget_item_bg"
+            android:gravity="center"
+            android:paddingVertical="7dp"
+            android:text="🛍️ 日用 $260"
+            android:textColor="#ffffff"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Custom Quick Add Full Width Button -->
     <TextView
+        android:id="@+id/btn_quick_add"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:background="@drawable/widget_button_sakura"
         android:gravity="center"
         android:paddingVertical="8dp"
-        android:paddingHorizontal="12dp"
-        android:text="+ 快速記一筆"
+        android:text="+ 自訂大類 / 細類 / 金額"
         android:textColor="#000000"
         android:textSize="12sp"
         android:textStyle="bold" />
