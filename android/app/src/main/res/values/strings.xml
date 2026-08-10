@@ -1,7 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">FIRE 財務與退休進度計算器</string>
-    <string name="title_activity_main">FIRE 財務與退休進度計算器</string>
+    <string name="app_name">FIRE Flow</string>
+    <string name="title_activity_main">FIRE Flow</string>
     <string name="package_name">com.firecalculator.app</string>
     <string name="custom_url_scheme">com.firecalculator.app</string>
+    <string name="widget_name">FIRE Flow 1秒速記</string>
+    <string name="widget_description">即時記錄飲食與日常生活支出</string>
 </resources>
