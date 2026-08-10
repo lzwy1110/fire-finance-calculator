@@ -331,6 +331,7 @@ export default function App() {
             onDeleteTransaction={handleDeleteTransaction}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
             onResetDefaultData={handleResetDefaultData}
+            onRefreshData={handleDataRestored}
           />
         )}
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Search, Filter, Trash2, Edit2, Download, Plus, ReceiptText, Tag, Calendar, Check, RotateCcw } from 'lucide-react';
-import { CategoryItem, FIREConfig, Transaction, TransactionType } from '../types';
+import { Search, Filter, Trash2, Download, Plus, ReceiptText, RefreshCw, RotateCcw } from 'lucide-react';
+import { CategoryItem, FIREConfig, Transaction } from '../types';
 import { getThemePreset } from '../utils/theme';
 
 interface TransactionListProps {
@@ -10,6 +10,7 @@ interface TransactionListProps {
   onDeleteTransaction: (id: string) => void;
   onOpenQuickAdd: () => void;
   onResetDefaultData: () => void;
+  onRefreshData?: () => void;
 }
 
 export const TransactionList: React.FC<TransactionListProps> = ({
@@ -19,14 +20,24 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   onDeleteTransaction,
   onOpenQuickAdd,
   onResetDefaultData,
+  onRefreshData,
 }) => {
   const currentTheme = getThemePreset(fireConfig.themeColor);
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    if (onRefreshData) {
+      onRefreshData();
+    }
+    setTimeout(() => setIsRefreshing(false), 800);
+  };
 
   // Filtering
   const filtered = transactions.filter((t) => {
@@ -79,6 +90,15 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold rounded-xl border border-white/10 transition cursor-pointer active:scale-95"
+              title="重新整理／從 Supabase 雲端與 Widget 資料庫更新數據"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-pink-400' : ''}`} />
+              重新整理
+            </button>
+
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold rounded-xl border border-white/10 transition cursor-pointer"
