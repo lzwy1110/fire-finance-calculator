@@ -116,6 +116,32 @@ export default function App() {
     }
   }, [categories]);
 
+  // Add Transaction
+  const handleAddTransaction = (t: Omit<Transaction, 'id'>) => {
+    const newRecord: Transaction = {
+      ...t,
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    };
+    setTransactions((prev) => {
+      const updated = [newRecord, ...prev];
+      saveTransactions(updated);
+      return updated;
+    });
+    syncSingleTransactionToCloud(newRecord);
+
+    // Also update currentNetWorth dynamically if investment was logged!
+    if (t.type === 'investment') {
+      setFireConfig((prevConfig) => {
+        const newConfig = {
+          ...prevConfig,
+          currentNetWorth: prevConfig.currentNetWorth + t.amount,
+        };
+        saveFIREConfig(newConfig);
+        return newConfig;
+      });
+    }
+  };
+
   // Handle App Launch & Resume: Ingest Widget Pending Transactions
   useEffect(() => {
     const ingestWidgetTransactions = () => {
@@ -188,28 +214,6 @@ export default function App() {
       });
     }).catch(() => {});
   }, []);
-
-  // Add Transaction
-  const handleAddTransaction = (t: Omit<Transaction, 'id'>) => {
-    const newRecord: Transaction = {
-      ...t,
-      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    };
-    const updated = [newRecord, ...transactions];
-    setTransactions(updated);
-    saveTransactions(updated);
-    syncSingleTransactionToCloud(newRecord);
-
-    // Also update currentNetWorth dynamically if investment was logged!
-    if (t.type === 'investment') {
-      const newConfig = {
-        ...fireConfig,
-        currentNetWorth: fireConfig.currentNetWorth + t.amount,
-      };
-      setFireConfig(newConfig);
-      saveFIREConfig(newConfig);
-    }
-  };
 
   const handleDeleteTransaction = (id: string) => {
     const updated = transactions.filter((t) => t.id !== id);
