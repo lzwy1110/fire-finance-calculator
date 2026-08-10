@@ -31,12 +31,12 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
     if (onRefreshData) {
-      onRefreshData();
+      await onRefreshData();
     }
-    setTimeout(() => setIsRefreshing(false), 800);
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   // Filtering

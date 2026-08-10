@@ -261,6 +261,57 @@ export default function App() {
     applyThemeToCSSVariables(loadedConfig.themeColor);
   };
 
+  const handleRefreshAllData = async () => {
+    const code = syncCode || getOrCreateSyncCode();
+
+    // 1. Ingest any pending transactions from Android Widget Bridge
+    try {
+      const res = await WidgetBridge.loadWidgetAppData();
+      if (res && res.app_transactions_json) {
+        const parsed = JSON.parse(res.app_transactions_json);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTransactions((prev) => {
+            const existingIds = new Set(prev.map((t) => t.id));
+            const newItems = parsed.filter((t: any) => !existingIds.has(t.id));
+            if (newItems.length > 0) {
+              const merged = [...newItems, ...prev];
+              saveTransactions(merged);
+              newItems.forEach((item) => syncSingleTransactionToCloud(item));
+              return merged;
+            }
+            return prev;
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 2. Actively fetch latest cloud records from Supabase REST API
+    try {
+      const cloudRes = await fetchCloudData(code);
+      if (cloudRes && cloudRes.success && cloudRes.data) {
+        const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets } = cloudRes.data;
+        if (Array.isArray(cTx)) {
+          setTransactions(cTx);
+          saveTransactions(cTx);
+        }
+        if (Array.isArray(cCat) && cCat.length > 0) {
+          setCategories(cCat);
+          saveCategories(cCat);
+        }
+        if (cCfg) {
+          setFireConfig(cCfg);
+          saveFIREConfig(cCfg);
+          applyThemeToCSSVariables(cCfg.themeColor);
+        }
+        if (Array.isArray(cPresets) && cPresets.length > 0) {
+          setQuickPresets(cPresets);
+        }
+      }
+    } catch (e) {}
+
+    handleDataRestored();
+  };
+
   const handleResetDefaultData = () => {
     if (window.confirm('確定要將財務資料重設為預設範例資料嗎？')) {
       resetAllDataToDefault();
@@ -331,7 +382,7 @@ export default function App() {
             onDeleteTransaction={handleDeleteTransaction}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
             onResetDefaultData={handleResetDefaultData}
-            onRefreshData={handleDataRestored}
+            onRefreshData={handleRefreshAllData}
           />
         )}
 
