@@ -47,10 +47,13 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
         String action = intent.getAction();
+        if (action == null) return;
+
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
 
         if (ACTION_SELECT_MAIN.equals(action)) {
             String cat = intent.getStringExtra(EXTRA_CAT);
+            if (cat == null) cat = "飲食";
             prefs.edit()
                     .putString("selected_cat", cat)
                     .putInt("step", 1)
@@ -59,6 +62,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
 
         } else if (ACTION_SELECT_SUB.equals(action)) {
             String sub = intent.getStringExtra(EXTRA_SUB);
+            if (sub == null) sub = "午餐";
             prefs.edit()
                     .putString("selected_sub", sub)
                     .putInt("step", 2)
@@ -68,15 +72,17 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
 
         } else if (ACTION_KEY_DIGIT.equals(action)) {
             String digit = intent.getStringExtra(EXTRA_DIGIT);
-            String current = prefs.getString("entered_amt", "0");
-            if ("0".equals(current)) {
-                current = digit;
-            } else {
-                if (current.length() < 7) {
-                    current = current + digit;
+            if (digit != null) {
+                String current = prefs.getString("entered_amt", "0");
+                if ("0".equals(current)) {
+                    current = digit;
+                } else {
+                    if (current.length() < 7) {
+                        current = current + digit;
+                    }
                 }
+                prefs.edit().putString("entered_amt", current).apply();
             }
-            prefs.edit().putString("entered_amt", current).apply();
             updateAllWidgets(context);
 
         } else if (ACTION_KEY_DEL.equals(action)) {
@@ -111,7 +117,6 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                 String cat = prefs.getString("selected_cat", "飲食");
                 String sub = prefs.getString("selected_sub", "午餐");
 
-                // Calculate Today Expense
                 String todayStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
                 String lastDate = prefs.getString("today_date", "");
                 int currentExpense = prefs.getInt("today_expense", 0);
@@ -146,6 +151,14 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                             .putString("entered_amt", "0")
                             .putString("last_logged", "✅ 已記【" + cat + "/" + sub + "】$" + amt)
                             .apply();
+
+                    // Instantly trigger App sync via Deep Link Intent
+                    Intent syncIntent = new Intent(context, MainActivity.class);
+                    syncIntent.setData(Uri.parse("fireflow://quick-log-sync"));
+                    syncIntent.setAction(Intent.ACTION_VIEW);
+                    syncIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    context.startActivity(syncIntent);
+
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -336,6 +349,11 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         if (sub != null) intent.putExtra(EXTRA_SUB, sub);
         if (digit != null) intent.putExtra(EXTRA_DIGIT, digit);
         if (plus > 0) intent.putExtra(EXTRA_PLUS, plus);
+
+        // Make intent data URI unique so Android PendingIntent cache doesn't swallow broadcast extras!
+        String uniqueUri = "widget://" + action + "/" + reqCode + "/" + (cat != null ? cat : "") + "/" + (sub != null ? sub : "") + "/" + (digit != null ? digit : "");
+        intent.setData(Uri.parse(uniqueUri));
+
         return PendingIntent.getBroadcast(
             context,
             reqCode,
