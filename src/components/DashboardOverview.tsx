@@ -1,8 +1,7 @@
 import React from 'react';
-import { Wallet, TrendingUp, ReceiptText, ShieldCheck, ArrowUpRight, ArrowDownRight, Sparkles, Smartphone, Plus, Award, ChevronRight } from 'lucide-react';
+import { Wallet, TrendingUp, ReceiptText, ArrowUpRight, ArrowDownRight, ChevronRight, Plus } from 'lucide-react';
 import { CategoryItem, FIREConfig, FIREResult, QuickPreset, Transaction } from '../types';
 import { FIREProgressHero } from './FIREProgressHero';
-import { MobileWidget } from './MobileWidget';
 import { getThemePreset } from '../utils/theme';
 
 interface DashboardOverviewProps {
@@ -17,7 +16,7 @@ interface DashboardOverviewProps {
   onOpenCategoryManager: () => void;
   onOpenCloudSync: () => void;
   setActiveTab: (tab: 'dashboard' | 'monthly' | 'yearly' | 'ledger' | 'analytics') => void;
-  isMobileDeviceView: boolean;
+  isMobileDeviceView?: boolean;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -32,7 +31,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onOpenCategoryManager,
   onOpenCloudSync,
   setActiveTab,
-  isMobileDeviceView,
 }) => {
   const currentTheme = getThemePreset(fireConfig.themeColor);
   const sym = fireConfig.currencySymbol || 'NT$';
@@ -173,50 +171,39 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
-      {/* Grid Section: Mobile Quick Widget vs Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Mobile Home Screen Widget Section */}
-        <div className="lg:col-span-5 bg-[#0c0c0c] border border-white/5 rounded-3xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Smartphone className="w-5 h-5" style={{ color: currentTheme.primaryHex }} /> 手機桌面便利小工具
-              </h3>
-              <p className="text-xs text-gray-400">模擬手機 1 秒速記，隨手記下飲食細類與生活日常</p>
-            </div>
+      {/* Full Width Section: Recent Activity Ledger Feed */}
+      <div className="bg-[#0c0c0c] border border-white/5 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <ReceiptText className="w-5 h-5" style={{ color: currentTheme.primaryHex }} /> 近期收支與投資動態
+            </h3>
+            <p className="text-xs text-gray-400">即時整合記錄之收入、飲食、日常支出、稅金與 FIRE 投資</p>
           </div>
-
-          <MobileWidget
-            categories={categories}
-            quickPresets={quickPresets}
-            currencySymbol={fireConfig.currencySymbol}
-            themeColor={fireConfig.themeColor}
-            onAddTransaction={onAddTransaction}
-            onOpenFullModal={onOpenQuickAdd}
-            onOpenCategoryManager={onOpenCategoryManager}
-          />
-        </div>
-
-        {/* Recent Activity Ledger Feed */}
-        <div className="lg:col-span-7 bg-[#0c0c0c] border border-white/5 rounded-3xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <ReceiptText className="w-5 h-5" style={{ color: currentTheme.primaryHex }} /> 近期收支明細動態
-              </h3>
-              <p className="text-xs text-gray-400">即時整合記錄之收入、飲食、娛樂、稅金與投資</p>
-            </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onOpenQuickAdd}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-black font-bold text-xs rounded-xl transition cursor-pointer"
+              style={{ backgroundColor: currentTheme.primaryHex }}
+            >
+              <Plus className="w-3.5 h-3.5" /> 記一筆
+            </button>
             <button
               onClick={() => setActiveTab('ledger')}
-              className="text-xs font-bold flex items-center gap-1 transition cursor-pointer hover:underline"
-              style={{ color: currentTheme.primaryHex }}
+              className="text-xs font-bold flex items-center gap-1 transition cursor-pointer hover:underline text-gray-300 hover:text-white"
             >
               檢視完整帳簿 <ChevronRight className="w-4 h-4" />
             </button>
           </div>
+        </div>
 
-          <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
-            {transactions.slice(0, 10).map((t) => {
+        <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+          {transactions.length === 0 ? (
+            <div className="py-12 text-center text-gray-500 text-xs">
+              尚未建立任何記帳動態，點擊右上角「記一筆」新增您的第一筆財務紀錄！
+            </div>
+          ) : (
+            transactions.slice(0, 15).map((t) => {
               let typeColor = 'text-rose-400 bg-rose-500/10 border-rose-500/20';
               let typeSign = '-';
               if (t.type === 'income') {
@@ -251,7 +238,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                               borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.3)`,
                             }}
                           >
-                            1秒速記
+                            捷徑記帳
                           </span>
                         )}
                       </div>
@@ -269,8 +256,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   </div>
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Flame, LayoutDashboard, Calendar, CalendarRange, PieChart, ReceiptText, Cloud, Smartphone, Monitor, Plus, Settings, Database } from 'lucide-react';
+import { Flame, LayoutDashboard, Calendar, CalendarRange, PieChart, ReceiptText, Cloud, Plus, Settings } from 'lucide-react';
 import { getThemePreset } from '../utils/theme';
 import { checkBackendHealth } from '../services/api';
 
@@ -9,8 +9,8 @@ interface HeaderProps {
   onOpenQuickAdd: () => void;
   onOpenCloudSync: () => void;
   onOpenConfig: () => void;
-  isMobileDeviceView: boolean;
-  setIsMobileDeviceView: React.Dispatch<React.SetStateAction<boolean>>;
+  isMobileDeviceView?: boolean;
+  setIsMobileDeviceView?: React.Dispatch<React.SetStateAction<boolean>>;
   syncCode: string;
   themeColor?: string;
 }
@@ -21,8 +21,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenQuickAdd,
   onOpenCloudSync,
   onOpenConfig,
-  isMobileDeviceView,
-  setIsMobileDeviceView,
   syncCode,
   themeColor = 'cyan',
 }) => {
@@ -150,37 +148,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             快速記帳
-          </button>
-
-          {/* Desktop/Mobile Device Mode Toggle */}
-          <button
-            onClick={() => setIsMobileDeviceView((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
-              isMobileDeviceView
-                ? 'bg-white/10 text-white'
-                : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-            }`}
-            style={
-              isMobileDeviceView
-                ? {
-                    color: currentTheme.primaryHex,
-                    borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.4)`,
-                  }
-                : {}
-            }
-            title="開關手機桌面小工具模式"
-          >
-            {isMobileDeviceView ? (
-              <>
-                <Smartphone className="w-4 h-4" style={{ color: currentTheme.primaryHex }} />
-                <span>手機小工具</span>
-              </>
-            ) : (
-              <>
-                <Monitor className="w-4 h-4 text-gray-400" />
-                <span>電腦全景</span>
-              </>
-            )}
           </button>
 
           {/* System Settings & Theme Button */}
