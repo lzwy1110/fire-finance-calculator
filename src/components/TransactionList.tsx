@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, Trash2, Download, Plus, ReceiptText, RefreshCw, RotateCcw } from 'lucide-react';
+import { Search, Trash2, Download, Plus, ReceiptText, RefreshCw, RotateCcw, Cloud } from 'lucide-react';
 import { CategoryItem, FIREConfig, Transaction } from '../types';
 import { getThemePreset } from '../utils/theme';
 
@@ -11,6 +11,8 @@ interface TransactionListProps {
   onOpenQuickAdd: () => void;
   onResetDefaultData: () => void;
   onRefreshData?: () => void;
+  syncCode?: string;
+  onOpenCloudSync?: () => void;
 }
 
 export const TransactionList: React.FC<TransactionListProps> = ({
@@ -21,6 +23,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   onOpenQuickAdd,
   onResetDefaultData,
   onRefreshData,
+  syncCode,
+  onOpenCloudSync,
 }) => {
   const currentTheme = getThemePreset(fireConfig.themeColor);
   const [search, setSearch] = useState('');
@@ -79,6 +83,45 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
+      {/* Cloud Sync Status Banner Bar */}
+      <div className="bg-[#0e0e0e] border border-emerald-500/20 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
+            <Cloud className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-white flex items-center gap-2 flex-wrap">
+              <span>Supabase 雲端備份與裝置同步</span>
+              <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {syncCode ? `同步碼: ${syncCode}` : '已連線'}
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-400">跨平臺、Android 桌面小工具與所有裝置即時對齊數據</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-extrabold rounded-xl transition cursor-pointer active:scale-95 shadow-md"
+            title="手動刷新 Supabase 雲端與 Widget 最新資料"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            即時雲端同步
+          </button>
+
+          {onOpenCloudSync && (
+            <button
+              onClick={onOpenCloudSync}
+              className="px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs font-bold rounded-xl transition cursor-pointer"
+            >
+              管理同步碼
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Top Filter Controls */}
       <div className="bg-[#0c0c0c] border border-white/5 p-5 rounded-3xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -89,16 +132,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             <p className="text-xs text-gray-400">完整記錄每筆飲食細項、娛樂、居住、稅金與投資</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleRefresh}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold rounded-xl border border-white/10 transition cursor-pointer active:scale-95"
-              title="重新整理／從 Supabase 雲端與 Widget 資料庫更新數據"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-pink-400' : ''}`} />
-              重新整理
-            </button>
-
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold rounded-xl border border-white/10 transition cursor-pointer"
@@ -180,12 +214,12 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           <table className="w-full text-left text-xs sm:text-sm text-gray-300">
             <thead className="bg-black/60 text-gray-400 uppercase text-[11px] font-mono border-b border-white/10">
               <tr>
-                <th className="p-4">日期</th>
-                <th className="p-4">類型大類</th>
-                <th className="p-4">細分小項目 (細類)</th>
-                <th className="p-4">備註說明</th>
-                <th className="p-4 text-right">金額 (NT$)</th>
-                <th className="p-4 text-center">操作</th>
+                <th className="p-3 sm:p-4 whitespace-nowrap">日期</th>
+                <th className="p-3 sm:p-4 whitespace-nowrap">類型大類</th>
+                <th className="p-3 sm:p-4 whitespace-nowrap">細分小項目 (細類)</th>
+                <th className="p-3 sm:p-4">備註說明</th>
+                <th className="p-3 sm:p-4 text-right whitespace-nowrap">金額 ({sym})</th>
+                <th className="p-3 sm:p-4 text-center whitespace-nowrap">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-sans">
@@ -197,41 +231,43 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                 </tr>
               ) : (
                 filtered.map((t) => {
-                  let badgeStyle = 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+                  let badgeStyle = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
                   if (t.type === 'income') badgeStyle = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
                   if (t.type === 'investment') badgeStyle = 'bg-purple-500/10 text-purple-300 border-purple-500/20';
-                  if (t.type === 'tax') badgeStyle = 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+                  if (t.type === 'tax') badgeStyle = 'bg-pink-500/10 text-pink-400 border-pink-500/20';
 
                   return (
                     <tr key={t.id} className="hover:bg-white/5 transition group">
-                      <td className="p-4 font-mono font-medium text-gray-300">{t.date}</td>
-                      <td className="p-4">
-                        <span className={`px-2.5 py-1 text-xs font-bold rounded-xl border ${badgeStyle}`}>
+                      <td className="p-3 sm:p-4 font-mono font-medium text-gray-300 whitespace-nowrap">{t.date}</td>
+                      <td className="p-3 sm:p-4 whitespace-nowrap">
+                        <span className={`px-2.5 py-1 text-xs font-bold rounded-xl border whitespace-nowrap inline-flex items-center gap-1 ${badgeStyle}`}>
                           {t.mainCategory}
                         </span>
                       </td>
-                      <td className="p-4 font-bold text-white flex items-center gap-2">
-                        <span>{t.subCategory}</span>
-                        {t.isQuickPreset && (
-                          <span
-                            className="text-[10px] px-1.5 py-0.2 rounded border font-mono font-bold"
-                            style={{
-                              backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
-                              color: currentTheme.primaryHex,
-                              borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.3)`,
-                            }}
-                          >
-                            1秒速記
-                          </span>
-                        )}
+                      <td className="p-3 sm:p-4 font-bold text-white whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span>{t.subCategory}</span>
+                          {t.isQuickPreset && (
+                            <span
+                              className="text-[10px] px-1.5 py-0.2 rounded border font-mono font-bold whitespace-nowrap"
+                              style={{
+                                backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
+                                color: currentTheme.primaryHex,
+                                borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.3)`,
+                              }}
+                            >
+                              1秒速記
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="p-4 text-gray-400 max-w-xs truncate">
+                      <td className="p-3 sm:p-4 text-gray-400 max-w-xs truncate">
                         {t.note || '-'}
                       </td>
-                      <td className={`p-4 text-right font-mono font-extrabold text-sm sm:text-base ${t.type === 'income' ? 'text-emerald-400' : t.type === 'expense' ? 'text-orange-400' : t.type === 'investment' ? 'text-purple-300' : 'text-purple-400'}`}>
+                      <td className={`p-3 sm:p-4 text-right font-mono font-extrabold text-sm sm:text-base whitespace-nowrap ${t.type === 'income' ? 'text-emerald-400' : t.type === 'expense' ? 'text-amber-400' : t.type === 'investment' ? 'text-purple-300' : 'text-pink-400'}`}>
                         {t.type === 'income' ? '+' : t.type === 'expense' ? '-' : ''} {sym} {formatNum(t.amount)}
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="p-3 sm:p-4 text-center whitespace-nowrap">
                         <button
                           onClick={() => onDeleteTransaction(t.id)}
                           className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition cursor-pointer"

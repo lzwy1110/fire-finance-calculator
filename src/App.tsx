@@ -383,6 +383,8 @@ export default function App() {
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
             onResetDefaultData={handleResetDefaultData}
             onRefreshData={handleRefreshAllData}
+            syncCode={syncCode}
+            onOpenCloudSync={() => setIsCloudSyncOpen(true)}
           />
         )}
 
