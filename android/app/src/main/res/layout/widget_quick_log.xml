@@ -8,149 +8,408 @@
     android:background="@drawable/widget_bg_dark"
     android:gravity="center_horizontal">
 
-    <!-- Header Bar -->
+    <!-- Top Bar: Logo & Today's Total Expense -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingBottom="8dp">
+        android:paddingBottom="6dp">
 
         <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
             android:src="@drawable/ic_sakura_flame" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="6dp"
-            android:text="FIRE Flow ⚡ 1秒速記"
+            android:layout_marginStart="4dp"
+            android:text="FIRE Flow"
             android:textColor="#f472b6"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
+
+        <!-- Today's Total Expense Badge -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="end">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="今日總支出"
+                android:textColor="#9e9e9e"
+                android:textSize="9sp" />
+
+            <TextView
+                android:id="@+id/txt_today_expense"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NT$ 0"
+                android:textColor="#ffffff"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- Quick Preset Cards Grid (Row 1) -->
+    <!-- Step Progress / Breadcrumb Indicator -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="4dp">
+        android:gravity="center_vertical"
+        android:paddingVertical="4dp"
+        android:paddingHorizontal="6dp"
+        android:background="#1f0a17">
 
         <TextView
-            android:id="@+id/btn_preset_1"
+            android:id="@+id/txt_step_hint"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginEnd="4dp"
-            android:background="@drawable/widget_item_bg"
-            android:gravity="center"
-            android:paddingVertical="7dp"
-            android:text="☕ 早餐 $85"
-            android:textColor="#ffffff"
-            android:textSize="11sp"
+            android:text="第一步：請選擇【大類】"
+            android:textColor="#f472b6"
+            android:textSize="10sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/btn_preset_2"
-            android:layout_width="0dp"
+            android:id="@+id/btn_reset_step"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:background="@drawable/widget_item_bg"
-            android:gravity="center"
-            android:paddingVertical="7dp"
-            android:text="🍱 午餐 $130"
-            android:textColor="#ffffff"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:text="↩ 重選"
+            android:textColor="#888888"
+            android:textSize="10sp"
+            android:paddingHorizontal="4dp" />
     </LinearLayout>
 
-    <!-- Quick Preset Cards Grid (Row 2) -->
+    <!-- STEP 1: Main Category Selection Grid -->
     <LinearLayout
+        android:id="@+id/layout_step_main"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="6dp">
+        android:orientation="vertical"
+        android:visibility="visible">
 
-        <TextView
-            android:id="@+id/btn_preset_3"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="4dp"
-            android:background="@drawable/widget_item_bg"
-            android:gravity="center"
-            android:paddingVertical="7dp"
-            android:text="🍲 晚餐 $180"
-            android:textColor="#ffffff"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
 
-        <TextView
-            android:id="@+id/btn_preset_4"
-            android:layout_width="0dp"
+            <TextView
+                android:id="@+id/btn_cat_food"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="🍔 飲食"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_cat_ent"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="🎮 娛樂"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_cat_trans"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="🚗 交通"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:background="@drawable/widget_item_bg"
-            android:gravity="center"
-            android:paddingVertical="7dp"
-            android:text="🚇 捷運 $35"
-            android:textColor="#ffffff"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+
+            <TextView
+                android:id="@+id/btn_cat_daily"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="🛍️ 日用"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_cat_inc"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="💰 收入"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_cat_inv"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="🚀 投資"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- Quick Preset Cards Grid (Row 3) -->
+    <!-- STEP 2: Sub Category Selection Grid (Dynamic Labels) -->
     <LinearLayout
+        android:id="@+id/layout_step_sub"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="6dp">
+        android:orientation="vertical"
+        android:visibility="gone">
 
-        <TextView
-            android:id="@+id/btn_preset_5"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="4dp"
-            android:background="@drawable/widget_item_bg"
-            android:gravity="center"
-            android:paddingVertical="7dp"
-            android:text="⛽ 加油 $150"
-            android:textColor="#ffffff"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
 
-        <TextView
-            android:id="@+id/btn_preset_6"
-            android:layout_width="0dp"
+            <TextView
+                android:id="@+id/btn_sub_1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="早餐"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_sub_2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="午餐"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_sub_3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="晚餐"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:background="@drawable/widget_item_bg"
-            android:gravity="center"
-            android:paddingVertical="7dp"
-            android:text="🛍️ 日用 $260"
-            android:textColor="#ffffff"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+
+            <TextView
+                android:id="@+id/btn_sub_4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="宵夜"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_sub_5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="飲料"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_sub_6"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:background="@drawable/widget_item_bg"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="生鮮"
+                android:textColor="#ffffff"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- Custom Quick Add Full Width Button -->
-    <TextView
-        android:id="@+id/btn_quick_add"
+    <!-- STEP 3: Amount Selection Grid -->
+    <LinearLayout
+        android:id="@+id/layout_step_amount"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/widget_button_sakura"
-        android:gravity="center"
-        android:paddingVertical="8dp"
-        android:text="+ 自訂大類 / 細類 / 金額"
-        android:textColor="#000000"
-        android:textSize="12sp"
-        android:textStyle="bold" />
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+
+            <TextView
+                android:id="@+id/btn_amt_50"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_button_sakura"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="$ 50"
+                android:textColor="#000000"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_amt_85"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_button_sakura"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="$ 85"
+                android:textColor="#000000"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_amt_130"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:background="@drawable/widget_button_sakura"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="$ 130"
+                android:textColor="#000000"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+
+            <TextView
+                android:id="@+id/btn_amt_180"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_button_sakura"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="$ 180"
+                android:textColor="#000000"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_amt_250"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_button_sakura"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="$ 250"
+                android:textColor="#000000"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btn_amt_500"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:background="@drawable/widget_button_sakura"
+                android:gravity="center"
+                android:paddingVertical="8dp"
+                android:text="$ 500"
+                android:textColor="#000000"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>
