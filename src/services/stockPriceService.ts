@@ -138,18 +138,18 @@ export async function searchStockSuggestionsAsync(
     }
   }
 
-  // 3. Fallback: If user typed an exact symbol, auto-generate matching suggestion for the selected market
+  // 3. Fallback: If user typed an exact symbol (e.g. 00981A, 2377, ASTS), auto-generate matching suggestion
   const upperClean = clean.toUpperCase();
-  if (clean.length >= 2 && !seen.has(upperClean)) {
-    const isPureDigits = /^\d+$/.test(clean);
-    const isTW = targetMarket === 'TW' || isPureDigits || upperClean.endsWith('.TW');
-    const displaySymbol = isTW && isPureDigits ? `${upperClean}.TW` : upperClean;
-    const finalMarket = isTW ? 'TW' : 'US';
+  if (clean.length >= 2) {
+    const isTwCodePattern = /^\d+[A-Za-z]?$/.test(clean);
+    const isTW = targetMarket === 'TW' || isTwCodePattern || upperClean.endsWith('.TW');
+    const displaySymbol = isTW && !upperClean.endsWith('.TW') ? `${upperClean}.TW` : upperClean;
+    const finalMarket: MarketType = isTW ? 'TW' : 'US';
 
-    if (!targetMarket || finalMarket === targetMarket) {
+    if (!seen.has(displaySymbol) && (!targetMarket || finalMarket === targetMarket)) {
       combined.unshift({
         symbol: displaySymbol,
-        name: `即時新增標的 (${upperClean})`,
+        name: `搜尋 / 新增標的 (${displaySymbol})`,
         market: finalMarket,
         currency: isTW ? 'TWD' : 'USD',
       });

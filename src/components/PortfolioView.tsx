@@ -49,8 +49,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const [symbolInput, setSymbolInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [marketInput, setMarketInput] = useState<MarketType>('US');
-  const [sharesInput, setSharesInput] = useState<number>(10);
-  const [costInput, setCostInput] = useState<number>(100);
+  const [sharesInput, setSharesInput] = useState<string>('');
+  const [costInput, setCostInput] = useState<string>('');
   const [priceInput, setPriceInput] = useState<number>(0);
 
   // Autocomplete Suggestions State
@@ -185,15 +185,15 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setTimeout(() => setRefreshStatus(null), 2500);
   };
 
-  // Open Modal for Add
+  // Open Modal for Add (Blank Inputs for Easy Typing)
   const handleOpenAddModal = () => {
     setEditingStock(null);
-    setSymbolInput('NVDA');
-    setNameInput('NVIDIA Corporation (輝達)');
-    setMarketInput('US');
-    setSharesInput(10);
-    setCostInput(120);
-    setPriceInput(128.5);
+    setSymbolInput('');
+    setNameInput('');
+    setMarketInput(filterMarket === 'TW' ? 'TW' : 'US');
+    setSharesInput('');
+    setCostInput('');
+    setPriceInput(0);
     setSearchSuggestions([]);
     setShowSuggestions(false);
     setIsAddModalOpen(true);
@@ -205,8 +205,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setSymbolInput(stock.symbol);
     setNameInput(stock.name);
     setMarketInput(stock.market);
-    setSharesInput(stock.shares);
-    setCostInput(stock.avgCost);
+    setSharesInput(String(stock.shares));
+    setCostInput(String(stock.avgCost));
     setPriceInput(stock.currentPrice);
     setSearchSuggestions([]);
     setShowSuggestions(false);
@@ -217,17 +217,19 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const handleSaveStock = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanSym = symbolInput.trim().toUpperCase();
-    if (!cleanSym || sharesInput <= 0) return;
+    const parsedShares = parseFloat(sharesInput) || 0;
+    const parsedCost = parseFloat(costInput) || 0;
+    if (!cleanSym || parsedShares <= 0) return;
 
-    const initialPrice = priceInput > 0 ? priceInput : Number(costInput);
+    const initialPrice = priceInput > 0 ? priceInput : parsedCost;
 
     const stockData: PortfolioStock = {
       id: editingStock ? editingStock.id : `port-${Date.now()}`,
       symbol: cleanSym,
       name: nameInput.trim() || cleanSym,
       market: marketInput,
-      shares: Number(sharesInput),
-      avgCost: Number(costInput),
+      shares: parsedShares,
+      avgCost: parsedCost,
       currentPrice: initialPrice,
       currency: marketInput === 'US' ? 'USD' : 'TWD',
       lastUpdated: new Date().toISOString(),
@@ -634,8 +636,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   <input
                     type="number"
                     step="any"
+                    placeholder="例如: 1000"
                     value={sharesInput}
-                    onChange={(e) => setSharesInput(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setSharesInput(e.target.value)}
                     className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
                     required
                   />
@@ -646,8 +649,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   <input
                     type="number"
                     step="any"
+                    placeholder="例如: 150.5"
                     value={costInput}
-                    onChange={(e) => setCostInput(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setCostInput(e.target.value)}
                     className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
                     required
                   />
