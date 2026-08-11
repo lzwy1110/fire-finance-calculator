@@ -22,6 +22,14 @@ export function loadTransactions(): Transaction[] {
   }
 }
 
+export function saveTransactionsLocalOnly(data: Transaction[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save transactions local:', e);
+  }
+}
+
 export function saveTransactions(data: Transaction[]): void {
   try {
     localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(data));
@@ -52,6 +60,14 @@ export function loadCategories(): CategoryItem[] {
   }
 }
 
+export function saveCategoriesLocalOnly(data: CategoryItem[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save categories local:', e);
+  }
+}
+
 export function saveCategories(data: CategoryItem[]): void {
   try {
     localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(data));
@@ -68,6 +84,14 @@ export function loadFIREConfig(): FIREConfig {
     return { ...DEFAULT_FIRE_CONFIG, ...JSON.parse(raw) };
   } catch (e) {
     return DEFAULT_FIRE_CONFIG;
+  }
+}
+
+export function saveFIREConfigLocalOnly(config: FIREConfig): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
+  } catch (e) {
+    console.error('Failed to save FIRE config local:', e);
   }
 }
 
@@ -90,6 +114,14 @@ export function loadQuickPresets(): QuickPreset[] {
     return Array.isArray(parsed) ? parsed : DEFAULT_QUICK_PRESETS;
   } catch (e) {
     return DEFAULT_QUICK_PRESETS;
+  }
+}
+
+export function saveQuickPresetsLocalOnly(presets: QuickPreset[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets));
+  } catch (e) {
+    console.error('Failed to save presets local:', e);
   }
 }
 

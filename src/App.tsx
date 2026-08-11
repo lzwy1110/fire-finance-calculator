@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { registerPlugin } from '@capacitor/core';
 import {
   CategoryItem,
@@ -26,8 +26,13 @@ import {
   removeSingleTransactionFromCloud,
   resetAllDataToDefault,
   saveCategories,
+  saveCategoriesLocalOnly,
   saveFIREConfig,
+  saveFIREConfigLocalOnly,
   saveTransactions,
+  saveTransactionsLocalOnly,
+  saveQuickPresets,
+  saveQuickPresetsLocalOnly,
   syncSingleTransactionToCloud,
 } from './utils/storage';
 import { fetchCloudData } from './services/api';
@@ -61,6 +66,7 @@ export default function App() {
   const [portfolioStocks, setPortfolioStocks] = useState<PortfolioStock[]>([]);
   const [fireConfig, setFireConfig] = useState<FIREConfig>(loadFIREConfig());
   const [syncCode, setSyncCode] = useState<string>('');
+  const lastUserEditTimeRef = useRef<number>(0);
 
   // Modals state
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
@@ -91,19 +97,20 @@ export default function App() {
         const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
         if (Array.isArray(cTx)) {
           setTransactions(cTx);
-          saveTransactions(cTx);
+          saveTransactionsLocalOnly(cTx);
         }
         if (Array.isArray(cCat) && cCat.length > 0) {
           setCategories(cCat);
-          saveCategories(cCat);
+          saveCategoriesLocalOnly(cCat);
         }
         if (cCfg) {
           setFireConfig(cCfg);
-          saveFIREConfig(cCfg);
+          saveFIREConfigLocalOnly(cCfg);
           applyThemeToCSSVariables(cCfg.themeColor);
         }
         if (Array.isArray(cPresets) && cPresets.length > 0) {
           setQuickPresets(cPresets);
+          saveQuickPresetsLocalOnly(cPresets);
         }
         if (Array.isArray(cStocks)) {
           const synced = cStocks.map((s) => syncStockCalculations(s));
@@ -227,6 +234,7 @@ export default function App() {
 
   // Update Portfolio Stocks
   const handleUpdatePortfolioStocks = (newStocks: PortfolioStock[]) => {
+    lastUserEditTimeRef.current = Date.now();
     const synced = newStocks.map((s) => syncStockCalculations(s));
     setPortfolioStocks(synced);
     savePortfolioStocks(synced);
@@ -234,6 +242,7 @@ export default function App() {
 
   // Sync Total Portfolio Value to FIRE Model Net Worth (Implicitly called or auto-synced)
   const handleSyncNetWorthToFIRE = (totalMarketValueTWD: number) => {
+    lastUserEditTimeRef.current = Date.now();
     const newConfig = {
       ...fireConfig,
       currentNetWorth: Math.round(totalMarketValueTWD),
@@ -244,6 +253,7 @@ export default function App() {
 
   // Add Transaction
   const handleAddTransaction = (t: Omit<Transaction, 'id'>) => {
+    lastUserEditTimeRef.current = Date.now();
     const newRecord: Transaction = {
       ...t,
       id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -281,25 +291,42 @@ export default function App() {
       }).catch(() => {});
     };
 
-    const handleWidgetUrl = (urlStr: string) => {
-      if (!urlStr) return;
+    const handleWidgetUrl = (url: string) => {
       try {
-        const urlObj = new URL(urlStr);
-        if (urlObj.protocol === 'fireflow:' || urlStr.includes('quick-add') || urlStr.includes('quick_add')) {
-          const cat = urlObj.searchParams.get('cat');
-          const sub = urlObj.searchParams.get('sub');
-          const amt = urlObj.searchParams.get('amt');
+        const urlStr = url.toString();
+        if (urlStr.includes('quick-add')) {
+          const urlObj = new URL(urlStr);
+          const type = urlObj.searchParams.get('type') as any;
+          const amount = urlObj.searchParams.get('amount');
+          const mainCategory = urlObj.searchParams.get('mainCategory');
+          const subCategory = urlObj.searchParams.get('subCategory');
 
-          if (cat && sub && amt) {
-            const parsedAmt = parseFloat(amt);
-            if (!isNaN(parsedAmt)) {
+          if (amount && mainCategory && type) {
+            handleAddTransaction({
+              type,
+              amount: parseFloat(amount),
+              mainCategory,
+              subCategory: subCategory || '',
+              date: new Date().toISOString().slice(0, 10),
+              note: '來自 Android Widget 快記',
+              tags: ['Widget'],
+            });
+            return;
+          }
+
+          if (mainCategory && subCategory) {
+            const preset = quickPresets.find(
+              (p) => p.mainCategory === mainCategory && p.subCategory === subCategory
+            );
+            if (preset) {
               handleAddTransaction({
-                type: cat === '收入' ? 'income' : cat === '投資資產' ? 'investment' : cat === '稅金規費' ? 'tax' : 'expense',
-                amount: parsedAmt,
-                mainCategory: cat,
-                subCategory: sub,
+                type: 'expense',
+                amount: preset.amount,
+                mainCategory: preset.mainCategory,
+                subCategory: preset.subCategory,
                 date: new Date().toISOString().slice(0, 10),
-                note: '來自 Android 桌面小工具 1 秒速記',
+                note: `來自 Widget 快記 (${preset.label})`,
+                tags: ['Widget'],
                 isQuickPreset: true,
               });
             }
@@ -307,7 +334,7 @@ export default function App() {
           setIsQuickAddOpen(true);
         }
       } catch (e) {
-        if (urlStr.includes('quick-add')) {
+        if (url.includes('quick-add')) {
           setIsQuickAddOpen(true);
         }
       }
@@ -330,6 +357,7 @@ export default function App() {
   }, []);
 
   const handleDeleteTransaction = (id: string) => {
+    lastUserEditTimeRef.current = Date.now();
     const updated = transactions.filter((t) => t.id !== id);
     setTransactions(updated);
     saveTransactions(updated);
@@ -337,11 +365,13 @@ export default function App() {
   };
 
   const handleUpdateFIREConfig = (newConfig: FIREConfig) => {
+    lastUserEditTimeRef.current = Date.now();
     setFireConfig(newConfig);
     saveFIREConfig(newConfig);
   };
 
   const handleUpdateCategories = (newCategories: CategoryItem[]) => {
+    lastUserEditTimeRef.current = Date.now();
     setCategories(newCategories);
     saveCategories(newCategories);
   };
@@ -357,7 +387,12 @@ export default function App() {
     applyThemeToCSSVariables(loadedConfig.themeColor);
   };
 
-  const handleRefreshAllData = async () => {
+  const handleRefreshAllData = async (isManual?: boolean) => {
+    // Skip background auto-poll if user performed an edit in the last 3.5 seconds
+    if (!isManual && Date.now() - lastUserEditTimeRef.current < 3500) {
+      return;
+    }
+
     const code = syncCode || getOrCreateSyncCode();
 
     // 1. Ingest any pending transactions from Android Widget Bridge
@@ -388,19 +423,20 @@ export default function App() {
         const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
         if (Array.isArray(cTx)) {
           setTransactions(cTx);
-          saveTransactions(cTx);
+          saveTransactionsLocalOnly(cTx);
         }
         if (Array.isArray(cCat) && cCat.length > 0) {
           setCategories(cCat);
-          saveCategories(cCat);
+          saveCategoriesLocalOnly(cCat);
         }
         if (cCfg) {
           setFireConfig(cCfg);
-          saveFIREConfig(cCfg);
+          saveFIREConfigLocalOnly(cCfg);
           applyThemeToCSSVariables(cCfg.themeColor);
         }
         if (Array.isArray(cPresets) && cPresets.length > 0) {
           setQuickPresets(cPresets);
+          saveQuickPresetsLocalOnly(cPresets);
         }
         if (Array.isArray(cStocks)) {
           const synced = cStocks.map((s) => syncStockCalculations(s));
