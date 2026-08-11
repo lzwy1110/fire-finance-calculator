@@ -1,4 +1,4 @@
-import { CategoryItem, CloudBackupData, FIREConfig, QuickPreset, Transaction } from '../types';
+import { CategoryItem, CloudBackupData, FIREConfig, QuickPreset, Transaction, PortfolioStock } from '../types';
 import {
   deleteTransactionDirect,
   fetchSupabaseDataDirect,
@@ -28,6 +28,7 @@ export interface FetchDataResponse {
     categories: CategoryItem[] | null;
     fireConfig: FIREConfig | null;
     quickPresets: QuickPreset[] | null;
+    portfolioStocks?: PortfolioStock[] | null;
   };
   message?: string;
   error?: string;
@@ -123,6 +124,7 @@ export async function pushCloudData(payload: {
   categories?: CategoryItem[];
   fireConfig?: FIREConfig;
   quickPresets?: QuickPreset[];
+  portfolioStocks?: PortfolioStock[];
 }): Promise<SyncDataResponse | null> {
   // 1. 嘗試 API 路由
   try {

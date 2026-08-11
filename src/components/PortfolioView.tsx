@@ -66,6 +66,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchSeqRef = useRef<number>(0);
 
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(Math.round(num));
@@ -111,8 +112,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
   // Batch Refresh All Stock Quotes from Online Endpoints
   const handleRefreshQuotes = async () => {
+    if (syncedStocks.length === 0) return;
     setIsRefreshing(true);
-    setRefreshStatus('正在為您自線上數據源抓取最新股價...');
+    setRefreshStatus('⚡ 正在連線交易所與行情中心同步最新股價...');
 
     try {
       const stockList = syncedStocks.map((s) => ({ symbol: s.symbol, market: s.market }));
@@ -154,9 +156,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
   };
 
-  // Pause-then-Search 350ms Debouncing (輸入停頓後觸發完整搜尋，確保讀取用戶完整輸入)
+  // Fast & Safe Debounced Search Input Change (0% Stale Candidate Overwrite)
   const handleSymbolInputChange = (val: string, currentMarket: MarketType = marketInput) => {
     setSymbolInput(val);
+    const currentSeq = ++searchSeqRef.current;
 
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -172,17 +175,25 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       const finalVal = val.trim();
-      if (!finalVal) {
-        setSearchSuggestions([]);
-        setShowSuggestions(false);
-        setIsSearching(false);
+      if (!finalVal || currentSeq !== searchSeqRef.current) {
+        if (currentSeq === searchSeqRef.current) setIsSearching(false);
         return;
       }
-      const matches = await searchStockSuggestionsAsync(finalVal, currentMarket);
-      setSearchSuggestions(matches);
-      setShowSuggestions(matches.length > 0);
-      setIsSearching(false);
-    }, 350);
+      try {
+        const matches = await searchStockSuggestionsAsync(finalVal, currentMarket);
+        if (currentSeq === searchSeqRef.current) {
+          setSearchSuggestions(matches);
+          setShowSuggestions(matches.length > 0);
+          setIsSearching(false);
+        }
+      } catch (e) {
+        if (currentSeq === searchSeqRef.current) {
+          setSearchSuggestions([]);
+          setShowSuggestions(false);
+          setIsSearching(false);
+        }
+      }
+    }, 250);
   };
 
   // Market Tab Switch in Modal

@@ -128,6 +128,7 @@ export function autoSyncToCloud(): void {
       categories: loadCategories(),
       fireConfig: loadFIREConfig(),
       quickPresets: loadQuickPresets(),
+      portfolioStocks: loadPortfolioStocks(),
     };
 
     // 1. 後端與 Supabase 同步 API
@@ -158,12 +159,13 @@ export async function syncWithCloudCodeAsync(inputCode: string): Promise<CloudBa
   try {
     const apiRes = await fetchCloudData(cleanCode);
     if (apiRes && apiRes.success && apiRes.data) {
-      const { transactions, categories, fireConfig, quickPresets } = apiRes.data;
+      const { transactions, categories, fireConfig, quickPresets, portfolioStocks } = apiRes.data;
 
       if (Array.isArray(transactions)) saveTransactions(transactions);
       if (Array.isArray(categories) && categories.length > 0) saveCategories(categories);
       if (fireConfig) saveFIREConfig(fireConfig);
       if (Array.isArray(quickPresets) && quickPresets.length > 0) saveQuickPresets(quickPresets);
+      if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) savePortfolioStocks(portfolioStocks);
 
       setSyncCode(cleanCode);
 
@@ -175,6 +177,7 @@ export async function syncWithCloudCodeAsync(inputCode: string): Promise<CloudBa
         categories: categories || loadCategories(),
         fireConfig: fireConfig || loadFIREConfig(),
         quickPresets: quickPresets || loadQuickPresets(),
+        portfolioStocks: portfolioStocks || loadPortfolioStocks(),
       };
     }
   } catch (e) {
