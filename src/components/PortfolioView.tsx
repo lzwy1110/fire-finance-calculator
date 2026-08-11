@@ -18,7 +18,7 @@ import { getThemePreset } from '../utils/theme';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
-  searchStockSuggestions,
+  searchStockSuggestionsAsync,
   StockSearchResult,
 } from '../services/stockPriceService';
 
@@ -133,9 +133,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   };
 
   // Input change with instant autocomplete search suggestions
-  const handleSymbolInputChange = (val: string) => {
+  const handleSymbolInputChange = async (val: string) => {
     setSymbolInput(val);
-    const matches = searchStockSuggestions(val);
+    if (!val.trim()) {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const matches = await searchStockSuggestionsAsync(val);
     setSearchSuggestions(matches);
     setShowSuggestions(matches.length > 0);
   };
@@ -555,9 +560,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   placeholder="輸入 NV, VOO, 2330, 0050 或名稱..."
                   value={symbolInput}
                   onChange={(e) => handleSymbolInputChange(e.target.value)}
-                  onFocus={() => {
-                    const matches = searchStockSuggestions(symbolInput);
-                    if (matches.length > 0) setShowSuggestions(true);
+                  onFocus={async () => {
+                    if (symbolInput.trim()) {
+                      const matches = await searchStockSuggestionsAsync(symbolInput);
+                      if (matches.length > 0) {
+                        setSearchSuggestions(matches);
+                        setShowSuggestions(true);
+                      }
+                    }
                   }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-mono font-bold uppercase focus:border-cyan-500 focus:outline-none"
                   required
