@@ -258,6 +258,14 @@ export function loadPortfolioStocks(): PortfolioStock[] {
   }
 }
 
+export function savePortfolioStocksLocalOnly(data: PortfolioStock[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save portfolio stocks local:', e);
+  }
+}
+
 export function savePortfolioStocks(data: PortfolioStock[]): void {
   try {
     localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(data));

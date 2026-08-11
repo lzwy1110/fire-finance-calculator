@@ -22,6 +22,7 @@ import {
   loadTransactions,
   loadPortfolioStocks,
   savePortfolioStocks,
+  savePortfolioStocksLocalOnly,
   removeSingleTransactionFromCloud,
   resetAllDataToDefault,
   saveCategories,
@@ -105,14 +106,9 @@ export default function App() {
           setQuickPresets(cPresets);
         }
         if (Array.isArray(cStocks)) {
-          const currentLocal = loadPortfolioStocks();
-          if (cStocks.length === 0 && currentLocal.length > 0) {
-            autoSyncToCloud();
-          } else {
-            const merged = mergeStockPortfolios(currentLocal, cStocks);
-            setPortfolioStocks(merged);
-            savePortfolioStocks(merged);
-          }
+          const synced = cStocks.map((s) => syncStockCalculations(s));
+          setPortfolioStocks(synced);
+          savePortfolioStocksLocalOnly(synced);
         }
       }
     });
@@ -407,14 +403,9 @@ export default function App() {
           setQuickPresets(cPresets);
         }
         if (Array.isArray(cStocks)) {
-          const currentLocal = loadPortfolioStocks();
-          if (cStocks.length === 0 && currentLocal.length > 0) {
-            autoSyncToCloud();
-          } else {
-            const merged = mergeStockPortfolios(currentLocal, cStocks);
-            setPortfolioStocks(merged);
-            savePortfolioStocks(merged);
-          }
+          const synced = cStocks.map((s) => syncStockCalculations(s));
+          setPortfolioStocks(synced);
+          savePortfolioStocksLocalOnly(synced);
         }
       }
     } catch (e) {}
