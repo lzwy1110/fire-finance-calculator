@@ -393,15 +393,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               />
             </div>
 
-            {/* Sync Net Worth to FIRE Model Button */}
-            <button
-              onClick={() => onSyncNetWorthToFIRE(totalMarketValueTWD)}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border border-pink-500/40 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md"
-              title="將目前的投資總市值同步覆蓋為 FIRE 模型中的淨資產總額"
-            >
-              <Flame className="w-4 h-4 text-pink-400" />
-              同步至 FIRE 淨資產
-            </button>
+            {/* Auto-sync Indicator */}
+            <div className="flex items-center gap-1.5 px-3.5 py-1.5 bg-pink-500/15 text-pink-300 border border-pink-500/30 text-xs font-bold rounded-2xl shadow-sm">
+              <Flame className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
+              <span>✨ 已實時自動連動 FIRE 淨資產</span>
+            </div>
           </div>
         </div>
 

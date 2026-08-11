@@ -140,13 +140,33 @@ export default function App() {
     }
   }, [categories]);
 
+  // Auto-Sync Total Portfolio Market Value to FIRE Net Worth in Real Time
+  useEffect(() => {
+    if (portfolioStocks && portfolioStocks.length > 0) {
+      let totalMarketValue = 0;
+      portfolioStocks.forEach((s) => {
+        const val = (s.shares || 0) * (s.currentPrice || 0);
+        totalMarketValue += s.market === 'US' ? val * 32.5 : val;
+      });
+
+      const roundedVal = Math.round(totalMarketValue);
+      if (roundedVal > 0 && Math.abs((fireConfig.currentNetWorth || 0) - roundedVal) > 1) {
+        setFireConfig((prev) => {
+          const updated = { ...prev, currentNetWorth: roundedVal };
+          saveFIREConfig(updated);
+          return updated;
+        });
+      }
+    }
+  }, [portfolioStocks]);
+
   // Update Portfolio Stocks
   const handleUpdatePortfolioStocks = (newStocks: PortfolioStock[]) => {
     setPortfolioStocks(newStocks);
     savePortfolioStocks(newStocks);
   };
 
-  // Sync Total Portfolio Value to FIRE Model Net Worth
+  // Sync Total Portfolio Value to FIRE Model Net Worth (Implicitly called or auto-synced)
   const handleSyncNetWorthToFIRE = (totalMarketValueTWD: number) => {
     const newConfig = {
       ...fireConfig,
@@ -154,7 +174,6 @@ export default function App() {
     };
     setFireConfig(newConfig);
     saveFIREConfig(newConfig);
-    alert(`🎉 已成功將最新的投資庫存總市值 (NT$ ${new Intl.NumberFormat('zh-TW').format(Math.round(totalMarketValueTWD))}) 自動連通同步為 FIRE 模型的淨資產總額！`);
   };
 
   // Add Transaction
