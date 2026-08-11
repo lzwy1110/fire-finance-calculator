@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Flame, LayoutDashboard, Calendar, CalendarRange, ReceiptText, Cloud, Plus, Settings, TrendingUp } from 'lucide-react';
+import { Flame, LayoutDashboard, Calendar, ReceiptText, Cloud, Plus, Settings, TrendingUp } from 'lucide-react';
 import { getThemePreset } from '../utils/theme';
 import { checkBackendHealth } from '../services/api';
 
@@ -98,22 +98,25 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* 5 Tabs Navigation Bar with Proper Inset Padding (No Left Cut-off) */}
+        {/* Unified 4 Navigation Tabs Bar (Ultra-clean, zero crowding layout) */}
         <nav className="flex items-center gap-1 bg-[#111111] p-1.5 px-2 rounded-2xl border border-white/10 overflow-x-auto w-full md:w-auto justify-start md:justify-center scrollbar-none">
           {[
             { id: 'dashboard', label: '儀表板', icon: LayoutDashboard },
             { id: 'portfolio', label: '投資與分析', icon: TrendingUp },
-            { id: 'monthly', label: '月總結', icon: Calendar },
-            { id: 'yearly', label: '年總結', icon: CalendarRange },
+            { id: 'monthly', label: '財務總結', icon: Calendar },
             { id: 'ledger', label: '收支管理', icon: ReceiptText },
           ].map((tab) => {
             const Icon = tab.icon;
-            const isActive = activeTab === tab.id || (tab.id === 'portfolio' && activeTab === 'analytics');
+            const isActive =
+              activeTab === tab.id ||
+              (tab.id === 'portfolio' && activeTab === 'analytics') ||
+              (tab.id === 'monthly' && (activeTab === 'monthly' || activeTab === 'yearly'));
+
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
                   isActive
                     ? 'bg-white/15 border text-white shadow-lg'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
@@ -163,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Cloud & Supabase Sync Status */}
           <button
             onClick={onOpenCloudSync}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-mono text-gray-300 transition cursor-pointer"
+            className="flex items-center gap-2 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-mono text-gray-300 transition cursor-pointer"
             title="Supabase 雲端備份與多裝置同步"
           >
             <div className="relative flex items-center justify-center">

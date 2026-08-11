@@ -436,21 +436,12 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 3: Monthly Summary */}
-        {activeTab === 'monthly' && (
+        {/* Tab 3: Integrated Monthly & Yearly Financial Summary */}
+        {(activeTab === 'monthly' || activeTab === 'yearly') && (
           <MonthlyYearlySummary
             transactions={transactions}
             fireConfig={fireConfig}
-            initialMode="monthly"
-          />
-        )}
-
-        {/* Tab 4: Yearly Summary */}
-        {activeTab === 'yearly' && (
-          <MonthlyYearlySummary
-            transactions={transactions}
-            fireConfig={fireConfig}
-            initialMode="yearly"
+            initialMode={activeTab === 'yearly' ? 'yearly' : 'monthly'}
           />
         )}
 
