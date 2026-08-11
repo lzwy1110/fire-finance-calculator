@@ -1,27 +1,26 @@
 import React, { useState } from 'react';
 import {
   TrendingUp,
-  TrendingDown,
   RefreshCw,
   Plus,
   Trash2,
   Edit2,
-  DollarSign,
-  PieChart,
   Flame,
-  Globe,
-  Check,
   X,
   Sparkles,
   ArrowUpRight,
   ArrowDownRight,
   Coins,
-  RotateCcw,
+  Search,
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock } from '../types';
 import { getThemePreset } from '../utils/theme';
-import { batchFetchStockQuotes, fetchSingleStockQuote } from '../services/stockPriceService';
-import { DEFAULT_PORTFOLIO_STOCKS } from '../data/initialData';
+import {
+  batchFetchStockQuotes,
+  fetchSingleStockQuote,
+  searchStockSuggestions,
+  StockSearchResult,
+} from '../services/stockPriceService';
 
 interface PortfolioViewProps {
   stocks: PortfolioStock[];
@@ -54,6 +53,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const [costInput, setCostInput] = useState<number>(100);
   const [priceInput, setPriceInput] = useState<number>(110);
 
+  // Autocomplete Suggestions State
+  const [searchSuggestions, setSearchSuggestions] = useState<StockSearchResult[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(Math.round(num));
   const formatDec = (num: number) => num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -65,7 +68,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     return true;
   });
 
-  // Total Market Value Calculation (converting USD to TWD using usdRate)
+  // Total Market Value Calculation
   let totalCostTWD = 0;
   let totalMarketValueTWD = 0;
   let usMarketValueUSD = 0;
@@ -89,10 +92,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const totalProfitTWD = totalMarketValueTWD - totalCostTWD;
   const totalRoiPercent = totalCostTWD > 0 ? (totalProfitTWD / totalCostTWD) * 100 : 0;
 
-  // Batch Refresh All Stock Quotes
+  // Batch Refresh All Stock Quotes from Online Endpoints
   const handleRefreshQuotes = async () => {
     setIsRefreshing(true);
-    setRefreshStatus('正在為您自 Finnhub & Yahoo Finance 抓取最新股價...');
+    setRefreshStatus('正在為您自線上財經數據源抓取最新股價...');
 
     try {
       const stockList = stocks.map((s) => ({ symbol: s.symbol, market: s.market }));
@@ -113,10 +116,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         return s;
       });
 
-      onUpdateStocks(updatedStocks);
-      setRefreshStatus(`✅ 已成功為您更新 ${updatedCount} 檔美股/台股最新市場價格！`);
+      if (updatedCount > 0) {
+        onUpdateStocks(updatedStocks);
+        setRefreshStatus(`✅ 已成功更新 ${updatedCount} 档最新線上行情報價！`);
+      } else {
+        setRefreshStatus('⚠️ 數據源連線繁忙中，現有持股價格已完好保留。');
+      }
     } catch (e) {
-      setRefreshStatus('⚠️ 網路更新暫時逾時，請手動調整價格。');
+      setRefreshStatus('⚠️ 線上服務連線失敗，請手動輸入股價。');
     } finally {
       setTimeout(() => {
         setIsRefreshing(false);
@@ -125,39 +132,58 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
   };
 
+  // Input change with instant autocomplete search suggestions
+  const handleSymbolInputChange = (val: string) => {
+    setSymbolInput(val);
+    const matches = searchStockSuggestions(val);
+    setSearchSuggestions(matches);
+    setShowSuggestions(matches.length > 0);
+  };
+
+  // Select Suggestion Item from Autocomplete Dropdown List
+  const handleSelectSuggestion = async (item: StockSearchResult) => {
+    setSymbolInput(item.symbol);
+    setNameInput(item.name);
+    setMarketInput(item.market);
+    setShowSuggestions(false);
+
+    // Auto fetch live quote for selected stock
+    setRefreshStatus(`正在取得 ${item.symbol} 最新價格...`);
+    const quote = await fetchSingleStockQuote(item.symbol, item.market);
+    if (quote && quote.currentPrice > 0) {
+      setPriceInput(quote.currentPrice);
+      setRefreshStatus(`✅ 找到 ${item.symbol} 最新價 $${quote.currentPrice}`);
+    } else {
+      setRefreshStatus(`可手動輸入 ${item.symbol} 之單價。`);
+    }
+    setTimeout(() => setRefreshStatus(null), 2500);
+  };
+
   // Single Stock Price Search Helper inside Modal
   const handleAutoSearchPrice = async () => {
     if (!symbolInput.trim()) return;
-    setRefreshStatus(`正在查詢 ${symbolInput.toUpperCase()} 最新股價...`);
+    setRefreshStatus(`正在查詢 ${symbolInput.toUpperCase()} 最新價格...`);
     const quote = await fetchSingleStockQuote(symbolInput, marketInput);
     if (quote && quote.currentPrice > 0) {
       setPriceInput(quote.currentPrice);
       if (quote.name && !nameInput) setNameInput(quote.name);
       setRefreshStatus(`✅ 找到 ${symbolInput.toUpperCase()} 最新價 $${quote.currentPrice}`);
     } else {
-      setRefreshStatus(`未能在線上自動查到 ${symbolInput.toUpperCase()}，請手動填寫。`);
+      setRefreshStatus(`未能自動查到 ${symbolInput.toUpperCase()}，可直接手動輸入價格。`);
     }
     setTimeout(() => setRefreshStatus(null), 2500);
-  };
-
-  // Reset to default standard sample stocks
-  const handleResetSampleStocks = () => {
-    if (window.confirm('確定要將預設 5 檔庫存標的 (VOO/NVDA/AAPL/0050/2330) 重置校正為標準行情報價嗎？')) {
-      onUpdateStocks(DEFAULT_PORTFOLIO_STOCKS);
-      setRefreshStatus('✅ 已成功將 5 檔預設庫存校正重置為標準市場行情價格 (VOO $515.2 / NVDA $128.5 / AAPL $224.3 / 0050 $195 / 2330 $960)！');
-      setTimeout(() => setRefreshStatus(null), 3000);
-    }
   };
 
   // Open Modal for Add
   const handleOpenAddModal = () => {
     setEditingStock(null);
-    setSymbolInput('VOO');
-    setNameInput('Vanguard S&P 500 ETF');
+    setSymbolInput('NVDA');
+    setNameInput('NVIDIA Corporation (輝達)');
     setMarketInput('US');
     setSharesInput(10);
-    setCostInput(480);
-    setPriceInput(515);
+    setCostInput(120);
+    setPriceInput(128.5);
+    setShowSuggestions(false);
     setIsAddModalOpen(true);
   };
 
@@ -170,6 +196,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setSharesInput(stock.shares);
     setCostInput(stock.avgCost);
     setPriceInput(stock.currentPrice);
+    setShowSuggestions(false);
     setIsAddModalOpen(true);
   };
 
@@ -349,19 +376,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
           <button
-            onClick={handleResetSampleStocks}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs font-bold rounded-2xl transition cursor-pointer"
-            title="重置 5 檔預設庫存為標準正確行情價格"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-gray-400" />
-            重置校正價
-          </button>
-
-          <button
             onClick={handleRefreshQuotes}
             disabled={isRefreshing}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
-            title="線上自動連驗更新股價"
+            title="從線上數據源自動更新價格"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             更新最新股價
@@ -393,7 +411,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredStocks.length === 0 ? (
           <div className="col-span-full bg-[#0c0c0c] border border-white/5 rounded-3xl p-12 text-center text-gray-500 text-sm">
-            目前此分類下沒有持股紀錄，點擊「新增持股」新增美股 (VOO/NVDA) 或台股 (0050/台積電)！
+            目前此分類下沒有持股紀錄，點擊「新增持股」搜尋輸入美股 (NVDA/VOO) 或台股 (2330/0050)！
           </div>
         ) : (
           filteredStocks.map((stock) => {
@@ -475,17 +493,17 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         )}
       </div>
 
-      {/* Modal: Add / Edit Stock Holding */}
+      {/* Modal: Add / Edit Stock Holding with Search Engine Autocomplete */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200">
+          <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 relative overflow-visible">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 {editingStock ? '編輯持股與市價 ✏️' : '新增股票/ETF持股 📈'}
               </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 text-gray-400 hover:text-white bg-white/5 rounded-xl"
+                className="p-1.5 text-gray-400 hover:text-white bg-white/5 rounded-xl cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -498,7 +516,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setMarketInput('US')}
-                    className={`py-2 rounded-xl font-bold border transition ${
+                    className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
                       marketInput === 'US' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-black/40 border-white/5 text-gray-400'
                     }`}
                   >
@@ -507,7 +525,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setMarketInput('TW')}
-                    className={`py-2 rounded-xl font-bold border transition ${
+                    className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
                       marketInput === 'TW' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-black/40 border-white/5 text-gray-400'
                     }`}
                   >
@@ -516,32 +534,68 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 </div>
               </div>
 
-              <div>
+              {/* Symbol Input with Search Autocomplete Dropdown */}
+              <div className="relative">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-gray-400 font-bold">股票代號 (Symbol):</label>
+                  <label className="text-gray-400 font-bold flex items-center gap-1.5">
+                    <Search className="w-3.5 h-3.5 text-cyan-400" />
+                    股票關鍵字/代號 (搜尋引擎補全):
+                  </label>
                   <button
                     type="button"
                     onClick={handleAutoSearchPrice}
                     className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
                   >
-                    <Sparkles className="w-3 h-3" /> 線上自動查價
+                    <Sparkles className="w-3 h-3" /> 查即時價
                   </button>
                 </div>
+
                 <input
                   type="text"
-                  placeholder="例如: VOO, NVDA, AAPL, 0050.TW, 2330.TW"
+                  placeholder="輸入 NV, VOO, 2330, 0050 或名稱..."
                   value={symbolInput}
-                  onChange={(e) => setSymbolInput(e.target.value)}
+                  onChange={(e) => handleSymbolInputChange(e.target.value)}
+                  onFocus={() => {
+                    const matches = searchStockSuggestions(symbolInput);
+                    if (matches.length > 0) setShowSuggestions(true);
+                  }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-mono font-bold uppercase focus:border-cyan-500 focus:outline-none"
                   required
                 />
+
+                {/* Autocomplete Suggestions Dropdown List */}
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#141414] border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden divide-y divide-white/5 max-h-56 overflow-y-auto animate-fadeIn">
+                    {searchSuggestions.map((item) => (
+                      <button
+                        key={item.symbol}
+                        type="button"
+                        onClick={() => handleSelectSuggestion(item)}
+                        className="w-full px-3.5 py-2.5 text-left hover:bg-cyan-500/15 flex items-center justify-between transition cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-base">{item.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
+                          <div>
+                            <strong className="text-cyan-300 font-mono font-bold text-xs group-hover:text-cyan-200">
+                              {item.symbol}
+                            </strong>
+                            <p className="text-[11px] text-gray-300 truncate max-w-[210px]">{item.name}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-gray-400 font-mono font-bold">
+                          點擊選取
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
                 <label className="text-gray-400 block mb-1 font-bold">股票/基金全名:</label>
                 <input
                   type="text"
-                  placeholder="例如: Vanguard S&P 500 ETF"
+                  placeholder="例如: NVIDIA Corporation (輝達)"
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-bold focus:border-cyan-500 focus:outline-none"
@@ -590,14 +644,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl font-bold"
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl font-bold cursor-pointer"
                 >
                   取消
                 </button>
 
                 <button
                   type="submit"
-                  className="px-5 py-2 font-black rounded-xl text-black shadow-lg"
+                  className="px-5 py-2 font-black rounded-xl text-black shadow-lg cursor-pointer"
                   style={{ backgroundColor: currentTheme.primaryHex }}
                 >
                   {editingStock ? '儲存修改' : '新增入庫'}

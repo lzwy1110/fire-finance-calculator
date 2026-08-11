@@ -10,28 +10,65 @@ export interface StockQuote {
   name?: string;
 }
 
-// Ground truth realistic price dictionary for popular US & TW stocks to prevent API data anomalies
-const REALISTIC_BASE_PRICES: Record<string, { price: number; name: string; currency: 'USD' | 'TWD' }> = {
-  'VOO': { price: 515.20, name: 'Vanguard S&P 500 ETF', currency: 'USD' },
-  'NVDA': { price: 128.50, name: 'NVIDIA Corporation', currency: 'USD' },
-  'AAPL': { price: 224.30, name: 'Apple Inc.', currency: 'USD' },
-  'TSLA': { price: 215.40, name: 'Tesla, Inc.', currency: 'USD' },
-  'QQQ': { price: 485.60, name: 'Invesco QQQ Trust', currency: 'USD' },
-  'MSFT': { price: 448.90, name: 'Microsoft Corporation', currency: 'USD' },
-  'AMZN': { price: 186.20, name: 'Amazon.com, Inc.', currency: 'USD' },
-  'GOOGL': { price: 175.80, name: 'Alphabet Inc.', currency: 'USD' },
-  '0050.TW': { price: 195.00, name: '元大台灣50 ETF', currency: 'TWD' },
-  '0050': { price: 195.00, name: '元大台灣50 ETF', currency: 'TWD' },
-  '2330.TW': { price: 960.00, name: '台灣積體電路 (TSMC)', currency: 'TWD' },
-  '2330': { price: 960.00, name: '台灣積體電路 (TSMC)', currency: 'TWD' },
-  '0056.TW': { price: 38.50, name: '元大高股息 ETF', currency: 'TWD' },
-  '0056': { price: 38.50, name: '元大高股息 ETF', currency: 'TWD' },
-  '2317.TW': { price: 205.00, name: '鴻海精密', currency: 'TWD' },
-  '2317': { price: 205.00, name: '鴻海精密', currency: 'TWD' },
-};
+export interface StockSearchResult {
+  symbol: string;
+  name: string;
+  market: MarketType;
+  currency: 'USD' | 'TWD';
+}
+
+// Built-in Popular Stock Database for Instant Local Auto-Complete Search
+export const POPULAR_STOCKS_DB: StockSearchResult[] = [
+  // US Stocks & ETFs
+  { symbol: 'NVDA', name: 'NVIDIA Corporation (輝達)', market: 'US', currency: 'USD' },
+  { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', market: 'US', currency: 'USD' },
+  { symbol: 'AAPL', name: 'Apple Inc. (蘋果)', market: 'US', currency: 'USD' },
+  { symbol: 'TSLA', name: 'Tesla, Inc. (特斯拉)', market: 'US', currency: 'USD' },
+  { symbol: 'QQQ', name: 'Invesco QQQ Trust (納斯達克100)', market: 'US', currency: 'USD' },
+  { symbol: 'MSFT', name: 'Microsoft Corporation (微軟)', market: 'US', currency: 'USD' },
+  { symbol: 'AMZN', name: 'Amazon.com, Inc. (亞馬遜)', market: 'US', currency: 'USD' },
+  { symbol: 'GOOGL', name: 'Alphabet Inc. (Google)', market: 'US', currency: 'USD' },
+  { symbol: 'META', name: 'Meta Platforms, Inc. (臉書)', market: 'US', currency: 'USD' },
+  { symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', market: 'US', currency: 'USD' },
+  { symbol: 'BRK.B', name: 'Berkshire Hathaway Inc.', market: 'US', currency: 'USD' },
+  { symbol: 'VT', name: 'Vanguard Total World Stock ETF', market: 'US', currency: 'USD' },
+  { symbol: 'VTI', name: 'Vanguard Total Stock Market ETF', market: 'US', currency: 'USD' },
+  { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust', market: 'US', currency: 'USD' },
+  { symbol: 'SCHD', name: 'Schwab U.S. Dividend Equity ETF', market: 'US', currency: 'USD' },
+
+  // TW Stocks & ETFs
+  { symbol: '2330.TW', name: '台灣積體電路 (台積電 / TSMC)', market: 'TW', currency: 'TWD' },
+  { symbol: '0050.TW', name: '元大台灣50 ETF', market: 'TW', currency: 'TWD' },
+  { symbol: '0056.TW', name: '元大高股息 ETF', market: 'TW', currency: 'TWD' },
+  { symbol: '00878.TW', name: '國泰永續高股息 ETF', market: 'TW', currency: 'TWD' },
+  { symbol: '00919.TW', name: '群益台灣精選高息 ETF', market: 'TW', currency: 'TWD' },
+  { symbol: '00929.TW', name: '復華台灣科技優息 ETF', market: 'TW', currency: 'TWD' },
+  { symbol: '00940.TW', name: '元大台灣價值高息 ETF', market: 'TW', currency: 'TWD' },
+  { symbol: '2317.TW', name: '鴻海精密 (Foxconn)', market: 'TW', currency: 'TWD' },
+  { symbol: '2454.TW', name: '聯發科 (MediaTek)', market: 'TW', currency: 'TWD' },
+  { symbol: '2308.TW', name: '台達電 (Delta Electronics)', market: 'TW', currency: 'TWD' },
+  { symbol: '2382.TW', name: '廣達電腦 (Quanta)', market: 'TW', currency: 'TWD' },
+  { symbol: '3008.TW', name: '大立光 (Largan Precision)', market: 'TW', currency: 'TWD' },
+  { symbol: '2881.TW', name: '富邦金控 (Fubon Financial)', market: 'TW', currency: 'TWD' },
+  { symbol: '2882.TW', name: '國泰金控 (Cathay Financial)', market: 'TW', currency: 'TWD' },
+];
 
 /**
- * Fetch quote with Price Sanity Filter against severe API anomalies
+ * Autocomplete Search Suggestions Filter
+ */
+export function searchStockSuggestions(keyword: string): StockSearchResult[] {
+  const clean = keyword.trim().toLowerCase();
+  if (!clean) return [];
+
+  return POPULAR_STOCKS_DB.filter(
+    (item) =>
+      item.symbol.toLowerCase().includes(clean) ||
+      item.name.toLowerCase().includes(clean)
+  ).slice(0, 8);
+}
+
+/**
+ * Fetch latest market quote from Yahoo Finance endpoints cleanly without artificial filters
  */
 export async function fetchSingleStockQuote(symbol: string, market: MarketType): Promise<StockQuote | null> {
   const cleanSymbol = symbol.trim().toUpperCase();
@@ -42,12 +79,10 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
     yahooSymbol = `${yahooSymbol}.TW`;
   }
 
-  // Check base realistic price reference
-  const baseRef = REALISTIC_BASE_PRICES[cleanSymbol] || REALISTIC_BASE_PRICES[yahooSymbol];
-
   const endpoints = [
     `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`)}`,
     `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
   ];
 
   for (const url of endpoints) {
@@ -59,56 +94,25 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
         const meta = data?.chart?.result?.[0]?.meta;
 
         if (meta && typeof meta.regularMarketPrice === 'number' && meta.regularMarketPrice > 0) {
-          let fetchedPrice = meta.regularMarketPrice;
-
-          // Sanity check filter: if fetched price deviates > 30% from known base price, reject anomalous API data!
-          if (baseRef && baseRef.price > 0) {
-            const deviation = Math.abs(fetchedPrice - baseRef.price) / baseRef.price;
-            if (deviation > 0.3) {
-              console.warn(`[Stock API Sanity Guard] ${cleanSymbol} API price $${fetchedPrice} deviated ${Math.round(deviation * 100)}% from base reference $${baseRef.price}. Using base reference.`);
-              return {
-                symbol: cleanSymbol,
-                currentPrice: baseRef.price,
-                previousClose: baseRef.price,
-                change: 0,
-                changePercent: 0,
-                currency: baseRef.currency,
-                name: baseRef.name,
-              };
-            }
-          }
-
-          const previousClose = meta.chartPreviousClose || meta.previousClose || fetchedPrice;
-          const change = fetchedPrice - previousClose;
+          const currentPrice = meta.regularMarketPrice;
+          const previousClose = meta.chartPreviousClose || meta.previousClose || currentPrice;
+          const change = currentPrice - previousClose;
           const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
 
           return {
             symbol: cleanSymbol,
-            currentPrice: fetchedPrice,
+            currentPrice,
             previousClose,
             change,
             changePercent,
             currency: market === 'TW' ? 'TWD' : 'USD',
-            name: meta.shortName || meta.longName || baseRef?.name || cleanSymbol,
+            name: meta.shortName || meta.longName || cleanSymbol,
           };
         }
       }
     } catch (e) {
-      console.warn(`API Fetch error for ${cleanSymbol}:`, e);
+      console.warn(`Stock API endpoint error for ${cleanSymbol}:`, e);
     }
-  }
-
-  // Fallback to Base Realistic Reference if API fails or is offline
-  if (baseRef) {
-    return {
-      symbol: cleanSymbol,
-      currentPrice: baseRef.price,
-      previousClose: baseRef.price,
-      change: 0,
-      changePercent: 0,
-      currency: baseRef.currency,
-      name: baseRef.name,
-    };
   }
 
   return null;
