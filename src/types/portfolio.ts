@@ -9,6 +9,7 @@ export interface StockTransaction {
   price: number;
   date: string; // YYYY-MM-DD
   note?: string;
+  isInitialHoldings?: boolean; // If true, skip cash balance deduction for pre-existing stock holdings
 }
 
 export interface PortfolioStock {

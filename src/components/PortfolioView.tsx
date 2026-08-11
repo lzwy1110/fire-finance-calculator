@@ -58,6 +58,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const [priceInput, setPriceInput] = useState<number>(0);
   const [dateInput, setDateInput] = useState<string>(new Date().toISOString().split('T')[0]);
   const [noteInput, setNoteInput] = useState<string>('');
+  const [isInitialHoldingsInput, setIsInitialHoldingsInput] = useState<boolean>(false);
 
   // Transaction History Modal State
   const [activeHistoryStock, setActiveHistoryStock] = useState<PortfolioStock | null>(null);
@@ -249,6 +250,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setCostInput('');
     setDateInput(new Date().toISOString().split('T')[0]);
     setNoteInput('');
+    setIsInitialHoldingsInput(false);
     setSearchSuggestions([]);
     setShowSuggestions(false);
     setIsAddModalOpen(true);
@@ -275,6 +277,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       price: parsedCost,
       date: dateInput || new Date().toISOString().split('T')[0],
       note: noteInput.trim(),
+      isInitialHoldings: tradeType === 'BUY' ? isInitialHoldingsInput : false,
     };
 
     // Check if stock already exists in portfolio
@@ -891,6 +894,25 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Option to skip cash balance deduction for pre-existing stock holdings */}
+              {tradeType === 'BUY' && (
+                <div className="bg-cyan-500/10 border border-cyan-500/25 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <label htmlFor="isInitialHoldingsToggle" className="text-xs font-black text-white flex items-center gap-1.5 cursor-pointer">
+                      <span>📦 歷史現有持股建倉 (不扣除現金儲蓄)</span>
+                    </label>
+                    <p className="text-[11px] text-cyan-300/80">若為使用 App 前已擁有的舊持股，請勾選以避免重複扣除現金</p>
+                  </div>
+                  <input
+                    id="isInitialHoldingsToggle"
+                    type="checkbox"
+                    checked={isInitialHoldingsInput}
+                    onChange={(e) => setIsInitialHoldingsInput(e.target.checked)}
+                    className="w-5 h-5 accent-cyan-400 rounded cursor-pointer shrink-0"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
                 <button

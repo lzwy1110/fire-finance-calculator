@@ -161,7 +161,9 @@ export default function App() {
         (synced.transactions || []).forEach((tx) => {
           const tradeAmt = (tx.shares * tx.price) * rate;
           if (tx.type === 'BUY') {
-            stockTradeNetCash -= tradeAmt; // Buying stock consumes cash
+            if (!tx.isInitialHoldings) {
+              stockTradeNetCash -= tradeAmt; // Only deduct cash for NEW cash purchases, skip for pre-existing holdings
+            }
           } else if (tx.type === 'SELL') {
             stockTradeNetCash += tradeAmt; // Selling stock generates cash!
           }

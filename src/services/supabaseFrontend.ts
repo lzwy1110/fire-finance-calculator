@@ -167,7 +167,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       icon: p.icon,
     }));
 
-    const portfolioStocks: PortfolioStock[] = ((portRes as any)?.data || []).map((s: any) => ({
+    let portfolioStocks: PortfolioStock[] = ((portRes as any)?.data || []).map((s: any) => ({
       id: s.id,
       symbol: s.symbol,
       name: s.name,
@@ -188,6 +188,15 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
           })()
         : [],
     }));
+
+    if (portfolioStocks.length === 0 && configRes.data && (configRes.data as any).portfolio_stocks_json) {
+      try {
+        const parsedFallback = JSON.parse((configRes.data as any).portfolio_stocks_json);
+        if (Array.isArray(parsedFallback)) {
+          portfolioStocks = parsedFallback;
+        }
+      } catch (e) {}
+    }
 
     return {
       transactions: txRes.error ? null : transactions,
@@ -236,6 +245,7 @@ export async function pushSupabaseDataDirect(payload: {
         safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
         currency_symbol: fireConfig.currencySymbol,
         theme_color: fireConfig.themeColor || 'cyan',
+        portfolio_stocks_json: JSON.stringify(portfolioStocks || []),
         updated_at: new Date().toISOString(),
       });
     }
