@@ -1,5 +1,10 @@
 {
   "appId": "com.firecalculator.app",
   "appName": "FIRE Flow",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
 }
