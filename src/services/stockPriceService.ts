@@ -36,127 +36,179 @@ export const POPULAR_STOCKS_DB: StockSearchResult[] = [
   { symbol: 'SMCI', name: 'Super Micro Computer, Inc.', market: 'US', currency: 'USD' },
   { symbol: 'RKLB', name: 'Rocket Lab USA, Inc.', market: 'US', currency: 'USD' },
 
-  // TW Stocks & ETFs
-  { symbol: '2330.TW', name: '台灣積體電路 (台積電 / TSMC)', market: 'TW', currency: 'TWD' },
-  { symbol: '2377.TW', name: '微星科技 (MSI / Micro-Star)', market: 'TW', currency: 'TWD' },
+  // TW Stocks & ETFs (Common Defaults)
+  { symbol: '2330.TW', name: '台積電', market: 'TW', currency: 'TWD' },
+  { symbol: '3026.TW', name: '禾伸堂', market: 'TW', currency: 'TWD' },
+  { symbol: '2408.TW', name: '南亞科', market: 'TW', currency: 'TWD' },
+  { symbol: '00981A.TW', name: '統一台灣高息', market: 'TW', currency: 'TWD' },
+  { symbol: '2377.TW', name: '微星', market: 'TW', currency: 'TWD' },
   { symbol: '0050.TW', name: '元大台灣50 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '0056.TW', name: '元大高股息 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '00878.TW', name: '國泰永續高股息 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '00919.TW', name: '群益台灣精選高息 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '00929.TW', name: '復華台灣科技優息 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '00940.TW', name: '元大台灣價值高息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '2317.TW', name: '鴻海精密 (Foxconn)', market: 'TW', currency: 'TWD' },
-  { symbol: '2454.TW', name: '聯發科 (MediaTek)', market: 'TW', currency: 'TWD' },
-  { symbol: '2308.TW', name: '台達電 (Delta Electronics)', market: 'TW', currency: 'TWD' },
-  { symbol: '2382.TW', name: '廣達電腦 (Quanta)', market: 'TW', currency: 'TWD' },
-  { symbol: '2301.TW', name: '光寶科技 (Lite-On)', market: 'TW', currency: 'TWD' },
-  { symbol: '3231.TW', name: '緯創資通 (Wistron)', market: 'TW', currency: 'TWD' },
-  { symbol: '6669.TW', name: '緯穎科技 (Wiwynn)', market: 'TW', currency: 'TWD' },
-  { symbol: '3008.TW', name: '大立光 (Largan Precision)', market: 'TW', currency: 'TWD' },
-  { symbol: '2881.TW', name: '富邦金控 (Fubon Financial)', market: 'TW', currency: 'TWD' },
-  { symbol: '2882.TW', name: '國泰金控 (Cathay Financial)', market: 'TW', currency: 'TWD' },
+  { symbol: '2317.TW', name: '鴻海精密', market: 'TW', currency: 'TWD' },
+  { symbol: '2454.TW', name: '聯發科', market: 'TW', currency: 'TWD' },
+  { symbol: '2308.TW', name: '台達電', market: 'TW', currency: 'TWD' },
+  { symbol: '2382.TW', name: '廣達', market: 'TW', currency: 'TWD' },
+  { symbol: '2603.TW', name: '長榮', market: 'TW', currency: 'TWD' },
 ];
 
+// Official TWSE Stock List Cache
+let twseStockListCache: { code: string; name: string }[] | null = null;
+
 /**
- * Fast & Reliable Global Stock Search with Strict Market Filter & Fast Timeout
+ * Fetch official TWSE Taiwan Stock Directory (OpenAPI with CORS support)
+ */
+async function getTwseStockList(): Promise<{ code: string; name: string }[]> {
+  if (twseStockListCache && twseStockListCache.length > 0) {
+    return twseStockListCache;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+    const res = await fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        twseStockListCache = data.map((item: any) => ({
+          code: String(item.Code || '').trim(),
+          name: String(item.Name || '').trim(),
+        }));
+        return twseStockListCache;
+      }
+    }
+  } catch (e) {
+    console.warn('TWSE Stock List API query skipped:', e);
+  }
+
+  return [];
+}
+
+/**
+ * Fast & Comprehensive Stock Search supporting ANY US symbol and ALL Taiwan stock codes & Chinese names
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
   targetMarket?: MarketType
 ): Promise<StockSearchResult[]> {
-  const clean = keyword.trim().toLowerCase();
+  const clean = keyword.trim();
+  const lowerClean = clean.toLowerCase();
   if (!clean) return [];
 
-  // 1. Filter local database by keyword & target market
-  let localMatches = POPULAR_STOCKS_DB.filter(
-    (item) =>
-      item.symbol.toLowerCase().includes(clean) ||
-      item.name.toLowerCase().includes(clean)
-  );
-
-  if (targetMarket) {
-    localMatches = localMatches.filter((item) => item.market === targetMarket);
-  }
-
-  // 2. Query online search endpoints with 1.8s timeout
-  const searchEndpoints = [
-    `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=10`,
-    `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=10`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${clean}&quotesCount=10`)}`,
-  ];
-
-  let onlineMatches: StockSearchResult[] = [];
-
-  for (const url of searchEndpoints) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1800);
-
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const text = await res.text();
-        const data = JSON.parse(text);
-        const quotes = data?.quotes || [];
-
-        if (Array.isArray(quotes) && quotes.length > 0) {
-          onlineMatches = quotes
-            .filter((q: any) => q && q.symbol && (q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'MUTUALFUND'))
-            .map((q: any) => {
-              const sym = q.symbol.toUpperCase();
-              const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || q.exchange === 'TAI' || q.exchange === 'TWO';
-              return {
-                symbol: sym,
-                name: q.longname || q.shortname || sym,
-                market: isTW ? ('TW' as MarketType) : ('US' as MarketType),
-                currency: isTW ? ('TWD' as const) : ('USD' as const),
-              };
-            });
-
-          if (targetMarket) {
-            onlineMatches = onlineMatches.filter((m) => m.market === targetMarket);
-          }
-
-          if (onlineMatches.length > 0) break;
-        }
-      }
-    } catch (e) {
-      // Ignore network timeout/failure and try next
-    }
-  }
-
-  // Combine results with deduplication
+  const results: StockSearchResult[] = [];
   const seen = new Set<string>();
-  const combined: StockSearchResult[] = [];
 
-  for (const item of [...onlineMatches, ...localMatches]) {
+  // Helper to add search item
+  const addResult = (item: StockSearchResult) => {
     const key = item.symbol.toUpperCase();
     if (!seen.has(key)) {
-      seen.add(key);
-      combined.push(item);
+      if (!targetMarket || item.market === targetMarket) {
+        seen.add(key);
+        results.push(item);
+      }
+    }
+  };
+
+  // 1. Search Official TWSE Stock Database for TW Market or Chinese Input
+  const hasChinese = /[\u4e00-\u9fa5]/.test(clean);
+  if (targetMarket === 'TW' || hasChinese || /^\d+/.test(clean)) {
+    const twseList = await getTwseStockList();
+    for (const stock of twseList) {
+      if (
+        stock.code.toLowerCase().includes(lowerClean) ||
+        stock.name.includes(clean)
+      ) {
+        const symbol = stock.code.endsWith('.TW') ? stock.code : `${stock.code}.TW`;
+        addResult({
+          symbol,
+          name: stock.name,
+          market: 'TW',
+          currency: 'TWD',
+        });
+      }
+      if (results.length >= 10) break;
     }
   }
 
-  // 3. Fallback: If user typed an exact symbol (e.g. 00981A, 2377, ASTS), auto-generate matching suggestion
+  // 2. Search Local Built-in Database
+  for (const item of POPULAR_STOCKS_DB) {
+    if (
+      item.symbol.toLowerCase().includes(lowerClean) ||
+      item.name.toLowerCase().includes(lowerClean) ||
+      item.name.includes(clean)
+    ) {
+      addResult(item);
+    }
+    if (results.length >= 10) break;
+  }
+
+  // 3. Search Yahoo Finance Global Search Endpoints
+  if (results.length < 5) {
+    const searchEndpoints = [
+      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=10`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${clean}&quotesCount=10`)}`,
+    ];
+
+    for (const url of searchEndpoints) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const text = await res.text();
+          const data = JSON.parse(text);
+          const quotes = data?.quotes || [];
+
+          if (Array.isArray(quotes)) {
+            for (const q of quotes) {
+              if (q && q.symbol && (q.quoteType === 'EQUITY' || q.quoteType === 'ETF')) {
+                const sym = String(q.symbol).toUpperCase();
+                const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || q.exchange === 'TAI' || q.exchange === 'TWO';
+                addResult({
+                  symbol: sym,
+                  name: q.shortname || q.longname || sym,
+                  market: isTW ? 'TW' : 'US',
+                  currency: isTW ? 'TWD' : 'USD',
+                });
+              }
+            }
+            if (results.length >= 5) break;
+          }
+        }
+      } catch (e) {
+        // Skip endpoint error
+      }
+    }
+  }
+
+  // 4. Absolute Fallback: Ensure typed code is ALWAYS selectable
   const upperClean = clean.toUpperCase();
   if (clean.length >= 2) {
     const isTwCodePattern = /^\d+[A-Za-z]?$/.test(clean);
     const isTW = targetMarket === 'TW' || isTwCodePattern || upperClean.endsWith('.TW');
-    const displaySymbol = isTW && !upperClean.endsWith('.TW') ? `${upperClean}.TW` : upperClean;
+    const fallbackSymbol = isTW && !upperClean.endsWith('.TW') ? `${upperClean}.TW` : upperClean;
     const finalMarket: MarketType = isTW ? 'TW' : 'US';
 
-    if (!seen.has(displaySymbol) && (!targetMarket || finalMarket === targetMarket)) {
-      combined.unshift({
-        symbol: displaySymbol,
-        name: `搜尋 / 新增標的 (${displaySymbol})`,
-        market: finalMarket,
-        currency: isTW ? 'TWD' : 'USD',
-      });
-    }
+    addResult({
+      symbol: fallbackSymbol,
+      name: `新增標的 (${fallbackSymbol})`,
+      market: finalMarket,
+      currency: isTW ? 'TWD' : 'USD',
+    });
   }
 
-  return combined.slice(0, 8);
+  return results.slice(0, 8);
 }
 
 /**
