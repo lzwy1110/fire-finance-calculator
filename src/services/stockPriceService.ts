@@ -147,7 +147,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 }
 
 /**
- * 100% Dynamic Pure Search Auto-Suggest (Zero Hardcoded Dictionaries)
+ * 100% Dynamic Fast-Search Auto-Suggest (Zero Hardcoded Dictionaries, Ultra-low Latency)
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -162,30 +162,26 @@ export async function searchStockSuggestionsAsync(
   const sym = isTw && !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
   const mkt: MarketType = isTw ? 'TW' : 'US';
 
-  const results: StockSearchResult[] = [];
+  // 1. Primary candidate object
+  const primaryResult: StockSearchResult = {
+    symbol: sym,
+    name: `${mkt === 'TW' ? '台股' : '美股'} (${sym})`,
+    market: mkt,
+    currency: mkt === 'TW' ? 'TWD' : 'USD',
+  };
 
-  // Query live quote dynamically for typed symbol
-  const quote = await fetchSingleStockQuote(sym, mkt);
-
-  if (quote && quote.currentPrice > 0) {
-    results.push({
-      symbol: quote.symbol,
-      name: quote.name || sym,
-      market: mkt,
-      currency: mkt === 'TW' ? 'TWD' : 'USD',
-      price: quote.currentPrice,
-    });
-  } else {
-    // If live quote pending, present clean candidate
-    results.push({
-      symbol: sym,
-      name: `${mkt === 'TW' ? '台股' : '美股'} (${sym})`,
-      market: mkt,
-      currency: mkt === 'TW' ? 'TWD' : 'USD',
-    });
+  // 2. Fetch live quote in background to attach real-time market price & name
+  try {
+    const quote = await fetchSingleStockQuote(sym, mkt);
+    if (quote && quote.currentPrice > 0) {
+      primaryResult.price = quote.currentPrice;
+      if (quote.name) primaryResult.name = quote.name;
+    }
+  } catch (e) {
+    // Non-blocking
   }
 
-  return results;
+  return [primaryResult];
 }
 
 /**

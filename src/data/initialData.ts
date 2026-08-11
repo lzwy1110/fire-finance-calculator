@@ -11,6 +11,9 @@ export const DEFAULT_PORTFOLIO_STOCKS: PortfolioStock[] = [
     currentPrice: 515.2,
     currency: 'USD',
     previousClose: 512.8,
+    transactions: [
+      { id: 'tx-voo-1', type: 'BUY', shares: 30, price: 465.0, date: '2026-01-15', note: '分批定期買入' },
+    ],
   },
   {
     id: 'port-nvda',
@@ -22,6 +25,9 @@ export const DEFAULT_PORTFOLIO_STOCKS: PortfolioStock[] = [
     currentPrice: 128.5,
     currency: 'USD',
     previousClose: 126.0,
+    transactions: [
+      { id: 'tx-nvda-1', type: 'BUY', shares: 50, price: 110.0, date: '2026-02-10', note: 'AI浪潮加碼' },
+    ],
   },
   {
     id: 'port-aapl',
@@ -33,6 +39,9 @@ export const DEFAULT_PORTFOLIO_STOCKS: PortfolioStock[] = [
     currentPrice: 224.3,
     currency: 'USD',
     previousClose: 221.8,
+    transactions: [
+      { id: 'tx-aapl-1', type: 'BUY', shares: 20, price: 180.0, date: '2026-03-01', note: '蘋果波段建倉' },
+    ],
   },
   {
     id: 'port-0050',
@@ -44,6 +53,9 @@ export const DEFAULT_PORTFOLIO_STOCKS: PortfolioStock[] = [
     currentPrice: 195.0,
     currency: 'TWD',
     previousClose: 193.5,
+    transactions: [
+      { id: 'tx-0050-1', type: 'BUY', shares: 2000, price: 155.0, date: '2026-01-05', note: '台股定期定額' },
+    ],
   },
   {
     id: 'port-2330',
@@ -55,6 +67,9 @@ export const DEFAULT_PORTFOLIO_STOCKS: PortfolioStock[] = [
     currentPrice: 960.0,
     currency: 'TWD',
     previousClose: 955.0,
+    transactions: [
+      { id: 'tx-2330-1', type: 'BUY', shares: 1000, price: 880.0, date: '2026-02-20', note: '零股累積一張' },
+    ],
   },
 ];
 
