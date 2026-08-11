@@ -82,7 +82,6 @@ export function calculateStockMetrics(
 export function syncStockCalculations(stock: PortfolioStock): PortfolioStock {
   let txs = stock.transactions;
 
-  // Migration helper: If stock has no transactions array yet, auto-create initial BUY transaction
   if (!txs || txs.length === 0) {
     if (stock.shares > 0) {
       txs = [
@@ -93,7 +92,7 @@ export function syncStockCalculations(stock: PortfolioStock): PortfolioStock {
           shares: stock.shares,
           price: stock.avgCost,
           date: new Date().toISOString().split('T')[0],
-          note: '初始開戶持股記錄',
+          note: '初始建倉持股紀錄',
         },
       ];
     } else {
@@ -101,7 +100,7 @@ export function syncStockCalculations(stock: PortfolioStock): PortfolioStock {
     }
   }
 
-  const metrics = calculateStockMetrics(txs, stock.currentPrice);
+  const metrics = calculateStockMetrics(txs, stock.currentPrice || 0);
 
   return {
     ...stock,
@@ -110,4 +109,54 @@ export function syncStockCalculations(stock: PortfolioStock): PortfolioStock {
     avgCost: metrics.avgCost,
     realizedPnL: metrics.realizedPnL,
   };
+}
+
+/**
+ * Safely merge local and cloud stock portfolios with CRDT-style transaction deduplication
+ */
+export function mergeStockPortfolios(
+  localStocks: PortfolioStock[],
+  cloudStocks: PortfolioStock[]
+): PortfolioStock[] {
+  if (!Array.isArray(cloudStocks) || cloudStocks.length === 0) {
+    return localStocks || [];
+  }
+  if (!Array.isArray(localStocks) || localStocks.length === 0) {
+    return cloudStocks || [];
+  }
+
+  const mergedMap = new Map<string, PortfolioStock>();
+
+  // 1. Add all local stocks
+  localStocks.forEach((s) => {
+    const key = s.symbol.toUpperCase();
+    mergedMap.set(key, s);
+  });
+
+  // 2. Union with cloud stocks, merging trade logs
+  cloudStocks.forEach((cStock) => {
+    const key = cStock.symbol.toUpperCase();
+    const existingLocal = mergedMap.get(key);
+
+    if (!existingLocal) {
+      mergedMap.set(key, cStock);
+    } else {
+      // Merge transaction trade logs by ID
+      const txMap = new Map<string, StockTransaction>();
+      (existingLocal.transactions || []).forEach((t) => txMap.set(t.id, t));
+      (cStock.transactions || []).forEach((t) => txMap.set(t.id, t));
+
+      const mergedTx = Array.from(txMap.values());
+      const updatedStock = syncStockCalculations({
+        ...existingLocal,
+        name: cStock.name || existingLocal.name,
+        currentPrice: cStock.currentPrice > 0 ? cStock.currentPrice : existingLocal.currentPrice,
+        transactions: mergedTx,
+      });
+
+      mergedMap.set(key, updatedStock);
+    }
+  });
+
+  return Array.from(mergedMap.values()).map((s) => syncStockCalculations(s));
 }

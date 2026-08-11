@@ -8,7 +8,11 @@ import {
   PortfolioStock,
 } from './types';
 import { calculateFIRE } from './utils/fireCalculator';
-import { syncStockCalculations } from './utils/portfolioMath';
+import {
+  calculateStockMetrics,
+  mergeStockPortfolios,
+  syncStockCalculations,
+} from './utils/portfolioMath';
 import {
   autoSyncToCloud,
   getOrCreateSyncCode,
@@ -101,8 +105,14 @@ export default function App() {
           setQuickPresets(cPresets);
         }
         if (Array.isArray(cStocks)) {
-          setPortfolioStocks(cStocks);
-          savePortfolioStocks(cStocks);
+          const currentLocal = loadPortfolioStocks();
+          if (cStocks.length === 0 && currentLocal.length > 0) {
+            autoSyncToCloud();
+          } else {
+            const merged = mergeStockPortfolios(currentLocal, cStocks);
+            setPortfolioStocks(merged);
+            savePortfolioStocks(merged);
+          }
         }
       }
     });
@@ -397,8 +407,14 @@ export default function App() {
           setQuickPresets(cPresets);
         }
         if (Array.isArray(cStocks)) {
-          setPortfolioStocks(cStocks);
-          savePortfolioStocks(cStocks);
+          const currentLocal = loadPortfolioStocks();
+          if (cStocks.length === 0 && currentLocal.length > 0) {
+            autoSyncToCloud();
+          } else {
+            const merged = mergeStockPortfolios(currentLocal, cStocks);
+            setPortfolioStocks(merged);
+            savePortfolioStocks(merged);
+          }
         }
       }
     } catch (e) {}
