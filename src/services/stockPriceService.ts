@@ -146,8 +146,66 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
   return null;
 }
 
+const POPULAR_STOCK_NAMES: Record<string, string> = {
+  // 🇹🇼 台股熱門標的
+  '0050': '元大台灣50',
+  '0050.TW': '元大台灣50',
+  '0056': '元大高股息',
+  '0056.TW': '元大高股息',
+  '00878': '國泰永續高股息',
+  '00878.TW': '國泰永續高股息',
+  '00919': '群益台灣精選高息',
+  '00919.TW': '群益台灣精選高息',
+  '00929': '復華台灣科技優息',
+  '00929.TW': '復華台灣科技優息',
+  '00940': '元大台灣價值高息',
+  '00940.TW': '元大台灣價值高息',
+  '00713': '元大台灣高息低波',
+  '00713.TW': '元大台灣高息低波',
+  '006208': '富邦台50',
+  '006208.TW': '富邦台50',
+  '2330': '台積電',
+  '2330.TW': '台積電',
+  '2317': '鴻海',
+  '2317.TW': '鴻海',
+  '2454': '聯發科',
+  '2454.TW': '聯發科',
+  '2308': '台達電',
+  '2308.TW': '台達電',
+  '2382': '廣達',
+  '2382.TW': '廣達',
+  '3008': '大立光',
+  '3008.TW': '大立光',
+  '2881': '富邦金',
+  '2881.TW': '富邦金',
+  '2882': '國泰金',
+  '2882.TW': '國泰金',
+  '2891': '中信金',
+  '2891.TW': '中信金',
+  '2886': '兆豐金',
+  '2886.TW': '兆豐金',
+  '2603': '長榮',
+  '2603.TW': '長榮',
+
+  // 🇺🇸 美股熱門標的
+  'AAPL': 'Apple Inc. (蘋果)',
+  'NVDA': 'NVIDIA Corporation (輝達)',
+  'TSLA': 'Tesla Inc. (特斯拉)',
+  'MSFT': 'Microsoft Corporation (微軟)',
+  'GOOGL': 'Alphabet Inc. (Google)',
+  'GOOG': 'Alphabet Inc. (Google)',
+  'AMZN': 'Amazon.com Inc. (亞馬遜)',
+  'META': 'Meta Platforms Inc. (臉書)',
+  'AMD': 'Advanced Micro Devices (超微)',
+  'SPY': 'SPDR S&P 500 ETF Trust',
+  'VOO': 'Vanguard S&P 500 ETF',
+  'QQQ': 'Invesco QQQ Trust (納斯達克100)',
+  'VT': 'Vanguard Total World Stock ETF',
+  'VTI': 'Vanguard Total Stock Market ETF',
+};
+
 /**
- * 100% Dynamic Fast-Search Auto-Suggest (Zero Hardcoded Dictionaries, Ultra-low Latency)
+ * 100% Dynamic Fast-Search Auto-Suggest with Popular Fallback Names
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -162,10 +220,12 @@ export async function searchStockSuggestionsAsync(
   const sym = isTw && !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
   const mkt: MarketType = isTw ? 'TW' : 'US';
 
+  const defaultName = POPULAR_STOCK_NAMES[rawCode] || POPULAR_STOCK_NAMES[upperClean] || POPULAR_STOCK_NAMES[sym] || `${mkt === 'TW' ? '台股' : '美股'} (${sym})`;
+
   // 1. Primary candidate object
   const primaryResult: StockSearchResult = {
     symbol: sym,
-    name: `${mkt === 'TW' ? '台股' : '美股'} (${sym})`,
+    name: defaultName,
     market: mkt,
     currency: mkt === 'TW' ? 'TWD' : 'USD',
   };
@@ -175,7 +235,7 @@ export async function searchStockSuggestionsAsync(
     const quote = await fetchSingleStockQuote(sym, mkt);
     if (quote && quote.currentPrice > 0) {
       primaryResult.price = quote.currentPrice;
-      if (quote.name) primaryResult.name = quote.name;
+      if (quote.name && quote.name !== sym) primaryResult.name = quote.name;
     }
   } catch (e) {
     // Non-blocking

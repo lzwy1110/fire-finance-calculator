@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
+import path from 'path';
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient';
 
 dotenv.config();
@@ -9,7 +10,6 @@ const PORT = process.env.PORT || 3001;
 
 app.use(express.json({ limit: '10mb' }));
 
-// CORS middleware
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -20,11 +20,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// 1. 健康檢查與 Supabase 連線狀態
 app.get('/api/health', async (req: Request, res: Response) => {
   const configured = isSupabaseConfigured();
   let dbStatus = 'disconnected';
-  let message = 'Supabase 憑證未配置或未設定 (運行為離線/本地模式)';
+  let message = 'Supabase 憑證未配置 (可於前端輸入憑證或在 .env 中設定)';
 
   if (configured) {
     const supabase = getSupabaseClient();
@@ -33,14 +32,14 @@ app.get('/api/health', async (req: Request, res: Response) => {
         const { error } = await supabase.from('fire_configs').select('sync_code').limit(1);
         if (!error) {
           dbStatus = 'connected';
-          message = 'Supabase 資料庫連線正常！';
+          message = 'Supabase PostgreSQL 資料庫連線正常！';
         } else {
           dbStatus = 'error';
-          message = `Supabase 查詢測試異常: ${error.message}`;
+          message = `Supabase 測試查詢失敗: ${error.message}`;
         }
       } catch (err: any) {
         dbStatus = 'error';
-        message = `Supabase 連線失敗: ${err.message || err}`;
+        message = `Supabase 連線異常: ${err.message || err}`;
       }
     }
   }
@@ -56,7 +55,6 @@ app.get('/api/health', async (req: Request, res: Response) => {
   });
 });
 
-// 2. 取得指定 syncCode 的全量資料 (Full Backup Load)
 app.get('/api/data', async (req: Request, res: Response) => {
   const syncCode = (req.query.syncCode as string) || 'FIRE-DEFAULT-2026';
   const supabase = getSupabaseClient();
@@ -65,20 +63,19 @@ app.get('/api/data', async (req: Request, res: Response) => {
     return res.json({
       success: false,
       mode: 'offline',
-      message: 'Supabase 未配置，請於前端使用 LocalStorage 或填入憑證',
+      message: 'Supabase 未連線，使用本地 LocalStorage 數據',
     });
   }
 
   try {
-    // 併行查詢四張表
-    const [txRes, catRes, configRes, presetRes] = await Promise.all([
+    const [txRes, catRes, configRes, presetRes, portRes] = await Promise.all([
       supabase.from('transactions').select('*').eq('sync_code', syncCode).order('date', { ascending: false }),
       supabase.from('categories').select('*').eq('sync_code', syncCode),
-      supabase.from('fire_configs').select('*').eq('sync_code', syncCode).single(),
+      supabase.from('fire_configs').select('*').eq('sync_code', syncCode).maybeSingle(),
       supabase.from('quick_presets').select('*').eq('sync_code', syncCode),
+      supabase.from('portfolio_stocks').select('*').eq('sync_code', syncCode),
     ]);
 
-    // 格式轉換 (DB camel_case -> Frontend schema)
     const transactions = (txRes.data || []).map((t: any) => ({
       id: t.id,
       type: t.type,
@@ -129,6 +126,37 @@ app.get('/api/data', async (req: Request, res: Response) => {
       icon: p.icon,
     }));
 
+    let portfolioStocks = (portRes.data || []).map((s: any) => ({
+      id: s.id,
+      symbol: s.symbol,
+      name: s.name,
+      market: s.market || 'US',
+      shares: Number(s.shares),
+      avgCost: Number(s.avg_cost),
+      currentPrice: Number(s.current_price),
+      currency: s.currency || 'USD',
+      transactions: Array.isArray(s.transactions)
+        ? s.transactions
+        : typeof s.transactions === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(s.transactions);
+            } catch (e) {
+              return [];
+            }
+          })()
+        : [],
+    }));
+
+    if (portfolioStocks.length === 0 && configRes.data && configRes.data.portfolio_stocks_json) {
+      try {
+        const parsedFallback = JSON.parse(configRes.data.portfolio_stocks_json);
+        if (Array.isArray(parsedFallback)) {
+          portfolioStocks = parsedFallback;
+        }
+      } catch (e) {}
+    }
+
     return res.json({
       success: true,
       mode: 'supabase',
@@ -138,6 +166,7 @@ app.get('/api/data', async (req: Request, res: Response) => {
         categories: categories.length > 0 ? categories : null,
         fireConfig,
         quickPresets: quickPresets.length > 0 ? quickPresets : null,
+        portfolioStocks,
       },
     });
   } catch (err: any) {
@@ -146,9 +175,8 @@ app.get('/api/data', async (req: Request, res: Response) => {
   }
 });
 
-// 3. 全量備份同步 (Full Backup Push to Supabase)
 app.post('/api/data/sync', async (req: Request, res: Response) => {
-  const { syncCode, transactions, categories, fireConfig, quickPresets } = req.body;
+  const { syncCode, transactions, categories, fireConfig, quickPresets, portfolioStocks } = req.body;
   const targetSyncCode = syncCode || 'FIRE-DEFAULT-2026';
   const supabase = getSupabaseClient();
 
@@ -161,7 +189,6 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
   }
 
   try {
-    // 1. 同步 FIRE Config
     if (fireConfig) {
       await supabase.from('fire_configs').upsert({
         sync_code: targetSyncCode,
@@ -178,11 +205,11 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
         safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
         currency_symbol: fireConfig.currencySymbol,
         theme_color: fireConfig.themeColor || 'cyan',
+        portfolio_stocks_json: JSON.stringify(portfolioStocks || []),
         updated_at: new Date().toISOString(),
       });
     }
 
-    // 2. 同步 Categories
     if (Array.isArray(categories) && categories.length > 0) {
       const catRows = categories.map((c: any) => ({
         id: c.id,
@@ -197,25 +224,27 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
       await supabase.from('categories').upsert(catRows);
     }
 
-    // 3. 同步 Transactions
-    if (Array.isArray(transactions) && transactions.length > 0) {
-      const txRows = transactions.map((t: any) => ({
-        id: t.id,
-        sync_code: targetSyncCode,
-        type: t.type,
-        amount: t.amount,
-        main_category: t.mainCategory,
-        sub_category: t.subCategory || '',
-        date: t.date,
-        note: t.note || '',
-        tags: t.tags || [],
-        is_quick_preset: Boolean(t.isQuickPreset),
-        updated_at: new Date().toISOString(),
-      }));
-      await supabase.from('transactions').upsert(txRows);
+    if (Array.isArray(transactions)) {
+      if (transactions.length > 0) {
+        const txRows = transactions.map((t: any) => ({
+          id: t.id,
+          sync_code: targetSyncCode,
+          type: t.type,
+          amount: t.amount,
+          main_category: t.mainCategory,
+          sub_category: t.subCategory || '',
+          date: t.date,
+          note: t.note || '',
+          tags: t.tags || [],
+          is_quick_preset: Boolean(t.isQuickPreset),
+          updated_at: new Date().toISOString(),
+        }));
+        await supabase.from('transactions').upsert(txRows);
+      } else {
+        await supabase.from('transactions').delete().eq('sync_code', targetSyncCode);
+      }
     }
 
-    // 4. 同步 Quick Presets
     if (Array.isArray(quickPresets) && quickPresets.length > 0) {
       const presetRows = quickPresets.map((p: any) => ({
         id: p.id,
@@ -230,6 +259,31 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
       await supabase.from('quick_presets').upsert(presetRows);
     }
 
+    if (Array.isArray(portfolioStocks)) {
+      if (portfolioStocks.length > 0) {
+        const portRows = portfolioStocks.map((s: any) => ({
+          id: s.id,
+          sync_code: targetSyncCode,
+          symbol: s.symbol,
+          name: s.name,
+          market: s.market,
+          shares: s.shares,
+          avg_cost: s.avgCost,
+          current_price: s.currentPrice,
+          currency: s.currency,
+          transactions: s.transactions || [],
+          updated_at: new Date().toISOString(),
+        }));
+        try {
+          await supabase.from('portfolio_stocks').upsert(portRows);
+        } catch (e) {}
+      } else {
+        try {
+          await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
+        } catch (e) {}
+      }
+    }
+
     return res.json({
       success: true,
       mode: 'supabase',
@@ -242,100 +296,15 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
   }
 });
 
-// 4. 單筆/批次 交易 CRUD
-app.post('/api/transactions', async (req: Request, res: Response) => {
-  const { syncCode, transaction } = req.body;
-  const targetSyncCode = syncCode || 'FIRE-DEFAULT-2026';
-  const supabase = getSupabaseClient();
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
 
-  if (!supabase) {
-    return res.json({ success: false, mode: 'offline' });
-  }
-
-  try {
-    const row = {
-      id: transaction.id,
-      sync_code: targetSyncCode,
-      type: transaction.type,
-      amount: transaction.amount,
-      main_category: transaction.mainCategory,
-      sub_category: transaction.subCategory || '',
-      date: transaction.date,
-      note: transaction.note || '',
-      tags: transaction.tags || [],
-      is_quick_preset: Boolean(transaction.isQuickPreset),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabase.from('transactions').upsert(row);
-    if (error) throw error;
-
-    return res.json({ success: true, mode: 'supabase' });
-  } catch (err: any) {
-    console.error('[API /api/transactions Error]:', err);
-    return res.status(500).json({ success: false, error: err.message || err });
-  }
+app.get('*', (req: Request, res: Response) => {
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.delete('/api/transactions/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const syncCode = (req.query.syncCode as string) || 'FIRE-DEFAULT-2026';
-  const supabase = getSupabaseClient();
-
-  if (!supabase) {
-    return res.json({ success: false, mode: 'offline' });
-  }
-
-  try {
-    const { error } = await supabase.from('transactions').delete().eq('id', id).eq('sync_code', syncCode);
-    if (error) throw error;
-
-    return res.json({ success: true, mode: 'supabase' });
-  } catch (err: any) {
-    console.error('[API /api/transactions delete Error]:', err);
-    return res.status(500).json({ success: false, error: err.message || err });
-  }
-});
-
-// 5. 單獨儲存 FIRE Config
-app.post('/api/config', async (req: Request, res: Response) => {
-  const { syncCode, config } = req.body;
-  const targetSyncCode = syncCode || 'FIRE-DEFAULT-2026';
-  const supabase = getSupabaseClient();
-
-  if (!supabase) {
-    return res.json({ success: false, mode: 'offline' });
-  }
-
-  try {
-    const { error } = await supabase.from('fire_configs').upsert({
-      sync_code: targetSyncCode,
-      current_age: config.currentAge,
-      target_retirement_age: config.targetRetirementAge,
-      current_net_worth: config.currentNetWorth,
-      monthly_income: config.monthlyIncome,
-      monthly_expenses: config.monthlyExpenses,
-      monthly_tax: config.monthlyTax,
-      monthly_investment: config.monthlyInvestment,
-      target_annual_expense_post_retirement: config.targetAnnualExpensePostRetirement,
-      expected_investment_return_rate: config.expectedInvestmentReturnRate,
-      expected_inflation_rate: config.expectedInflationRate,
-      safe_withdrawal_rate: config.safeWithdrawalRate,
-      currency_symbol: config.currencySymbol,
-      theme_color: config.themeColor || 'cyan',
-      updated_at: new Date().toISOString(),
-    });
-
-    if (error) throw error;
-    return res.json({ success: true, mode: 'supabase' });
-  } catch (err: any) {
-    console.error('[API /api/config Error]:', err);
-    return res.status(500).json({ success: false, error: err.message || err });
-  }
-});
-
-// 啟動 Express HTTP 伺服器
 app.listen(PORT, () => {
-  console.log(`🚀 FIRE Flow Full-Stack Backend API Server is running on http://localhost:${PORT}`);
-  console.log(`📡 Supabase database status: ${isSupabaseConfigured() ? '✅ Configured' : '⚠️ Offline/Local Mode'}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
+
+export default app;

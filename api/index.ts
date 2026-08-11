@@ -66,11 +66,12 @@ app.get('/api/data', async (req: Request, res: Response) => {
   }
 
   try {
-    const [txRes, catRes, configRes, presetRes] = await Promise.all([
+    const [txRes, catRes, configRes, presetRes, portRes] = await Promise.all([
       supabase.from('transactions').select('*').eq('sync_code', syncCode).order('date', { ascending: false }),
       supabase.from('categories').select('*').eq('sync_code', syncCode),
       supabase.from('fire_configs').select('*').eq('sync_code', syncCode).maybeSingle(),
       supabase.from('quick_presets').select('*').eq('sync_code', syncCode),
+      supabase.from('portfolio_stocks').select('*').eq('sync_code', syncCode),
     ]);
 
     const transactions = (txRes.data || []).map((t: any) => ({
@@ -123,6 +124,37 @@ app.get('/api/data', async (req: Request, res: Response) => {
       icon: p.icon,
     }));
 
+    let portfolioStocks = (portRes.data || []).map((s: any) => ({
+      id: s.id,
+      symbol: s.symbol,
+      name: s.name,
+      market: s.market || 'US',
+      shares: Number(s.shares),
+      avgCost: Number(s.avg_cost),
+      currentPrice: Number(s.current_price),
+      currency: s.currency || 'USD',
+      transactions: Array.isArray(s.transactions)
+        ? s.transactions
+        : typeof s.transactions === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(s.transactions);
+            } catch (e) {
+              return [];
+            }
+          })()
+        : [],
+    }));
+
+    if (portfolioStocks.length === 0 && configRes.data && configRes.data.portfolio_stocks_json) {
+      try {
+        const parsedFallback = JSON.parse(configRes.data.portfolio_stocks_json);
+        if (Array.isArray(parsedFallback)) {
+          portfolioStocks = parsedFallback;
+        }
+      } catch (e) {}
+    }
+
     return res.json({
       success: true,
       mode: 'supabase',
@@ -132,6 +164,7 @@ app.get('/api/data', async (req: Request, res: Response) => {
         categories: catRes.error ? null : (categories.length > 0 ? categories : null),
         fireConfig,
         quickPresets: presetRes.error ? null : (quickPresets.length > 0 ? quickPresets : null),
+        portfolioStocks: portRes.error && portfolioStocks.length === 0 ? null : portfolioStocks,
       },
     });
   } catch (err: any) {
@@ -140,7 +173,7 @@ app.get('/api/data', async (req: Request, res: Response) => {
 });
 
 app.post('/api/data/sync', async (req: Request, res: Response) => {
-  const { syncCode, transactions, categories, fireConfig, quickPresets } = req.body;
+  const { syncCode, transactions, categories, fireConfig, quickPresets, portfolioStocks } = req.body;
   const targetSyncCode = syncCode || 'FIRE-DEFAULT-2026';
   const supabase = getSupabaseClient();
 
@@ -169,6 +202,7 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
         safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
         currency_symbol: fireConfig.currencySymbol,
         theme_color: fireConfig.themeColor || 'cyan',
+        portfolio_stocks_json: JSON.stringify(portfolioStocks || []),
         updated_at: new Date().toISOString(),
       });
     }
@@ -220,6 +254,31 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
         updated_at: new Date().toISOString(),
       }));
       await supabase.from('quick_presets').upsert(presetRows);
+    }
+
+    if (Array.isArray(portfolioStocks)) {
+      if (portfolioStocks.length > 0) {
+        const portRows = portfolioStocks.map((s: any) => ({
+          id: s.id,
+          sync_code: targetSyncCode,
+          symbol: s.symbol,
+          name: s.name,
+          market: s.market,
+          shares: s.shares,
+          avg_cost: s.avgCost,
+          current_price: s.currentPrice,
+          currency: s.currency,
+          transactions: s.transactions || [],
+          updated_at: new Date().toISOString(),
+        }));
+        try {
+          await supabase.from('portfolio_stocks').upsert(portRows);
+        } catch (e) {}
+      } else {
+        try {
+          await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
+        } catch (e) {}
+      }
     }
 
     return res.json({

@@ -113,6 +113,32 @@ export default function App() {
     applyThemeToCSSVariables(fireConfig.themeColor);
   }, [fireConfig.themeColor]);
 
+  // Real-Time Multi-Device Auto-Sync Listener: Window Focus + 20s Polling + Tab Switch
+  useEffect(() => {
+    const handleFocus = () => {
+      handleRefreshAllData();
+    };
+    window.addEventListener('focus', handleFocus);
+    const handleVis = () => {
+      if (document.visibilityState === 'visible') handleFocus();
+    };
+    document.addEventListener('visibilitychange', handleVis);
+
+    const pollInterval = setInterval(() => {
+      handleRefreshAllData();
+    }, 20000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVis);
+      clearInterval(pollInterval);
+    };
+  }, []);
+
+  useEffect(() => {
+    handleRefreshAllData();
+  }, [activeTab]);
+
   // Two-way Sync: Push App Transactions to Android Widget Bridge so Widget "Today Expense" is 100% identical to App Database!
   useEffect(() => {
     if (transactions) {
