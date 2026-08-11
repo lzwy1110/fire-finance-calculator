@@ -173,16 +173,17 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setMarketInput(item.market);
     setShowSuggestions(false);
 
-    // Auto fetch live quote in background
-    setRefreshStatus(`正在取得 ${item.symbol} 最新價格...`);
+    // Auto fetch live quote for selected stock immediately
+    setRefreshStatus(`正在獲取 ${item.symbol} 最新成交價格...`);
     const quote = await fetchSingleStockQuote(item.symbol, item.market);
     if (quote && quote.currentPrice > 0) {
       setPriceInput(quote.currentPrice);
-      setRefreshStatus(`✅ 找到 ${item.symbol} 最新價 $${quote.currentPrice}`);
+      if (quote.name) setNameInput(quote.name);
+      setRefreshStatus(`✅ 已獲取 ${item.symbol} 最新市價 $${quote.currentPrice}`);
     } else {
       setRefreshStatus(null);
     }
-    setTimeout(() => setRefreshStatus(null), 2500);
+    setTimeout(() => setRefreshStatus(null), 2000);
   };
 
   // Open Modal for Add (Blank Inputs for Easy Typing)
@@ -213,15 +214,26 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setIsAddModalOpen(true);
   };
 
-  // Save Stock (Add / Edit) with Instant Modal Close & Background Fetch
-  const handleSaveStock = (e: React.FormEvent) => {
+  // Save Stock (Add / Edit) with Reliable Price Fetching
+  const handleSaveStock = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanSym = symbolInput.trim().toUpperCase();
     const parsedShares = parseFloat(sharesInput) || 0;
     const parsedCost = parseFloat(costInput) || 0;
     if (!cleanSym || parsedShares <= 0) return;
 
-    const initialPrice = priceInput > 0 ? priceInput : parsedCost;
+    let initialPrice = priceInput;
+
+    // If price wasn't fetched yet (priceInput is 0), fetch live quote before saving!
+    if (initialPrice <= 0) {
+      setRefreshStatus(`正在連線獲取 ${cleanSym} 最新價格...`);
+      const quote = await fetchSingleStockQuote(cleanSym, marketInput);
+      if (quote && quote.currentPrice > 0) {
+        initialPrice = quote.currentPrice;
+      } else {
+        initialPrice = parsedCost;
+      }
+    }
 
     const stockData: PortfolioStock = {
       id: editingStock ? editingStock.id : `port-${Date.now()}`,
@@ -235,7 +247,6 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       lastUpdated: new Date().toISOString(),
     };
 
-    // Update state instantly and close modal
     let updatedList: PortfolioStock[];
     if (editingStock) {
       updatedList = stocks.map((s) => (s.id === editingStock.id ? stockData : s));
@@ -243,17 +254,20 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       updatedList = [stockData, ...stocks];
     }
     onUpdateStocks(updatedList);
+    setRefreshStatus(null);
     setIsAddModalOpen(false);
 
-    // Background fetch live quote for the newly saved stock
-    fetchSingleStockQuote(cleanSym, marketInput).then((quote) => {
-      if (quote && quote.currentPrice > 0) {
-        const refreshedList = updatedList.map((s) =>
-          s.symbol === cleanSym ? { ...s, currentPrice: quote.currentPrice, name: quote.name || s.name } : s
-        );
-        onUpdateStocks(refreshedList);
-      }
-    });
+    // If price was fallback, attempt background update
+    if (initialPrice === parsedCost) {
+      fetchSingleStockQuote(cleanSym, marketInput).then((quote) => {
+        if (quote && quote.currentPrice > 0) {
+          const refreshedList = updatedList.map((s) =>
+            s.symbol === cleanSym ? { ...s, currentPrice: quote.currentPrice, name: quote.name || s.name } : s
+          );
+          onUpdateStocks(refreshedList);
+        }
+      });
+    }
   };
 
   // Delete Stock

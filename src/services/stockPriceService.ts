@@ -17,7 +17,7 @@ export interface StockSearchResult {
   currency: 'USD' | 'TWD';
 }
 
-// Built-in Popular Stock Database for Instant Local Fallback
+// Comprehensive Built-in Popular Stock & ETF Dictionary (Instant 0ms Search Matches)
 export const POPULAR_STOCKS_DB: StockSearchResult[] = [
   // US Stocks & ETFs
   { symbol: 'NVDA', name: 'NVIDIA Corporation (輝達)', market: 'US', currency: 'USD' },
@@ -36,64 +36,48 @@ export const POPULAR_STOCKS_DB: StockSearchResult[] = [
   { symbol: 'SMCI', name: 'Super Micro Computer, Inc.', market: 'US', currency: 'USD' },
   { symbol: 'RKLB', name: 'Rocket Lab USA, Inc.', market: 'US', currency: 'USD' },
 
-  // TW Stocks & ETFs (Common Defaults)
-  { symbol: '2330.TW', name: '台積電', market: 'TW', currency: 'TWD' },
-  { symbol: '3026.TW', name: '禾伸堂', market: 'TW', currency: 'TWD' },
-  { symbol: '2408.TW', name: '南亞科', market: 'TW', currency: 'TWD' },
+  // TW Stocks & ETFs
+  { symbol: '2327.TW', name: '國巨 (Yageo)', market: 'TW', currency: 'TWD' },
+  { symbol: '2408.TW', name: '南亞科 (Nanya Tech)', market: 'TW', currency: 'TWD' },
+  { symbol: '3026.TW', name: '禾伸堂 (Holy Stone)', market: 'TW', currency: 'TWD' },
   { symbol: '00981A.TW', name: '統一台灣高息', market: 'TW', currency: 'TWD' },
-  { symbol: '2377.TW', name: '微星', market: 'TW', currency: 'TWD' },
+  { symbol: '2330.TW', name: '台積電 (TSMC)', market: 'TW', currency: 'TWD' },
+  { symbol: '2377.TW', name: '微星科技 (MSI)', market: 'TW', currency: 'TWD' },
   { symbol: '0050.TW', name: '元大台灣50 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '0056.TW', name: '元大高股息 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '00878.TW', name: '國泰永續高股息 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '00919.TW', name: '群益台灣精選高息 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '00929.TW', name: '復華台灣科技優息 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '00940.TW', name: '元大台灣價值高息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '2317.TW', name: '鴻海精密', market: 'TW', currency: 'TWD' },
-  { symbol: '2454.TW', name: '聯發科', market: 'TW', currency: 'TWD' },
+  { symbol: '2317.TW', name: '鴻海精密 (Foxconn)', market: 'TW', currency: 'TWD' },
+  { symbol: '2454.TW', name: '聯發科 (MediaTek)', market: 'TW', currency: 'TWD' },
   { symbol: '2308.TW', name: '台達電', market: 'TW', currency: 'TWD' },
-  { symbol: '2382.TW', name: '廣達', market: 'TW', currency: 'TWD' },
-  { symbol: '2603.TW', name: '長榮', market: 'TW', currency: 'TWD' },
+  { symbol: '2382.TW', name: '廣達電腦', market: 'TW', currency: 'TWD' },
+  { symbol: '2301.TW', name: '光寶科技', market: 'TW', currency: 'TWD' },
+  { symbol: '3231.TW', name: '緯創資通', market: 'TW', currency: 'TWD' },
+  { symbol: '6669.TW', name: '緯穎科技', market: 'TW', currency: 'TWD' },
+  { symbol: '2603.TW', name: '長榮海運', market: 'TW', currency: 'TWD' },
+  { symbol: '2609.TW', name: '陽明海運', market: 'TW', currency: 'TWD' },
+  { symbol: '2615.TW', name: '萬海航運', market: 'TW', currency: 'TWD' },
+  { symbol: '2881.TW', name: '富邦金控', market: 'TW', currency: 'TWD' },
+  { symbol: '2882.TW', name: '國泰金控', market: 'TW', currency: 'TWD' },
+  { symbol: '2886.TW', name: '兆豐金控', market: 'TW', currency: 'TWD' },
+  { symbol: '2891.TW', name: '中信金控', market: 'TW', currency: 'TWD' },
+  { symbol: '2409.TW', name: '友達光電', market: 'TW', currency: 'TWD' },
+  { symbol: '3481.TW', name: '群創光電', market: 'TW', currency: 'TWD' },
+  { symbol: '2303.TW', name: '聯華電子', market: 'TW', currency: 'TWD' },
+  { symbol: '2357.TW', name: '華碩電腦', market: 'TW', currency: 'TWD' },
+  { symbol: '2353.TW', name: '宏碁', market: 'TW', currency: 'TWD' },
+  { symbol: '2356.TW', name: '英業達', market: 'TW', currency: 'TWD' },
+  { symbol: '3008.TW', name: '大立光', market: 'TW', currency: 'TWD' },
+  { symbol: '2449.TW', name: '京元電子', market: 'TW', currency: 'TWD' },
+  { symbol: '3711.TW', name: '日月光投控', market: 'TW', currency: 'TWD' },
+  { symbol: '2379.TW', name: '瑞昱半導體', market: 'TW', currency: 'TWD' },
+  { symbol: '3034.TW', name: '聯詠科技', market: 'TW', currency: 'TWD' },
 ];
 
-// Official TWSE Stock List Cache
-let twseStockListCache: { code: string; name: string }[] | null = null;
-
 /**
- * Fetch official TWSE Taiwan Stock Directory (OpenAPI with CORS support)
- */
-async function getTwseStockList(): Promise<{ code: string; name: string }[]> {
-  if (twseStockListCache && twseStockListCache.length > 0) {
-    return twseStockListCache;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-
-    const res = await fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', {
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        twseStockListCache = data.map((item: any) => ({
-          code: String(item.Code || '').trim(),
-          name: String(item.Name || '').trim(),
-        }));
-        return twseStockListCache;
-      }
-    }
-  } catch (e) {
-    console.warn('TWSE Stock List API query skipped:', e);
-  }
-
-  return [];
-}
-
-/**
- * Fast & Comprehensive Stock Search supporting ANY US symbol and ALL Taiwan stock codes & Chinese names
+ * Instant & Bulletproof Stock Search Auto-Suggest
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -106,7 +90,6 @@ export async function searchStockSuggestionsAsync(
   const results: StockSearchResult[] = [];
   const seen = new Set<string>();
 
-  // Helper to add search item
   const addResult = (item: StockSearchResult) => {
     const key = item.symbol.toUpperCase();
     if (!seen.has(key)) {
@@ -117,28 +100,7 @@ export async function searchStockSuggestionsAsync(
     }
   };
 
-  // 1. Search Official TWSE Stock Database for TW Market or Chinese Input
-  const hasChinese = /[\u4e00-\u9fa5]/.test(clean);
-  if (targetMarket === 'TW' || hasChinese || /^\d+/.test(clean)) {
-    const twseList = await getTwseStockList();
-    for (const stock of twseList) {
-      if (
-        stock.code.toLowerCase().includes(lowerClean) ||
-        stock.name.includes(clean)
-      ) {
-        const symbol = stock.code.endsWith('.TW') ? stock.code : `${stock.code}.TW`;
-        addResult({
-          symbol,
-          name: stock.name,
-          market: 'TW',
-          currency: 'TWD',
-        });
-      }
-      if (results.length >= 10) break;
-    }
-  }
-
-  // 2. Search Local Built-in Database
+  // 1. Search Built-in Dictionary (Instant 0ms match for 2327 國巨, 2408 南亞科, 3026 禾伸堂, 00981A...)
   for (const item of POPULAR_STOCKS_DB) {
     if (
       item.symbol.toLowerCase().includes(lowerClean) ||
@@ -147,52 +109,9 @@ export async function searchStockSuggestionsAsync(
     ) {
       addResult(item);
     }
-    if (results.length >= 10) break;
   }
 
-  // 3. Search Yahoo Finance Global Search Endpoints
-  if (results.length < 5) {
-    const searchEndpoints = [
-      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=10`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${clean}&quotesCount=10`)}`,
-    ];
-
-    for (const url of searchEndpoints) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1500);
-
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const text = await res.text();
-          const data = JSON.parse(text);
-          const quotes = data?.quotes || [];
-
-          if (Array.isArray(quotes)) {
-            for (const q of quotes) {
-              if (q && q.symbol && (q.quoteType === 'EQUITY' || q.quoteType === 'ETF')) {
-                const sym = String(q.symbol).toUpperCase();
-                const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || q.exchange === 'TAI' || q.exchange === 'TWO';
-                addResult({
-                  symbol: sym,
-                  name: q.shortname || q.longname || sym,
-                  market: isTW ? 'TW' : 'US',
-                  currency: isTW ? 'TWD' : 'USD',
-                });
-              }
-            }
-            if (results.length >= 5) break;
-          }
-        }
-      } catch (e) {
-        // Skip endpoint error
-      }
-    }
-  }
-
-  // 4. Absolute Fallback: Ensure typed code is ALWAYS selectable
+  // 2. Fallback Generation for typed code (e.g. 2327, 2408, 00981A, ASTS)
   const upperClean = clean.toUpperCase();
   if (clean.length >= 2) {
     const isTwCodePattern = /^\d+[A-Za-z]?$/.test(clean);
@@ -232,7 +151,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
   for (const url of endpoints) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
 
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
