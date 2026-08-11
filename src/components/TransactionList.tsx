@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Trash2, Download, Plus, ReceiptText, RefreshCw, RotateCcw, Cloud } from 'lucide-react';
 import { CategoryItem, FIREConfig, Transaction } from '../types';
 import { getThemePreset } from '../utils/theme';
+import { ConfirmModal } from './ConfirmModal';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -31,6 +32,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Deletion Confirm Modal state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; amount: number } | null>(null);
 
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
@@ -269,7 +273,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                       </td>
                       <td className="p-3 sm:p-4 text-center whitespace-nowrap">
                         <button
-                          onClick={() => onDeleteTransaction(t.id)}
+                          onClick={() => setDeleteTarget({ id: t.id, name: `${t.mainCategory} (${t.subCategory})`, amount: t.amount })}
                           className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition cursor-pointer"
                           title="刪除這筆紀錄"
                         >
@@ -284,6 +288,21 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Styled Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="確定要刪除這筆收支紀錄？"
+        message={`確定要刪除紀錄「${deleteTarget?.name} - ${sym} ${formatNum(deleteTarget?.amount || 0)}」嗎？刪除後資料將無法復原。`}
+        confirmText="確定刪除"
+        cancelText="取消"
+        onConfirm={() => {
+          if (deleteTarget) {
+            onDeleteTransaction(deleteTarget.id);
+          }
+        }}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   );
 };

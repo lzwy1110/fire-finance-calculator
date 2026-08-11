@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../types';
 import { getThemePreset } from '../utils/theme';
+import { ConfirmModal } from './ConfirmModal';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
@@ -326,41 +327,64 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
   };
 
-  // Delete Single Transaction Record
+  // Confirm Modal state for deleting stocks or single trade logs
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // Delete Single Transaction Record with Styled Confirmation
   const handleDeleteTransaction = (stockId: string, txId: string) => {
     const targetStock = syncedStocks.find((s) => s.id === stockId);
     if (!targetStock) return;
 
-    if (window.confirm('確定要刪除這筆買賣交易明細嗎？')) {
-      const remainingTx = targetStock.transactions.filter((t) => t.id !== txId);
-      const updatedStock = syncStockCalculations({
-        ...targetStock,
-        transactions: remainingTx,
-      });
+    const targetTx = targetStock.transactions.find((t) => t.id === txId);
+    const txDesc = targetTx ? `${targetTx.type === 'BUY' ? '買入' : '賣出'} ${targetTx.shares} 股 @ $${targetTx.price}` : '這筆交易';
 
-      let updatedList: PortfolioStock[];
-      if (remainingTx.length === 0 && updatedStock.shares === 0) {
-        // Remove stock entirely if no transactions left
-        updatedList = syncedStocks.filter((s) => s.id !== stockId);
-        setActiveHistoryStock(null);
-      } else {
-        updatedList = syncedStocks.map((s) => (s.id === stockId ? updatedStock : s));
-        setActiveHistoryStock(updatedStock);
-      }
+    setConfirmModal({
+      isOpen: true,
+      title: '確定要刪除這筆交易明細？',
+      message: `確定要刪除股票「${targetStock.name} (${targetStock.symbol})」的 ${txDesc} 交易紀錄嗎？刪除後持股與買入均價將重新計算。`,
+      onConfirm: () => {
+        const remainingTx = targetStock.transactions.filter((t) => t.id !== txId);
+        const updatedStock = syncStockCalculations({
+          ...targetStock,
+          transactions: remainingTx,
+        });
 
-      onUpdateStocks(updatedList);
-    }
+        let updatedList: PortfolioStock[];
+        if (remainingTx.length === 0 && updatedStock.shares === 0) {
+          updatedList = syncedStocks.filter((s) => s.id !== stockId);
+          setActiveHistoryStock(null);
+        } else {
+          updatedList = syncedStocks.map((s) => (s.id === stockId ? updatedStock : s));
+          setActiveHistoryStock(updatedStock);
+        }
+
+        onUpdateStocks(updatedList);
+      },
+    });
   };
 
-  // Delete Entire Stock Card
+  // Delete Entire Stock Card with Styled Confirmation
   const handleDeleteStockEntirely = (id: string) => {
-    if (window.confirm('確定要整檔刪除此股票及所有交易紀錄嗎？')) {
-      const updated = syncedStocks.filter((s) => s.id !== id);
-      onUpdateStocks(updated);
-      if (activeHistoryStock?.id === id) {
-        setActiveHistoryStock(null);
-      }
-    }
+    const targetStock = syncedStocks.find((s) => s.id === id);
+    const stockName = targetStock ? `${targetStock.name} (${targetStock.symbol})` : '這檔股票';
+
+    setConfirmModal({
+      isOpen: true,
+      title: '確定要整檔刪除此股票嗎？',
+      message: `確定要整檔刪除「${stockName}」及其所有歷史買賣交易對帳紀錄嗎？刪除後資料將無法復原。`,
+      onConfirm: () => {
+        const updated = syncedStocks.filter((s) => s.id !== id);
+        onUpdateStocks(updated);
+        if (activeHistoryStock?.id === id) {
+          setActiveHistoryStock(null);
+        }
+      },
+    });
   };
 
   return (
@@ -1029,6 +1053,21 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Styled Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(confirmModal?.isOpen)}
+        title={confirmModal?.title || '確定要刪除？'}
+        message={confirmModal?.message || ''}
+        confirmText="確定刪除"
+        cancelText="取消"
+        onConfirm={() => {
+          if (confirmModal?.onConfirm) {
+            confirmModal.onConfirm();
+          }
+        }}
+        onClose={() => setConfirmModal(null)}
+      />
     </div>
   );
 };
