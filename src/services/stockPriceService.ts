@@ -18,7 +18,7 @@ export interface StockSearchResult {
   price?: number;
 }
 
-// Built-in Comprehensive Stock & ETF Name Dictionary
+// Comprehensive Built-in Dictionary for US & TW Stocks
 export const KNOWN_STOCK_NAMES: Record<string, string> = {
   // TW Stocks & ETFs
   '2377': '微星 (MSI)',
@@ -91,38 +91,6 @@ export const KNOWN_STOCK_NAMES: Record<string, string> = {
   '3008.TW': '大立光',
   '2449': '京元電子',
   '2449.TW': '京元電子',
-  '3711': '日月光投控',
-  '3711.TW': '日月光投控',
-  '2379': '瑞昱半導體',
-  '2379.TW': '瑞昱半導體',
-  '3034': '聯詠科技',
-  '3034.TW': '聯詠科技',
-  '1101': '台泥',
-  '1101.TW': '台泥',
-  '1102': '亞泥',
-  '1102.TW': '亞泥',
-  '1216': '統一',
-  '1216.TW': '統一',
-  '1301': '台塑',
-  '1301.TW': '台塑',
-  '1303': '南亞',
-  '1303.TW': '南亞',
-  '2002': '中鋼',
-  '2002.TW': '中鋼',
-  '2412': '中華電信',
-  '2412.TW': '中華電信',
-  '2884': '玉山金控',
-  '2884.TW': '玉山金控',
-  '2885': '元大金控',
-  '2885.TW': '元大金控',
-  '2892': '第一金控',
-  '2892.TW': '第一金控',
-  '2912': '統一超商',
-  '2912.TW': '統一超商',
-  '3045': '台灣大哥大',
-  '3045.TW': '台灣大哥大',
-  '4904': '遠傳電信',
-  '4904.TW': '遠傳電信',
 
   // US Stocks & ETFs
   'NVDA': '輝達 (NVIDIA)',
@@ -142,7 +110,6 @@ export const KNOWN_STOCK_NAMES: Record<string, string> = {
   'RKLB': 'Rocket Lab',
 };
 
-// Built-in Database for Instant Search
 export const POPULAR_STOCKS_DB: StockSearchResult[] = Object.entries(KNOWN_STOCK_NAMES).map(([key, name]) => {
   const isTW = key.endsWith('.TW') || /^\d+[A-Za-z]?$/.test(key);
   const symbol = isTW && !key.endsWith('.TW') ? `${key}.TW` : key;
@@ -155,19 +122,79 @@ export const POPULAR_STOCKS_DB: StockSearchResult[] = Object.entries(KNOWN_STOCK
 });
 
 /**
- * Fetch Single Stock Quote from Direct Yahoo Finance Endpoints
+ * Official MIS TWSE / TPEX Real-Time Taiwan Stock Quote Fetcher
+ */
+async function fetchTaiwanStockQuote(symbol: string): Promise<StockQuote | null> {
+  const rawCode = symbol.trim().toUpperCase().replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+  if (!rawCode) return null;
+
+  const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${rawCode}.tw|otc_${rawCode}.two`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      const items = data?.msgArray;
+
+      if (Array.isArray(items) && items.length > 0) {
+        const match = items.find((it: any) => it && (it.z !== '-' || it.y !== '-' || it.o !== '-'));
+        const item = match || items[0];
+
+        if (item) {
+          const livePrice = parseFloat(item.z) || parseFloat(item.y) || parseFloat(item.o) || parseFloat(item.a?.split('_')?.[0]) || 0;
+          const prevClose = parseFloat(item.y) || livePrice;
+          const change = livePrice - prevClose;
+          const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+          const resolvedName = KNOWN_STOCK_NAMES[rawCode] || item.n || item.nf || rawCode;
+
+          if (livePrice > 0) {
+            return {
+              symbol: `${rawCode}.TW`,
+              currentPrice: livePrice,
+              previousClose: prevClose,
+              change,
+              changePercent,
+              currency: 'TWD',
+              name: resolvedName,
+            };
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`MIS TWSE Fetch error for ${rawCode}:`, e);
+  }
+
+  return null;
+}
+
+/**
+ * Fetch Single Stock Quote (Official TWSE MIS for TW, Direct Yahoo Chart for US)
  */
 export async function fetchSingleStockQuote(symbol: string, market: MarketType): Promise<StockQuote | null> {
   const cleanSymbol = symbol.trim().toUpperCase();
   if (!cleanSymbol) return null;
 
+  // 1. If Taiwan Stock, query MIS TWSE Official Real-Time API
+  if (market === 'TW') {
+    const twQuote = await fetchTaiwanStockQuote(cleanSymbol);
+    if (twQuote && twQuote.currentPrice > 0) {
+      return twQuote;
+    }
+  }
+
+  // 2. Query Yahoo Finance Direct Endpoints
   const rawCode = cleanSymbol.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   let yahooSymbol = cleanSymbol;
   if (market === 'TW' && !yahooSymbol.endsWith('.TW') && !yahooSymbol.endsWith('.TWO')) {
     yahooSymbol = `${rawCode}.TW`;
   }
 
-  // Direct Endpoints (CapacitorHttp routes natively, bypassing WebView CORS!)
   const endpoints = [
     `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
     `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
@@ -214,7 +241,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 }
 
 /**
- * 100% Reliable Search Auto-Suggest (Instant 0ms Name Resolution)
+ * Fast Search Auto-Suggest with Instant Real-Time Quote Resolution
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -251,7 +278,7 @@ export async function searchStockSuggestionsAsync(
     if (results.length >= 8) break;
   }
 
-  // 2. Candidate Fallback Generation for new codes
+  // 2. Candidate Fallback Generation for typed code
   const isTw = targetMarket === 'TW' || /^\d+[A-Za-z]?$/.test(clean);
   const sym = isTw && !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
   const mkt: MarketType = isTw ? 'TW' : 'US';
@@ -266,7 +293,7 @@ export async function searchStockSuggestionsAsync(
     });
   }
 
-  // 3. Background fetch live quote to attach real-time market price
+  // 3. Fetch Live Quote for the top candidate to attach live market price
   if (results.length > 0) {
     const topItem = results[0];
     try {
