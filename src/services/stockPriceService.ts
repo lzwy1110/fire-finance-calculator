@@ -15,123 +15,11 @@ export interface StockSearchResult {
   name: string;
   market: MarketType;
   currency: 'USD' | 'TWD';
-}
-
-// Comprehensive Built-in Popular Stock & ETF Dictionary (Instant 0ms Search Matches)
-export const POPULAR_STOCKS_DB: StockSearchResult[] = [
-  // US Stocks & ETFs
-  { symbol: 'NVDA', name: 'NVIDIA Corporation (輝達)', market: 'US', currency: 'USD' },
-  { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', market: 'US', currency: 'USD' },
-  { symbol: 'AAPL', name: 'Apple Inc. (蘋果)', market: 'US', currency: 'USD' },
-  { symbol: 'ASTS', name: 'AST SpaceMobile, Inc.', market: 'US', currency: 'USD' },
-  { symbol: 'SPCX', name: 'Space Exploration Technologies (SpaceX)', market: 'US', currency: 'USD' },
-  { symbol: 'TSLA', name: 'Tesla, Inc. (特斯拉)', market: 'US', currency: 'USD' },
-  { symbol: 'QQQ', name: 'Invesco QQQ Trust (納斯達克100)', market: 'US', currency: 'USD' },
-  { symbol: 'MSFT', name: 'Microsoft Corporation (微軟)', market: 'US', currency: 'USD' },
-  { symbol: 'AMZN', name: 'Amazon.com, Inc. (亞馬遜)', market: 'US', currency: 'USD' },
-  { symbol: 'GOOGL', name: 'Alphabet Inc. (Google)', market: 'US', currency: 'USD' },
-  { symbol: 'META', name: 'Meta Platforms, Inc. (臉書)', market: 'US', currency: 'USD' },
-  { symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', market: 'US', currency: 'USD' },
-  { symbol: 'PLTR', name: 'Palantir Technologies Inc.', market: 'US', currency: 'USD' },
-  { symbol: 'SMCI', name: 'Super Micro Computer, Inc.', market: 'US', currency: 'USD' },
-  { symbol: 'RKLB', name: 'Rocket Lab USA, Inc.', market: 'US', currency: 'USD' },
-
-  // TW Stocks & ETFs
-  { symbol: '2327.TW', name: '國巨 (Yageo)', market: 'TW', currency: 'TWD' },
-  { symbol: '2408.TW', name: '南亞科 (Nanya Tech)', market: 'TW', currency: 'TWD' },
-  { symbol: '3026.TW', name: '禾伸堂 (Holy Stone)', market: 'TW', currency: 'TWD' },
-  { symbol: '00981A.TW', name: '統一台灣高息', market: 'TW', currency: 'TWD' },
-  { symbol: '2330.TW', name: '台積電 (TSMC)', market: 'TW', currency: 'TWD' },
-  { symbol: '2377.TW', name: '微星科技 (MSI)', market: 'TW', currency: 'TWD' },
-  { symbol: '0050.TW', name: '元大台灣50 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '0056.TW', name: '元大高股息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '00878.TW', name: '國泰永續高股息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '00919.TW', name: '群益台灣精選高息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '00929.TW', name: '復華台灣科技優息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '00940.TW', name: '元大台灣價值高息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '2317.TW', name: '鴻海精密 (Foxconn)', market: 'TW', currency: 'TWD' },
-  { symbol: '2454.TW', name: '聯發科 (MediaTek)', market: 'TW', currency: 'TWD' },
-  { symbol: '2308.TW', name: '台達電', market: 'TW', currency: 'TWD' },
-  { symbol: '2382.TW', name: '廣達電腦', market: 'TW', currency: 'TWD' },
-  { symbol: '2301.TW', name: '光寶科技', market: 'TW', currency: 'TWD' },
-  { symbol: '3231.TW', name: '緯創資通', market: 'TW', currency: 'TWD' },
-  { symbol: '6669.TW', name: '緯穎科技', market: 'TW', currency: 'TWD' },
-  { symbol: '2603.TW', name: '長榮海運', market: 'TW', currency: 'TWD' },
-  { symbol: '2609.TW', name: '陽明海運', market: 'TW', currency: 'TWD' },
-  { symbol: '2615.TW', name: '萬海航運', market: 'TW', currency: 'TWD' },
-  { symbol: '2881.TW', name: '富邦金控', market: 'TW', currency: 'TWD' },
-  { symbol: '2882.TW', name: '國泰金控', market: 'TW', currency: 'TWD' },
-  { symbol: '2886.TW', name: '兆豐金控', market: 'TW', currency: 'TWD' },
-  { symbol: '2891.TW', name: '中信金控', market: 'TW', currency: 'TWD' },
-  { symbol: '2409.TW', name: '友達光電', market: 'TW', currency: 'TWD' },
-  { symbol: '3481.TW', name: '群創光電', market: 'TW', currency: 'TWD' },
-  { symbol: '2303.TW', name: '聯華電子', market: 'TW', currency: 'TWD' },
-  { symbol: '2357.TW', name: '華碩電腦', market: 'TW', currency: 'TWD' },
-  { symbol: '2353.TW', name: '宏碁', market: 'TW', currency: 'TWD' },
-  { symbol: '2356.TW', name: '英業達', market: 'TW', currency: 'TWD' },
-  { symbol: '3008.TW', name: '大立光', market: 'TW', currency: 'TWD' },
-  { symbol: '2449.TW', name: '京元電子', market: 'TW', currency: 'TWD' },
-  { symbol: '3711.TW', name: '日月光投控', market: 'TW', currency: 'TWD' },
-  { symbol: '2379.TW', name: '瑞昱半導體', market: 'TW', currency: 'TWD' },
-  { symbol: '3034.TW', name: '聯詠科技', market: 'TW', currency: 'TWD' },
-];
-
-/**
- * Instant & Bulletproof Stock Search Auto-Suggest
- */
-export async function searchStockSuggestionsAsync(
-  keyword: string,
-  targetMarket?: MarketType
-): Promise<StockSearchResult[]> {
-  const clean = keyword.trim();
-  const lowerClean = clean.toLowerCase();
-  if (!clean) return [];
-
-  const results: StockSearchResult[] = [];
-  const seen = new Set<string>();
-
-  const addResult = (item: StockSearchResult) => {
-    const key = item.symbol.toUpperCase();
-    if (!seen.has(key)) {
-      if (!targetMarket || item.market === targetMarket) {
-        seen.add(key);
-        results.push(item);
-      }
-    }
-  };
-
-  // 1. Search Built-in Dictionary (Instant 0ms match for 2327 國巨, 2408 南亞科, 3026 禾伸堂, 00981A...)
-  for (const item of POPULAR_STOCKS_DB) {
-    if (
-      item.symbol.toLowerCase().includes(lowerClean) ||
-      item.name.toLowerCase().includes(lowerClean) ||
-      item.name.includes(clean)
-    ) {
-      addResult(item);
-    }
-  }
-
-  // 2. Fallback Generation for typed code (e.g. 2327, 2408, 00981A, ASTS)
-  const upperClean = clean.toUpperCase();
-  if (clean.length >= 2) {
-    const isTwCodePattern = /^\d+[A-Za-z]?$/.test(clean);
-    const isTW = targetMarket === 'TW' || isTwCodePattern || upperClean.endsWith('.TW');
-    const fallbackSymbol = isTW && !upperClean.endsWith('.TW') ? `${upperClean}.TW` : upperClean;
-    const finalMarket: MarketType = isTW ? 'TW' : 'US';
-
-    addResult({
-      symbol: fallbackSymbol,
-      name: `新增標的 (${fallbackSymbol})`,
-      market: finalMarket,
-      currency: isTW ? 'TWD' : 'USD',
-    });
-  }
-
-  return results.slice(0, 8);
+  price?: number;
 }
 
 /**
- * Fetch latest market quote from Yahoo Finance endpoints cleanly
+ * Direct Live Quote Fetching (No AllOrigins proxy delay)
  */
 export async function fetchSingleStockQuote(symbol: string, market: MarketType): Promise<StockQuote | null> {
   const cleanSymbol = symbol.trim().toUpperCase();
@@ -142,16 +30,17 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
     yahooSymbol = `${yahooSymbol}.TW`;
   }
 
+  // Direct endpoints first for sub-second speed
   const endpoints = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`)}`,
     `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
     `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`)}`,
   ];
 
   for (const url of endpoints) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
 
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -179,11 +68,92 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
         }
       }
     } catch (e) {
-      console.warn(`Stock API endpoint error for ${cleanSymbol}:`, e);
+      // Ignore and try fallback endpoint
     }
   }
 
   return null;
+}
+
+/**
+ * Verified Live Data Source Search (No Hardcoded Dictionaries!)
+ * Queries live data source directly and verifies symbol & current market price
+ */
+export async function searchStockSuggestionsAsync(
+  keyword: string,
+  targetMarket: MarketType = 'US'
+): Promise<StockSearchResult[]> {
+  const clean = keyword.trim().toUpperCase();
+  if (!clean) return [];
+
+  const results: StockSearchResult[] = [];
+  const seen = new Set<string>();
+
+  // Construct target Yahoo Ticker candidate
+  let candidateSymbol = clean;
+  if (targetMarket === 'TW' && !candidateSymbol.endsWith('.TW') && !candidateSymbol.endsWith('.TWO')) {
+    candidateSymbol = `${candidateSymbol}.TW`;
+  }
+
+  // 1. Live Data Source Quote Verification
+  try {
+    const quote = await fetchSingleStockQuote(candidateSymbol, targetMarket);
+    if (quote && quote.currentPrice > 0) {
+      const key = quote.symbol.toUpperCase();
+      seen.add(key);
+      results.push({
+        symbol: quote.symbol,
+        name: quote.name || candidateSymbol,
+        market: targetMarket,
+        currency: targetMarket === 'TW' ? 'TWD' : 'USD',
+        price: quote.currentPrice,
+      });
+    }
+  } catch (e) {
+    console.warn('Live quote verification error:', e);
+  }
+
+  // 2. Query Live Search API for additional matches
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=8`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const text = await res.text();
+      const data = JSON.parse(text);
+      const quotes = data?.quotes || [];
+
+      if (Array.isArray(quotes)) {
+        for (const q of quotes) {
+          if (q && q.symbol && (q.quoteType === 'EQUITY' || q.quoteType === 'ETF')) {
+            const sym = String(q.symbol).toUpperCase();
+            const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || q.exchange === 'TAI' || q.exchange === 'TWO';
+            const mkt: MarketType = isTW ? 'TW' : 'US';
+
+            if (mkt === targetMarket && !seen.has(sym)) {
+              seen.add(sym);
+              results.push({
+                symbol: sym,
+                name: q.shortname || q.longname || sym,
+                market: mkt,
+                currency: isTW ? 'TWD' : 'USD',
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore search endpoint error
+  }
+
+  return results.slice(0, 8);
 }
 
 /**

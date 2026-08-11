@@ -173,8 +173,15 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setMarketInput(item.market);
     setShowSuggestions(false);
 
+    if (item.price && item.price > 0) {
+      setPriceInput(item.price);
+      setRefreshStatus(`✅ 已為您帶入 ${item.symbol} 最新實時股價 $${item.price}`);
+      setTimeout(() => setRefreshStatus(null), 2000);
+      return;
+    }
+
     // Auto fetch live quote for selected stock immediately
-    setRefreshStatus(`正在獲取 ${item.symbol} 最新成交價格...`);
+    setRefreshStatus(`正在連線數據源獲取 ${item.symbol} 最新成交價格...`);
     const quote = await fetchSingleStockQuote(item.symbol, item.market);
     if (quote && quote.currentPrice > 0) {
       setPriceInput(quote.currentPrice);
@@ -618,14 +625,19 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                         <div className="flex items-center gap-2.5">
                           <span className="text-base">{item.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
                           <div>
-                            <strong className="text-cyan-300 font-mono font-bold text-xs group-hover:text-cyan-200">
-                              {item.symbol}
+                            <strong className="text-cyan-300 font-mono font-bold text-xs group-hover:text-cyan-200 flex items-center gap-1.5">
+                              <span>{item.symbol}</span>
+                              {item.price ? (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  ${item.price}
+                                </span>
+                              ) : null}
                             </strong>
                             <p className="text-[11px] text-gray-300 truncate max-w-[210px]">{item.name}</p>
                           </div>
                         </div>
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-gray-400 font-mono font-bold">
-                          點擊帶入
+                          {item.price ? '帶入最新價' : '點擊帶入'}
                         </span>
                       </button>
                     ))}
