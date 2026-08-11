@@ -18,33 +18,33 @@ export interface StockSearchResult {
   price?: number;
 }
 
-// Built-in Popular Stock Database for Instant 0ms Local Matching
+// Rich Stock Dictionary for Instant Names & Symbols
 export const POPULAR_STOCKS_DB: StockSearchResult[] = [
   // US Stocks & ETFs
-  { symbol: 'NVDA', name: 'NVIDIA Corporation (輝達)', market: 'US', currency: 'USD' },
+  { symbol: 'NVDA', name: '輝達 (NVIDIA Corporation)', market: 'US', currency: 'USD' },
   { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', market: 'US', currency: 'USD' },
-  { symbol: 'AAPL', name: 'Apple Inc. (蘋果)', market: 'US', currency: 'USD' },
-  { symbol: 'ASTS', name: 'AST SpaceMobile, Inc.', market: 'US', currency: 'USD' },
-  { symbol: 'SPCX', name: 'Space Exploration Technologies (SpaceX)', market: 'US', currency: 'USD' },
-  { symbol: 'TSLA', name: 'Tesla, Inc. (特斯拉)', market: 'US', currency: 'USD' },
-  { symbol: 'QQQ', name: 'Invesco QQQ Trust (納斯達克100)', market: 'US', currency: 'USD' },
-  { symbol: 'MSFT', name: 'Microsoft Corporation (微軟)', market: 'US', currency: 'USD' },
-  { symbol: 'AMZN', name: 'Amazon.com, Inc. (亞馬遜)', market: 'US', currency: 'USD' },
-  { symbol: 'GOOGL', name: 'Alphabet Inc. (Google)', market: 'US', currency: 'USD' },
-  { symbol: 'META', name: 'Meta Platforms, Inc. (臉書)', market: 'US', currency: 'USD' },
-  { symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', market: 'US', currency: 'USD' },
-  { symbol: 'PLTR', name: 'Palantir Technologies Inc.', market: 'US', currency: 'USD' },
-  { symbol: 'SMCI', name: 'Super Micro Computer, Inc.', market: 'US', currency: 'USD' },
-  { symbol: 'RKLB', name: 'Rocket Lab USA, Inc.', market: 'US', currency: 'USD' },
+  { symbol: 'AAPL', name: '蘋果 (Apple Inc.)', market: 'US', currency: 'USD' },
+  { symbol: 'ASTS', name: 'AST SpaceMobile', market: 'US', currency: 'USD' },
+  { symbol: 'SPCX', name: 'SpaceX 相關 ETF (SPCX)', market: 'US', currency: 'USD' },
+  { symbol: 'TSLA', name: '特斯拉 (Tesla)', market: 'US', currency: 'USD' },
+  { symbol: 'QQQ', name: '納斯達克100 ETF (QQQ)', market: 'US', currency: 'USD' },
+  { symbol: 'MSFT', name: '微軟 (Microsoft)', market: 'US', currency: 'USD' },
+  { symbol: 'AMZN', name: '亞馬遜 (Amazon)', market: 'US', currency: 'USD' },
+  { symbol: 'GOOGL', name: 'Google (Alphabet)', market: 'US', currency: 'USD' },
+  { symbol: 'META', name: 'Meta (臉書)', market: 'US', currency: 'USD' },
+  { symbol: 'AMD', name: '超微 (AMD)', market: 'US', currency: 'USD' },
+  { symbol: 'PLTR', name: 'Palantir', market: 'US', currency: 'USD' },
+  { symbol: 'SMCI', name: '美超微 (Super Micro)', market: 'US', currency: 'USD' },
+  { symbol: 'RKLB', name: 'Rocket Lab', market: 'US', currency: 'USD' },
 
   // TW Stocks & ETFs
-  { symbol: '2344.TW', name: '華邦電 (Winbond Electronics)', market: 'TW', currency: 'TWD' },
+  { symbol: '2377.TW', name: '微星 (Micro-Star / MSI)', market: 'TW', currency: 'TWD' },
+  { symbol: '2344.TW', name: '華邦電 (Winbond)', market: 'TW', currency: 'TWD' },
   { symbol: '2408.TW', name: '南亞科 (Nanya Tech)', market: 'TW', currency: 'TWD' },
   { symbol: '2327.TW', name: '國巨 (Yageo)', market: 'TW', currency: 'TWD' },
   { symbol: '3026.TW', name: '禾伸堂 (Holy Stone)', market: 'TW', currency: 'TWD' },
   { symbol: '00981A.TW', name: '統一台灣高息', market: 'TW', currency: 'TWD' },
   { symbol: '2330.TW', name: '台積電 (TSMC)', market: 'TW', currency: 'TWD' },
-  { symbol: '2377.TW', name: '微星科技 (MSI)', market: 'TW', currency: 'TWD' },
   { symbol: '0050.TW', name: '元大台灣50 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '0056.TW', name: '元大高股息 ETF', market: 'TW', currency: 'TWD' },
   { symbol: '00878.TW', name: '國泰永續高股息 ETF', market: 'TW', currency: 'TWD' },
@@ -90,7 +90,6 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
     yahooSymbol = `${yahooSymbol}.TW`;
   }
 
-  // Direct Yahoo Finance endpoints
   const endpoints = [
     `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
     `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
@@ -136,7 +135,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 }
 
 /**
- * Robust Search Auto-Suggest (Guaranteed non-empty, Instant 0ms results)
+ * Robust Search Auto-Suggest with Proper Name Resolution
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -160,22 +159,7 @@ export async function searchStockSuggestionsAsync(
     }
   };
 
-  // 1. ALWAYS generate the primary candidate option at top of list (0ms delay)
-  const isTwCodePattern = /^\d+[A-Za-z]?$/.test(clean);
-  const isTW = targetMarket === 'TW' || isTwCodePattern || upperClean.endsWith('.TW');
-  const candidateSymbol = isTW && !upperClean.endsWith('.TW') ? `${upperClean}.TW` : upperClean;
-  const candidateMarket: MarketType = isTW ? 'TW' : 'US';
-
-  if (clean.length >= 1 && (!targetMarket || candidateMarket === targetMarket)) {
-    addResult({
-      symbol: candidateSymbol,
-      name: `即時搜尋標的 (${candidateSymbol})`,
-      market: candidateMarket,
-      currency: isTW ? 'TWD' : 'USD',
-    });
-  }
-
-  // 2. Search local database for instant keyword matches
+  // 1. Search Dictionary FIRST for clean human-readable names (e.g. 2377 -> 微星, 2344 -> 華邦電)
   for (const item of POPULAR_STOCKS_DB) {
     if (
       item.symbol.toLowerCase().includes(lowerClean) ||
@@ -187,15 +171,31 @@ export async function searchStockSuggestionsAsync(
     if (results.length >= 8) break;
   }
 
-  // 3. Background fetch live quote for the primary candidate to attach live price
+  // 2. Generate Primary Candidate if not already matched by dictionary
+  const isTwCodePattern = /^\d+[A-Za-z]?$/.test(clean);
+  const isTW = targetMarket === 'TW' || isTwCodePattern || upperClean.endsWith('.TW');
+  const candidateSymbol = isTW && !upperClean.endsWith('.TW') ? `${upperClean}.TW` : upperClean;
+  const candidateMarket: MarketType = isTW ? 'TW' : 'US';
+
+  if (!seen.has(candidateSymbol.toUpperCase()) && (!targetMarket || candidateMarket === targetMarket)) {
+    addResult({
+      symbol: candidateSymbol,
+      name: `股票標的 (${candidateSymbol})`,
+      market: candidateMarket,
+      currency: isTW ? 'TWD' : 'USD',
+    });
+  }
+
+  // 3. Background fetch live quote & real company name for candidate
   try {
     const quote = await fetchSingleStockQuote(candidateSymbol, candidateMarket);
     if (quote && quote.currentPrice > 0) {
-      // Attach live price to candidate result
       results.forEach((r) => {
         if (r.symbol.toUpperCase() === candidateSymbol.toUpperCase()) {
           r.price = quote.currentPrice;
-          if (quote.name) r.name = quote.name;
+          if (quote.name && (r.name.startsWith('股票標的') || r.name === candidateSymbol)) {
+            r.name = quote.name;
+          }
         }
       });
     }
