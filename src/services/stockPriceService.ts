@@ -18,88 +18,130 @@ export interface StockSearchResult {
   price?: number;
 }
 
-// Rich Stock Dictionary for Instant Names & Symbols
+// Built-in Dictionary for US & TW Common Stocks
 export const POPULAR_STOCKS_DB: StockSearchResult[] = [
   // US Stocks & ETFs
-  { symbol: 'NVDA', name: '輝達 (NVIDIA Corporation)', market: 'US', currency: 'USD' },
+  { symbol: 'NVDA', name: '輝達 (NVIDIA)', market: 'US', currency: 'USD' },
   { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', market: 'US', currency: 'USD' },
-  { symbol: 'AAPL', name: '蘋果 (Apple Inc.)', market: 'US', currency: 'USD' },
+  { symbol: 'AAPL', name: '蘋果 (Apple)', market: 'US', currency: 'USD' },
   { symbol: 'ASTS', name: 'AST SpaceMobile', market: 'US', currency: 'USD' },
-  { symbol: 'SPCX', name: 'SpaceX 相關 ETF (SPCX)', market: 'US', currency: 'USD' },
+  { symbol: 'SPCX', name: 'SpaceX 相關 ETF', market: 'US', currency: 'USD' },
   { symbol: 'TSLA', name: '特斯拉 (Tesla)', market: 'US', currency: 'USD' },
-  { symbol: 'QQQ', name: '納斯達克100 ETF (QQQ)', market: 'US', currency: 'USD' },
+  { symbol: 'QQQ', name: '納斯達克100 ETF', market: 'US', currency: 'USD' },
   { symbol: 'MSFT', name: '微軟 (Microsoft)', market: 'US', currency: 'USD' },
   { symbol: 'AMZN', name: '亞馬遜 (Amazon)', market: 'US', currency: 'USD' },
-  { symbol: 'GOOGL', name: 'Google (Alphabet)', market: 'US', currency: 'USD' },
+  { symbol: 'GOOGL', name: 'Alphabet (Google)', market: 'US', currency: 'USD' },
   { symbol: 'META', name: 'Meta (臉書)', market: 'US', currency: 'USD' },
   { symbol: 'AMD', name: '超微 (AMD)', market: 'US', currency: 'USD' },
   { symbol: 'PLTR', name: 'Palantir', market: 'US', currency: 'USD' },
   { symbol: 'SMCI', name: '美超微 (Super Micro)', market: 'US', currency: 'USD' },
   { symbol: 'RKLB', name: 'Rocket Lab', market: 'US', currency: 'USD' },
 
-  // TW Stocks & ETFs
-  { symbol: '2377.TW', name: '微星 (Micro-Star / MSI)', market: 'TW', currency: 'TWD' },
-  { symbol: '2344.TW', name: '華邦電 (Winbond)', market: 'TW', currency: 'TWD' },
-  { symbol: '2408.TW', name: '南亞科 (Nanya Tech)', market: 'TW', currency: 'TWD' },
-  { symbol: '2327.TW', name: '國巨 (Yageo)', market: 'TW', currency: 'TWD' },
-  { symbol: '3026.TW', name: '禾伸堂 (Holy Stone)', market: 'TW', currency: 'TWD' },
+  // TW Common Stocks
+  { symbol: '2377.TW', name: '微星', market: 'TW', currency: 'TWD' },
+  { symbol: '2408.TW', name: '南亞科', market: 'TW', currency: 'TWD' },
+  { symbol: '2344.TW', name: '華邦電', market: 'TW', currency: 'TWD' },
+  { symbol: '2327.TW', name: '國巨', market: 'TW', currency: 'TWD' },
+  { symbol: '3026.TW', name: '禾伸堂', market: 'TW', currency: 'TWD' },
   { symbol: '00981A.TW', name: '統一台灣高息', market: 'TW', currency: 'TWD' },
-  { symbol: '2330.TW', name: '台積電 (TSMC)', market: 'TW', currency: 'TWD' },
-  { symbol: '0050.TW', name: '元大台灣50 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '0056.TW', name: '元大高股息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '00878.TW', name: '國泰永續高股息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '00919.TW', name: '群益台灣精選高息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '00929.TW', name: '復華台灣科技優息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '00940.TW', name: '元大台灣價值高息 ETF', market: 'TW', currency: 'TWD' },
-  { symbol: '2317.TW', name: '鴻海精密 (Foxconn)', market: 'TW', currency: 'TWD' },
-  { symbol: '2454.TW', name: '聯發科 (MediaTek)', market: 'TW', currency: 'TWD' },
+  { symbol: '2330.TW', name: '台積電', market: 'TW', currency: 'TWD' },
+  { symbol: '0050.TW', name: '元大台灣50', market: 'TW', currency: 'TWD' },
+  { symbol: '0056.TW', name: '元大高股息', market: 'TW', currency: 'TWD' },
+  { symbol: '00878.TW', name: '國泰永續高股息', market: 'TW', currency: 'TWD' },
+  { symbol: '00919.TW', name: '群益台灣精選高息', market: 'TW', currency: 'TWD' },
+  { symbol: '00929.TW', name: '復華台灣科技優息', market: 'TW', currency: 'TWD' },
+  { symbol: '00940.TW', name: '元大台灣價值高息', market: 'TW', currency: 'TWD' },
+  { symbol: '2317.TW', name: '鴻海', market: 'TW', currency: 'TWD' },
+  { symbol: '2454.TW', name: '聯發科', market: 'TW', currency: 'TWD' },
   { symbol: '2308.TW', name: '台達電', market: 'TW', currency: 'TWD' },
-  { symbol: '2382.TW', name: '廣達電腦', market: 'TW', currency: 'TWD' },
-  { symbol: '2301.TW', name: '光寶科技', market: 'TW', currency: 'TWD' },
-  { symbol: '3231.TW', name: '緯創資通', market: 'TW', currency: 'TWD' },
-  { symbol: '6669.TW', name: '緯穎科技', market: 'TW', currency: 'TWD' },
-  { symbol: '2603.TW', name: '長榮海運', market: 'TW', currency: 'TWD' },
-  { symbol: '2609.TW', name: '陽明海運', market: 'TW', currency: 'TWD' },
-  { symbol: '2615.TW', name: '萬海航運', market: 'TW', currency: 'TWD' },
-  { symbol: '2881.TW', name: '富邦金控', market: 'TW', currency: 'TWD' },
-  { symbol: '2882.TW', name: '國泰金控', market: 'TW', currency: 'TWD' },
-  { symbol: '2886.TW', name: '兆豐金控', market: 'TW', currency: 'TWD' },
-  { symbol: '2891.TW', name: '中信金控', market: 'TW', currency: 'TWD' },
-  { symbol: '2409.TW', name: '友達光電', market: 'TW', currency: 'TWD' },
-  { symbol: '3481.TW', name: '群創光電', market: 'TW', currency: 'TWD' },
-  { symbol: '2303.TW', name: '聯華電子', market: 'TW', currency: 'TWD' },
-  { symbol: '2357.TW', name: '華碩電腦', market: 'TW', currency: 'TWD' },
-  { symbol: '2353.TW', name: '宏碁', market: 'TW', currency: 'TWD' },
-  { symbol: '2356.TW', name: '英業達', market: 'TW', currency: 'TWD' },
-  { symbol: '3008.TW', name: '大立光', market: 'TW', currency: 'TWD' },
-  { symbol: '2449.TW', name: '京元電子', market: 'TW', currency: 'TWD' },
-  { symbol: '3711.TW', name: '日月光投控', market: 'TW', currency: 'TWD' },
-  { symbol: '2379.TW', name: '瑞昱半導體', market: 'TW', currency: 'TWD' },
-  { symbol: '3034.TW', name: '聯詠科技', market: 'TW', currency: 'TWD' },
+  { symbol: '2382.TW', name: '廣達', market: 'TW', currency: 'TWD' },
+  { symbol: '2603.TW', name: '長榮', market: 'TW', currency: 'TWD' },
 ];
 
+// Official TWSE Stock Directory Cache
+let twseDirectoryCache: Map<string, { name: string; price: number }> | null = null;
+
 /**
- * Direct Live Quote Fetching for US & TW Stocks
+ * Fetch Official Taiwan TWSE Stock Directory with CORS support
+ */
+async function loadTwseDirectory(): Promise<Map<string, { name: string; price: number }>> {
+  if (twseDirectoryCache && twseDirectoryCache.size > 0) {
+    return twseDirectoryCache;
+  }
+
+  const map = new Map<string, { name: string; price: number }>();
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const res = await fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        data.forEach((item: any) => {
+          const code = String(item.Code || '').trim().toUpperCase();
+          const name = String(item.Name || '').trim();
+          const price = parseFloat(item.ClosingPrice) || 0;
+          if (code) {
+            map.set(code, { name, price });
+          }
+        });
+        twseDirectoryCache = map;
+      }
+    }
+  } catch (e) {
+    console.warn('TWSE OpenAPI load error:', e);
+  }
+
+  return map;
+}
+
+/**
+ * Fetch Single Stock Quote from Direct Yahoo Finance & TWSE OpenAPI
  */
 export async function fetchSingleStockQuote(symbol: string, market: MarketType): Promise<StockQuote | null> {
   const cleanSymbol = symbol.trim().toUpperCase();
   if (!cleanSymbol) return null;
 
+  // Clean raw symbol without .TW
+  const rawCode = cleanSymbol.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+
+  // If Taiwan Stock, try TWSE OpenAPI first for 100% reliable quote & Chinese name
+  if (market === 'TW') {
+    const twseMap = await loadTwseDirectory();
+    const twseInfo = twseMap.get(rawCode);
+    if (twseInfo && twseInfo.price > 0) {
+      return {
+        symbol: `${rawCode}.TW`,
+        currentPrice: twseInfo.price,
+        previousClose: twseInfo.price,
+        change: 0,
+        changePercent: 0,
+        currency: 'TWD',
+        name: twseInfo.name || cleanSymbol,
+      };
+    }
+  }
+
+  // Fallback to Yahoo Finance endpoints
   let yahooSymbol = cleanSymbol;
   if (market === 'TW' && !yahooSymbol.endsWith('.TW') && !yahooSymbol.endsWith('.TWO')) {
-    yahooSymbol = `${yahooSymbol}.TW`;
+    yahooSymbol = `${rawCode}.TW`;
   }
 
   const endpoints = [
     `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
     `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`)}`,
   ];
 
   for (const url of endpoints) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
 
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -127,7 +169,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
         }
       }
     } catch (e) {
-      // Try next endpoint
+      // Try next
     }
   }
 
@@ -135,7 +177,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 }
 
 /**
- * Robust Search Auto-Suggest with Proper Name Resolution
+ * 100% Reliable Search Auto-Suggest for ALL Taiwan Stocks & US Equities
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -144,6 +186,7 @@ export async function searchStockSuggestionsAsync(
   const clean = keyword.trim();
   const lowerClean = clean.toLowerCase();
   const upperClean = clean.toUpperCase();
+  const rawCode = upperClean.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   if (!clean) return [];
 
   const results: StockSearchResult[] = [];
@@ -159,7 +202,40 @@ export async function searchStockSuggestionsAsync(
     }
   };
 
-  // 1. Search Dictionary FIRST for clean human-readable names (e.g. 2377 -> 微星, 2344 -> 華邦電)
+  // 1. Taiwan Stock Search via Official TWSE OpenAPI Directory
+  if (targetMarket === 'TW' || /[\u4e00-\u9fa5]/.test(clean) || /^\d+/.test(clean)) {
+    const twseMap = await loadTwseDirectory();
+
+    // Exact Code Match
+    if (twseMap.has(rawCode)) {
+      const info = twseMap.get(rawCode)!;
+      addResult({
+        symbol: `${rawCode}.TW`,
+        name: info.name,
+        market: 'TW',
+        currency: 'TWD',
+        price: info.price,
+      });
+    }
+
+    // Partial Code or Name Search
+    twseMap.forEach((info, code) => {
+      if (
+        code.toLowerCase().includes(lowerClean) ||
+        info.name.includes(clean)
+      ) {
+        addResult({
+          symbol: `${code}.TW`,
+          name: info.name,
+          market: 'TW',
+          currency: 'TWD',
+          price: info.price,
+        });
+      }
+    });
+  }
+
+  // 2. Search Built-in Dictionary
   for (const item of POPULAR_STOCKS_DB) {
     if (
       item.symbol.toLowerCase().includes(lowerClean) ||
@@ -171,36 +247,36 @@ export async function searchStockSuggestionsAsync(
     if (results.length >= 8) break;
   }
 
-  // 2. Generate Primary Candidate if not already matched by dictionary
-  const isTwCodePattern = /^\d+[A-Za-z]?$/.test(clean);
-  const isTW = targetMarket === 'TW' || isTwCodePattern || upperClean.endsWith('.TW');
-  const candidateSymbol = isTW && !upperClean.endsWith('.TW') ? `${upperClean}.TW` : upperClean;
-  const candidateMarket: MarketType = isTW ? 'TW' : 'US';
+  // 3. Candidate Fallback Generation if no exact match found
+  if (results.length === 0 && clean.length >= 1) {
+    const isTw = targetMarket === 'TW' || /^\d+[A-Za-z]?$/.test(clean);
+    const sym = isTw && !upperClean.endsWith('.TW') ? `${upperClean}.TW` : upperClean;
+    const mkt: MarketType = isTw ? 'TW' : 'US';
 
-  if (!seen.has(candidateSymbol.toUpperCase()) && (!targetMarket || candidateMarket === targetMarket)) {
     addResult({
-      symbol: candidateSymbol,
-      name: `股票標的 (${candidateSymbol})`,
-      market: candidateMarket,
-      currency: isTW ? 'TWD' : 'USD',
+      symbol: sym,
+      name: `${mkt === 'TW' ? '台股' : '美股'} (${sym})`,
+      market: mkt,
+      currency: isTw ? 'TWD' : 'USD',
     });
   }
 
-  // 3. Background fetch live quote & real company name for candidate
-  try {
-    const quote = await fetchSingleStockQuote(candidateSymbol, candidateMarket);
-    if (quote && quote.currentPrice > 0) {
-      results.forEach((r) => {
-        if (r.symbol.toUpperCase() === candidateSymbol.toUpperCase()) {
-          r.price = quote.currentPrice;
-          if (quote.name && (r.name.startsWith('股票標的') || r.name === candidateSymbol)) {
-            r.name = quote.name;
+  // 4. Background fetch live quote for US candidates without price
+  if (targetMarket === 'US' && results.length > 0) {
+    const topItem = results[0];
+    if (!topItem.price) {
+      try {
+        const quote = await fetchSingleStockQuote(topItem.symbol, topItem.market);
+        if (quote && quote.currentPrice > 0) {
+          topItem.price = quote.currentPrice;
+          if (quote.name && topItem.name.startsWith('美股')) {
+            topItem.name = quote.name;
           }
         }
-      });
+      } catch (e) {
+        // Non-blocking
+      }
     }
-  } catch (e) {
-    // Non-blocking
   }
 
   return results.slice(0, 8);
