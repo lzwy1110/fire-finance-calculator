@@ -206,9 +206,22 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   };
 
   // Save Stock (Add / Edit)
-  const handleSaveStock = (e: React.FormEvent) => {
+  const handleSaveStock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!symbolInput.trim() || sharesInput <= 0) return;
+
+    let finalPrice = Number(priceInput);
+
+    // If adding new stock or price not set, auto fetch quote from live data source
+    if (finalPrice <= 0 || !editingStock) {
+      setRefreshStatus(`正在向數據源連線獲取 ${symbolInput.trim().toUpperCase()} 最新股價...`);
+      const quote = await fetchSingleStockQuote(symbolInput.trim(), marketInput);
+      if (quote && quote.currentPrice > 0) {
+        finalPrice = quote.currentPrice;
+      } else if (finalPrice <= 0) {
+        finalPrice = Number(costInput);
+      }
+    }
 
     const stockData: PortfolioStock = {
       id: editingStock ? editingStock.id : `port-${Date.now()}`,
@@ -217,7 +230,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       market: marketInput,
       shares: Number(sharesInput),
       avgCost: Number(costInput),
-      currentPrice: Number(priceInput),
+      currentPrice: finalPrice,
       currency: marketInput === 'US' ? 'USD' : 'TWD',
       lastUpdated: new Date().toISOString(),
     };
@@ -229,6 +242,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       onUpdateStocks([stockData, ...stocks]);
     }
 
+    setRefreshStatus(null);
     setIsAddModalOpen(false);
   };
 
@@ -612,7 +626,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-gray-400 block mb-1 font-bold">持股股數:</label>
                   <input
@@ -633,18 +647,6 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     value={costInput}
                     onChange={(e) => setCostInput(parseFloat(e.target.value) || 0)}
                     className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-gray-400 block mb-1 font-bold">最新市場價:</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={priceInput}
-                    onChange={(e) => setPriceInput(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-cyan-300 font-mono font-bold focus:border-cyan-500 focus:outline-none"
                     required
                   />
                 </div>

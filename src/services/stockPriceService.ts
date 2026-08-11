@@ -17,12 +17,13 @@ export interface StockSearchResult {
   currency: 'USD' | 'TWD';
 }
 
-// Built-in Popular Stock Database for Instant Local Auto-Complete Search
+// Built-in Popular Stock Database for Instant Local Fallback
 export const POPULAR_STOCKS_DB: StockSearchResult[] = [
   // US Stocks & ETFs
   { symbol: 'NVDA', name: 'NVIDIA Corporation (輝達)', market: 'US', currency: 'USD' },
   { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', market: 'US', currency: 'USD' },
   { symbol: 'AAPL', name: 'Apple Inc. (蘋果)', market: 'US', currency: 'USD' },
+  { symbol: 'ASTS', name: 'AST SpaceMobile, Inc.', market: 'US', currency: 'USD' },
   { symbol: 'SPCX', name: 'Space Exploration Technologies (SpaceX)', market: 'US', currency: 'USD' },
   { symbol: 'TSLA', name: 'Tesla, Inc. (特斯拉)', market: 'US', currency: 'USD' },
   { symbol: 'QQQ', name: 'Invesco QQQ Trust (納斯達克100)', market: 'US', currency: 'USD' },
@@ -56,8 +57,8 @@ export const POPULAR_STOCKS_DB: StockSearchResult[] = [
 ];
 
 /**
- * Dynamic Global Stock Search Auto-Suggest API (Yahoo Search API + Local Hot Database)
- * Supports searching ANY global stock (e.g. SPCX, 2377, MSI, PLTR, SMCI, 台積電, 微星...)
+ * Dynamic Global Stock Search Auto-Suggest API (Multi-Tier Proxy + Live Yahoo Search)
+ * Supports searching ANY global stock (e.g. ASTS, SPCX, 2377, PLTR, SMCI, 微星...)
  */
 export async function searchStockSuggestionsAsync(keyword: string): Promise<StockSearchResult[]> {
   const clean = keyword.trim().toLowerCase();
@@ -70,45 +71,72 @@ export async function searchStockSuggestionsAsync(keyword: string): Promise<Stoc
       item.name.toLowerCase().includes(clean)
   );
 
-  // 2. Fetch live online search suggestions from Yahoo Search API
-  try {
-    const res = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=10`);
-    if (res.ok) {
-      const data = await res.json();
-      const quotes = data?.quotes || [];
+  // Search endpoints with fallback CORS proxies
+  const searchEndpoints = [
+    `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=10`,
+    `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=10`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${clean}&quotesCount=10`)}`,
+  ];
 
-      const onlineMatches: StockSearchResult[] = quotes
-        .filter((q: any) => q && q.symbol && (q.quoteType === 'EQUITY' || q.quoteType === 'ETF'))
-        .map((q: any) => {
-          const sym = q.symbol.toUpperCase();
-          const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || q.exchange === 'TAI' || q.exchange === 'TWO';
-          return {
-            symbol: sym,
-            name: q.longname || q.shortname || sym,
-            market: isTW ? ('TW' as MarketType) : ('US' as MarketType),
-            currency: isTW ? ('TWD' as const) : ('USD' as const),
-          };
-        });
+  let onlineMatches: StockSearchResult[] = [];
 
-      // Combine local & online results, avoiding duplicates
-      const seen = new Set<string>();
-      const combined: StockSearchResult[] = [];
+  for (const url of searchEndpoints) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const text = await res.text();
+        const data = JSON.parse(text);
+        const quotes = data?.quotes || [];
 
-      for (const item of [...localMatches, ...onlineMatches]) {
-        const key = item.symbol.toUpperCase();
-        if (!seen.has(key)) {
-          seen.add(key);
-          combined.push(item);
+        if (Array.isArray(quotes) && quotes.length > 0) {
+          onlineMatches = quotes
+            .filter((q: any) => q && q.symbol && (q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'MUTUALFUND'))
+            .map((q: any) => {
+              const sym = q.symbol.toUpperCase();
+              const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || q.exchange === 'TAI' || q.exchange === 'TWO';
+              return {
+                symbol: sym,
+                name: q.longname || q.shortname || sym,
+                market: isTW ? ('TW' as MarketType) : ('US' as MarketType),
+                currency: isTW ? ('TWD' as const) : ('USD' as const),
+              };
+            });
+          if (onlineMatches.length > 0) break;
         }
       }
-
-      return combined.slice(0, 10);
+    } catch (e) {
+      console.warn(`Search endpoint failed for ${clean}:`, e);
     }
-  } catch (e) {
-    console.warn('Online stock search error:', e);
   }
 
-  return localMatches.slice(0, 10);
+  // Combine local & online results, avoiding duplicates
+  const seen = new Set<string>();
+  const combined: StockSearchResult[] = [];
+
+  for (const item of [...onlineMatches, ...localMatches]) {
+    const key = item.symbol.toUpperCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      combined.push(item);
+    }
+  }
+
+  // 3. Fallback: If user typed an exact symbol (e.g. ASTS or 2377), ensure it is present in suggestions!
+  const upperClean = clean.toUpperCase();
+  if (clean.length >= 2 && !seen.has(upperClean)) {
+    const isPureDigits = /^\d+$/.test(clean);
+    const twSymbol = isPureDigits ? `${upperClean}.TW` : upperClean;
+    const isTW = isPureDigits || upperClean.endsWith('.TW');
+
+    combined.unshift({
+      symbol: isTW ? twSymbol : upperClean,
+      name: `搜尋標的 (${upperClean})`,
+      market: isTW ? 'TW' : 'US',
+      currency: isTW ? 'TWD' : 'USD',
+    });
+  }
+
+  return combined.slice(0, 10);
 }
 
 /**
