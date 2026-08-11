@@ -27,18 +27,25 @@ export function calculateStockMetrics(
     };
   }
 
-  // Sort transactions chronologically
-  const sortedTx = [...transactions].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
+  // Sort transactions chronologically (If same date, BUY must always precede SELL!)
+  const sortedTx = [...transactions].sort((a, b) => {
+    const timeA = new Date(a.date).getTime() || 0;
+    const timeB = new Date(b.date).getTime() || 0;
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+    if (a.type === 'BUY' && b.type === 'SELL') return -1;
+    if (a.type === 'SELL' && b.type === 'BUY') return 1;
+    return a.id.localeCompare(b.id);
+  });
 
   let currentShares = 0;
   let totalCostPool = 0;
   let realizedPnL = 0;
 
   for (const tx of sortedTx) {
-    const shares = Math.abs(tx.shares);
-    const price = Math.abs(tx.price);
+    const shares = Math.abs(tx.shares) || 0;
+    const price = Math.abs(tx.price) || 0;
 
     if (tx.type === 'BUY') {
       currentShares += shares;
@@ -48,7 +55,7 @@ export function calculateStockMetrics(
       const sharesToSell = Math.min(shares, currentShares);
 
       realizedPnL += sharesToSell * (price - avgCostBeforeSell);
-      currentShares -= sharesToSell;
+      currentShares = Math.max(0, currentShares - sharesToSell);
       totalCostPool = currentShares * avgCostBeforeSell;
     }
   }
@@ -75,7 +82,7 @@ export function calculateStockMetrics(
 export function syncStockCalculations(stock: PortfolioStock): PortfolioStock {
   let txs = stock.transactions;
 
-  // Migration helper: If stock has no transactions yet, auto-create initial BUY transaction from legacy values
+  // Migration helper: If stock has no transactions array yet, auto-create initial BUY transaction
   if (!txs || txs.length === 0) {
     if (stock.shares > 0) {
       txs = [

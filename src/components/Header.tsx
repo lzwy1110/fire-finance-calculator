@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Flame, LayoutDashboard, Calendar, CalendarRange, PieChart, ReceiptText, Cloud, Plus, Settings, TrendingUp } from 'lucide-react';
+import { Flame, LayoutDashboard, Calendar, CalendarRange, ReceiptText, Cloud, Plus, Settings, TrendingUp } from 'lucide-react';
 import { getThemePreset } from '../utils/theme';
 import { checkBackendHealth } from '../services/api';
 
@@ -98,23 +98,22 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <nav className="flex items-center gap-1 bg-[#111111] p-1.5 rounded-2xl border border-white/10 overflow-x-auto w-full md:w-auto justify-start md:justify-center">
+        {/* Unified Navigation Tabs (Clean 5-tab layout preventing squeezed tabs) */}
+        <nav className="flex items-center gap-1.5 bg-[#111111] p-1.5 rounded-2xl border border-white/10 overflow-x-auto w-full md:w-auto justify-start md:justify-center">
           {[
             { id: 'dashboard', label: '儀表板', icon: LayoutDashboard },
-            { id: 'portfolio', label: '投資庫存', icon: TrendingUp },
+            { id: 'portfolio', label: '投資資產與分析', icon: TrendingUp },
             { id: 'monthly', label: '月總結', icon: Calendar },
             { id: 'yearly', label: '年總結', icon: CalendarRange },
             { id: 'ledger', label: '收支管理', icon: ReceiptText },
-            { id: 'analytics', label: '投資分析', icon: PieChart },
           ].map((tab) => {
             const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
+            const isActive = activeTab === tab.id || (tab.id === 'portfolio' && activeTab === 'analytics');
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition whitespace-nowrap cursor-pointer ${
                   isActive
                     ? 'bg-white/10 border font-bold'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'

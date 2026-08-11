@@ -154,7 +154,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
   };
 
-  // Fast 80ms Debounced Search Input Change
+  // Pause-then-Search 350ms Debouncing (輸入停頓後觸發完整搜尋，確保讀取用戶完整輸入)
   const handleSymbolInputChange = (val: string, currentMarket: MarketType = marketInput) => {
     setSymbolInput(val);
 
@@ -171,11 +171,18 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
-      const matches = await searchStockSuggestionsAsync(val, currentMarket);
+      const finalVal = val.trim();
+      if (!finalVal) {
+        setSearchSuggestions([]);
+        setShowSuggestions(false);
+        setIsSearching(false);
+        return;
+      }
+      const matches = await searchStockSuggestionsAsync(finalVal, currentMarket);
       setSearchSuggestions(matches);
       setShowSuggestions(matches.length > 0);
       setIsSearching(false);
-    }, 80);
+    }, 350);
   };
 
   // Market Tab Switch in Modal

@@ -378,14 +378,27 @@ export default function App() {
           />
         )}
 
-        {/* Tab 2: Portfolio Holdings */}
-        {activeTab === 'portfolio' && (
-          <PortfolioView
-            stocks={portfolioStocks}
-            fireConfig={fireConfig}
-            onUpdateStocks={handleUpdatePortfolioStocks}
-            onSyncNetWorthToFIRE={handleSyncNetWorthToFIRE}
-          />
+        {/* Tab 2: Unified Investment Portfolio & Analytics */}
+        {(activeTab === 'portfolio' || activeTab === 'analytics') && (
+          <div className="space-y-8 animate-fadeIn">
+            <PortfolioView
+              stocks={portfolioStocks}
+              fireConfig={fireConfig}
+              onUpdateStocks={handleUpdatePortfolioStocks}
+              onSyncNetWorthToFIRE={handleSyncNetWorthToFIRE}
+            />
+
+            {/* Integrated Investment Analytics & Category Distribution Section */}
+            <div className="border-t border-white/10 pt-8">
+              <h2 className="text-xl font-black text-white mb-4 flex items-center gap-2">
+                <span>📊 財務統計分析與類別圖表</span>
+              </h2>
+              <AnalyticsCharts
+                transactions={transactions}
+                fireConfig={fireConfig}
+              />
+            </div>
+          </div>
         )}
 
         {/* Tab 3: Monthly Summary */}
@@ -418,14 +431,6 @@ export default function App() {
             onRefreshData={handleRefreshAllData}
             syncCode={syncCode}
             onOpenCloudSync={() => setIsCloudSyncOpen(true)}
-          />
-        )}
-
-        {/* Tab 6: Analytics Charts */}
-        {activeTab === 'analytics' && (
-          <AnalyticsCharts
-            transactions={transactions}
-            fireConfig={fireConfig}
           />
         )}
       </main>
