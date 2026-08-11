@@ -34,6 +34,7 @@ export const POPULAR_STOCKS_DB: StockSearchResult[] = [
   { symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', market: 'US', currency: 'USD' },
   { symbol: 'PLTR', name: 'Palantir Technologies Inc.', market: 'US', currency: 'USD' },
   { symbol: 'SMCI', name: 'Super Micro Computer, Inc.', market: 'US', currency: 'USD' },
+  { symbol: 'RKLB', name: 'Rocket Lab USA, Inc.', market: 'US', currency: 'USD' },
 
   // TW Stocks & ETFs
   { symbol: '2330.TW', name: '台灣積體電路 (台積電 / TSMC)', market: 'TW', currency: 'TWD' },
@@ -57,21 +58,27 @@ export const POPULAR_STOCKS_DB: StockSearchResult[] = [
 ];
 
 /**
- * Dynamic Global Stock Search Auto-Suggest API (Multi-Tier Proxy + Live Yahoo Search)
- * Supports searching ANY global stock (e.g. ASTS, SPCX, 2377, PLTR, SMCI, 微星...)
+ * Fast & Reliable Global Stock Search with Strict Market Filter & Fast Timeout
  */
-export async function searchStockSuggestionsAsync(keyword: string): Promise<StockSearchResult[]> {
+export async function searchStockSuggestionsAsync(
+  keyword: string,
+  targetMarket?: MarketType
+): Promise<StockSearchResult[]> {
   const clean = keyword.trim().toLowerCase();
   if (!clean) return [];
 
-  // 1. Instant local matches from built-in database
-  const localMatches = POPULAR_STOCKS_DB.filter(
+  // 1. Filter local database by keyword & target market
+  let localMatches = POPULAR_STOCKS_DB.filter(
     (item) =>
       item.symbol.toLowerCase().includes(clean) ||
       item.name.toLowerCase().includes(clean)
   );
 
-  // Search endpoints with fallback CORS proxies
+  if (targetMarket) {
+    localMatches = localMatches.filter((item) => item.market === targetMarket);
+  }
+
+  // 2. Query online search endpoints with 1.8s timeout
   const searchEndpoints = [
     `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=10`,
     `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(clean)}&quotesCount=10`,
@@ -82,7 +89,12 @@ export async function searchStockSuggestionsAsync(keyword: string): Promise<Stoc
 
   for (const url of searchEndpoints) {
     try {
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1800);
+
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const text = await res.text();
         const data = JSON.parse(text);
@@ -101,15 +113,20 @@ export async function searchStockSuggestionsAsync(keyword: string): Promise<Stoc
                 currency: isTW ? ('TWD' as const) : ('USD' as const),
               };
             });
+
+          if (targetMarket) {
+            onlineMatches = onlineMatches.filter((m) => m.market === targetMarket);
+          }
+
           if (onlineMatches.length > 0) break;
         }
       }
     } catch (e) {
-      console.warn(`Search endpoint failed for ${clean}:`, e);
+      // Ignore network timeout/failure and try next
     }
   }
 
-  // Combine local & online results, avoiding duplicates
+  // Combine results with deduplication
   const seen = new Set<string>();
   const combined: StockSearchResult[] = [];
 
@@ -121,22 +138,25 @@ export async function searchStockSuggestionsAsync(keyword: string): Promise<Stoc
     }
   }
 
-  // 3. Fallback: If user typed an exact symbol (e.g. ASTS or 2377), ensure it is present in suggestions!
+  // 3. Fallback: If user typed an exact symbol, auto-generate matching suggestion for the selected market
   const upperClean = clean.toUpperCase();
   if (clean.length >= 2 && !seen.has(upperClean)) {
     const isPureDigits = /^\d+$/.test(clean);
-    const twSymbol = isPureDigits ? `${upperClean}.TW` : upperClean;
-    const isTW = isPureDigits || upperClean.endsWith('.TW');
+    const isTW = targetMarket === 'TW' || isPureDigits || upperClean.endsWith('.TW');
+    const displaySymbol = isTW && isPureDigits ? `${upperClean}.TW` : upperClean;
+    const finalMarket = isTW ? 'TW' : 'US';
 
-    combined.unshift({
-      symbol: isTW ? twSymbol : upperClean,
-      name: `搜尋標的 (${upperClean})`,
-      market: isTW ? 'TW' : 'US',
-      currency: isTW ? 'TWD' : 'USD',
-    });
+    if (!targetMarket || finalMarket === targetMarket) {
+      combined.unshift({
+        symbol: displaySymbol,
+        name: `即時新增標的 (${upperClean})`,
+        market: finalMarket,
+        currency: isTW ? 'TWD' : 'USD',
+      });
+    }
   }
 
-  return combined.slice(0, 10);
+  return combined.slice(0, 8);
 }
 
 /**
@@ -159,7 +179,12 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 
   for (const url of endpoints) {
     try {
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const text = await res.text();
         const data = JSON.parse(text);

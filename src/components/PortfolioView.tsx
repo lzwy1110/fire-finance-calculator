@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   TrendingUp,
   RefreshCw,
@@ -51,11 +51,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const [marketInput, setMarketInput] = useState<MarketType>('US');
   const [sharesInput, setSharesInput] = useState<number>(10);
   const [costInput, setCostInput] = useState<number>(100);
-  const [priceInput, setPriceInput] = useState<number>(110);
+  const [priceInput, setPriceInput] = useState<number>(0);
 
   // Autocomplete Suggestions State
   const [searchSuggestions, setSearchSuggestions] = useState<StockSearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(Math.round(num));
@@ -95,7 +97,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   // Batch Refresh All Stock Quotes from Online Endpoints
   const handleRefreshQuotes = async () => {
     setIsRefreshing(true);
-    setRefreshStatus('正在為您自線上財經數據源抓取最新股價...');
+    setRefreshStatus('正在為您自線上數據源抓取最新股價...');
 
     try {
       const stockList = stocks.map((s) => ({ symbol: s.symbol, market: s.market }));
@@ -118,12 +120,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
       if (updatedCount > 0) {
         onUpdateStocks(updatedStocks);
-        setRefreshStatus(`✅ 已成功更新 ${updatedCount} 档最新線上行情報價！`);
+        setRefreshStatus(`✅ 已成功更新 ${updatedCount} 檔最新線上行情報價！`);
       } else {
-        setRefreshStatus('⚠️ 數據源連線繁忙中，現有持股價格已完好保留。');
+        setRefreshStatus('⚠️ 數據源連線繁忙，現有持股價格已完好保留。');
       }
     } catch (e) {
-      setRefreshStatus('⚠️ 線上服務連線失敗，請手動輸入股價。');
+      setRefreshStatus('⚠️ 線上服務連線失敗，現有資料已保留。');
     } finally {
       setTimeout(() => {
         setIsRefreshing(false);
@@ -132,17 +134,36 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
   };
 
-  // Input change with instant autocomplete search suggestions
-  const handleSymbolInputChange = async (val: string) => {
+  // Debounced Search Input Change with Strict Market Filtering
+  const handleSymbolInputChange = (val: string, currentMarket: MarketType = marketInput) => {
     setSymbolInput(val);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
     if (!val.trim()) {
       setSearchSuggestions([]);
       setShowSuggestions(false);
+      setIsSearching(false);
       return;
     }
-    const matches = await searchStockSuggestionsAsync(val);
-    setSearchSuggestions(matches);
-    setShowSuggestions(matches.length > 0);
+
+    setIsSearching(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      const matches = await searchStockSuggestionsAsync(val, currentMarket);
+      setSearchSuggestions(matches);
+      setShowSuggestions(matches.length > 0);
+      setIsSearching(false);
+    }, 250);
+  };
+
+  // Market Tab Switch in Modal
+  const handleMarketInputSwitch = (newMarket: MarketType) => {
+    setMarketInput(newMarket);
+    if (symbolInput.trim()) {
+      handleSymbolInputChange(symbolInput, newMarket);
+    }
   };
 
   // Select Suggestion Item from Autocomplete Dropdown List
@@ -152,29 +173,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setMarketInput(item.market);
     setShowSuggestions(false);
 
-    // Auto fetch live quote for selected stock
+    // Auto fetch live quote in background
     setRefreshStatus(`正在取得 ${item.symbol} 最新價格...`);
     const quote = await fetchSingleStockQuote(item.symbol, item.market);
     if (quote && quote.currentPrice > 0) {
       setPriceInput(quote.currentPrice);
       setRefreshStatus(`✅ 找到 ${item.symbol} 最新價 $${quote.currentPrice}`);
     } else {
-      setRefreshStatus(`可手動輸入 ${item.symbol} 之單價。`);
-    }
-    setTimeout(() => setRefreshStatus(null), 2500);
-  };
-
-  // Single Stock Price Search Helper inside Modal
-  const handleAutoSearchPrice = async () => {
-    if (!symbolInput.trim()) return;
-    setRefreshStatus(`正在查詢 ${symbolInput.toUpperCase()} 最新價格...`);
-    const quote = await fetchSingleStockQuote(symbolInput, marketInput);
-    if (quote && quote.currentPrice > 0) {
-      setPriceInput(quote.currentPrice);
-      if (quote.name && !nameInput) setNameInput(quote.name);
-      setRefreshStatus(`✅ 找到 ${symbolInput.toUpperCase()} 最新價 $${quote.currentPrice}`);
-    } else {
-      setRefreshStatus(`未能自動查到 ${symbolInput.toUpperCase()}，可直接手動輸入價格。`);
+      setRefreshStatus(null);
     }
     setTimeout(() => setRefreshStatus(null), 2500);
   };
@@ -188,6 +194,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setSharesInput(10);
     setCostInput(120);
     setPriceInput(128.5);
+    setSearchSuggestions([]);
     setShowSuggestions(false);
     setIsAddModalOpen(true);
   };
@@ -201,49 +208,50 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setSharesInput(stock.shares);
     setCostInput(stock.avgCost);
     setPriceInput(stock.currentPrice);
+    setSearchSuggestions([]);
     setShowSuggestions(false);
     setIsAddModalOpen(true);
   };
 
-  // Save Stock (Add / Edit)
-  const handleSaveStock = async (e: React.FormEvent) => {
+  // Save Stock (Add / Edit) with Instant Modal Close & Background Fetch
+  const handleSaveStock = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!symbolInput.trim() || sharesInput <= 0) return;
+    const cleanSym = symbolInput.trim().toUpperCase();
+    if (!cleanSym || sharesInput <= 0) return;
 
-    let finalPrice = Number(priceInput);
-
-    // If adding new stock or price not set, auto fetch quote from live data source
-    if (finalPrice <= 0 || !editingStock) {
-      setRefreshStatus(`正在向數據源連線獲取 ${symbolInput.trim().toUpperCase()} 最新股價...`);
-      const quote = await fetchSingleStockQuote(symbolInput.trim(), marketInput);
-      if (quote && quote.currentPrice > 0) {
-        finalPrice = quote.currentPrice;
-      } else if (finalPrice <= 0) {
-        finalPrice = Number(costInput);
-      }
-    }
+    const initialPrice = priceInput > 0 ? priceInput : Number(costInput);
 
     const stockData: PortfolioStock = {
       id: editingStock ? editingStock.id : `port-${Date.now()}`,
-      symbol: symbolInput.trim().toUpperCase(),
-      name: nameInput.trim() || symbolInput.trim().toUpperCase(),
+      symbol: cleanSym,
+      name: nameInput.trim() || cleanSym,
       market: marketInput,
       shares: Number(sharesInput),
       avgCost: Number(costInput),
-      currentPrice: finalPrice,
+      currentPrice: initialPrice,
       currency: marketInput === 'US' ? 'USD' : 'TWD',
       lastUpdated: new Date().toISOString(),
     };
 
+    // Update state instantly and close modal
+    let updatedList: PortfolioStock[];
     if (editingStock) {
-      const updated = stocks.map((s) => (s.id === editingStock.id ? stockData : s));
-      onUpdateStocks(updated);
+      updatedList = stocks.map((s) => (s.id === editingStock.id ? stockData : s));
     } else {
-      onUpdateStocks([stockData, ...stocks]);
+      updatedList = [stockData, ...stocks];
     }
-
-    setRefreshStatus(null);
+    onUpdateStocks(updatedList);
     setIsAddModalOpen(false);
+
+    // Background fetch live quote for the newly saved stock
+    fetchSingleStockQuote(cleanSym, marketInput).then((quote) => {
+      if (quote && quote.currentPrice > 0) {
+        const refreshedList = updatedList.map((s) =>
+          s.symbol === cleanSym ? { ...s, currentPrice: quote.currentPrice, name: quote.name || s.name } : s
+        );
+        onUpdateStocks(refreshedList);
+      }
+    });
   };
 
   // Delete Stock
@@ -430,7 +438,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredStocks.length === 0 ? (
           <div className="col-span-full bg-[#0c0c0c] border border-white/5 rounded-3xl p-12 text-center text-gray-500 text-sm">
-            目前此分類下沒有持股紀錄，點擊「新增持股」搜尋輸入美股 (NVDA/VOO) 或台股 (2330/0050)！
+            目前此分類下沒有持股紀錄，點擊「新增持股」搜尋美股 (NVDA/VOO) 或台股 (2330/0050)！
           </div>
         ) : (
           filteredStocks.map((stock) => {
@@ -462,7 +470,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     <button
                       onClick={() => handleOpenEditModal(stock)}
                       className="p-1.5 text-gray-400 hover:text-cyan-300 hover:bg-white/5 rounded-xl transition cursor-pointer"
-                      title="編輯持股/手動調整價格"
+                      title="編輯持股"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -480,7 +488,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 {/* Price & ROI Grid */}
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
-                    <span className="text-gray-400 block text-[10px]">持股數量</span>
+                    <span className="text-gray-400 block text-[10px]">持股股數</span>
                     <strong className="text-white font-mono text-sm">{formatNum(stock.shares)} 股</strong>
                   </div>
 
@@ -512,13 +520,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         )}
       </div>
 
-      {/* Modal: Add / Edit Stock Holding with Search Engine Autocomplete */}
+      {/* Modal: Add / Edit Stock Holding with Strict Market Autocomplete Filter */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
           <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 relative overflow-visible">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                {editingStock ? '編輯持股與市價 ✏️' : '新增股票/ETF持股 📈'}
+                {editingStock ? '編輯持股 ✏️' : '新增股票/ETF持股 📈'}
               </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -534,7 +542,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setMarketInput('US')}
+                    onClick={() => handleMarketInputSwitch('US')}
                     className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
                       marketInput === 'US' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-black/40 border-white/5 text-gray-400'
                     }`}
@@ -543,7 +551,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setMarketInput('TW')}
+                    onClick={() => handleMarketInputSwitch('TW')}
                     className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
                       marketInput === 'TW' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-black/40 border-white/5 text-gray-400'
                     }`}
@@ -553,34 +561,28 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 </div>
               </div>
 
-              {/* Symbol Input with Search Autocomplete Dropdown */}
+              {/* Symbol Input with Market Filtered Autocomplete */}
               <div className="relative">
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-gray-400 font-bold flex items-center gap-1.5">
                     <Search className="w-3.5 h-3.5 text-cyan-400" />
-                    股票關鍵字/代號 (搜尋引擎補全):
+                    {marketInput === 'US' ? '美股' : '台股'}關鍵字/代號:
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleAutoSearchPrice}
-                    className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
-                  >
-                    <Sparkles className="w-3 h-3" /> 查即時價
-                  </button>
+                  {isSearching && (
+                    <span className="text-[10px] text-cyan-400 animate-pulse font-bold">
+                      搜尋中...
+                    </span>
+                  )}
                 </div>
 
                 <input
                   type="text"
-                  placeholder="輸入 NV, VOO, 2330, 0050 或名稱..."
+                  placeholder={marketInput === 'US' ? '例如: NVDA, VOO, ASTS, SPCX...' : '例如: 2330, 2377, 0050, 微星...'}
                   value={symbolInput}
                   onChange={(e) => handleSymbolInputChange(e.target.value)}
-                  onFocus={async () => {
+                  onFocus={() => {
                     if (symbolInput.trim()) {
-                      const matches = await searchStockSuggestionsAsync(symbolInput);
-                      if (matches.length > 0) {
-                        setSearchSuggestions(matches);
-                        setShowSuggestions(true);
-                      }
+                      handleSymbolInputChange(symbolInput);
                     }
                   }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-mono font-bold uppercase focus:border-cyan-500 focus:outline-none"
@@ -607,7 +609,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                           </div>
                         </div>
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-gray-400 font-mono font-bold">
-                          點擊選取
+                          點擊帶入
                         </span>
                       </button>
                     ))}
@@ -616,10 +618,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               </div>
 
               <div>
-                <label className="text-gray-400 block mb-1 font-bold">股票/基金全名:</label>
+                <label className="text-gray-400 block mb-1 font-bold">股票/基金名稱:</label>
                 <input
                   type="text"
-                  placeholder="例如: NVIDIA Corporation (輝達)"
+                  placeholder="可自動帶入或自行修改名稱"
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-bold focus:border-cyan-500 focus:outline-none"
