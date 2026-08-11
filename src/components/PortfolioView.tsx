@@ -16,10 +16,12 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Coins,
+  RotateCcw,
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock } from '../types';
 import { getThemePreset } from '../utils/theme';
 import { batchFetchStockQuotes, fetchSingleStockQuote } from '../services/stockPriceService';
+import { DEFAULT_PORTFOLIO_STOCKS } from '../data/initialData';
 
 interface PortfolioViewProps {
   stocks: PortfolioStock[];
@@ -136,6 +138,15 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       setRefreshStatus(`未能在線上自動查到 ${symbolInput.toUpperCase()}，請手動填寫。`);
     }
     setTimeout(() => setRefreshStatus(null), 2500);
+  };
+
+  // Reset to default standard sample stocks
+  const handleResetSampleStocks = () => {
+    if (window.confirm('確定要將預設 5 檔庫存標的 (VOO/NVDA/AAPL/0050/2330) 重置校正為標準行情報價嗎？')) {
+      onUpdateStocks(DEFAULT_PORTFOLIO_STOCKS);
+      setRefreshStatus('✅ 已成功將 5 檔預設庫存校正重置為標準市場行情價格 (VOO $515.2 / NVDA $128.5 / AAPL $224.3 / 0050 $195 / 2330 $960)！');
+      setTimeout(() => setRefreshStatus(null), 3000);
+    }
   };
 
   // Open Modal for Add
@@ -336,12 +347,21 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+          <button
+            onClick={handleResetSampleStocks}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs font-bold rounded-2xl transition cursor-pointer"
+            title="重置 5 檔預設庫存為標準正確行情價格"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-gray-400" />
+            重置校正價
+          </button>
+
           <button
             onClick={handleRefreshQuotes}
             disabled={isRefreshing}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
-            title="從 Finnhub & Yahoo Finance 線上拉取最新股價"
+            title="線上自動連驗更新股價"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             更新最新股價
