@@ -18,7 +18,7 @@ export interface StockSearchResult {
   price?: number;
 }
 
-// Comprehensive Built-in Dictionary for US & TW Stocks
+// Comprehensive Stock Name Mapping
 export const KNOWN_STOCK_NAMES: Record<string, string> = {
   // TW Stocks & ETFs
   '2377': '微星 (MSI)',
@@ -198,7 +198,6 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
   const endpoints = [
     `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
     `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`)}`,
   ];
 
   for (const url of endpoints) {
@@ -293,7 +292,7 @@ export async function searchStockSuggestionsAsync(
     });
   }
 
-  // 3. Fetch Live Quote for the top candidate to attach live market price
+  // 3. Fetch Live Quote for top candidate
   if (results.length > 0) {
     const topItem = results[0];
     try {
@@ -313,7 +312,7 @@ export async function searchStockSuggestionsAsync(
 }
 
 /**
- * Fetch quotes for multiple stocks concurrently
+ * Fetch quotes for multiple stocks concurrently with key alias matching
  */
 export async function batchFetchStockQuotes(
   stocks: { symbol: string; market: MarketType }[]
@@ -323,7 +322,13 @@ export async function batchFetchStockQuotes(
   const promises = stocks.map(async (s) => {
     const quote = await fetchSingleStockQuote(s.symbol, s.market);
     if (quote) {
-      results[s.symbol.toUpperCase()] = quote;
+      const symUpper = s.symbol.toUpperCase();
+      const rawCode = symUpper.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+
+      results[symUpper] = quote;
+      results[rawCode] = quote;
+      results[`${rawCode}.TW`] = quote;
+      results[`${rawCode}.TWO`] = quote;
     }
   });
 

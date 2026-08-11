@@ -105,12 +105,16 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
       let updatedCount = 0;
       const updatedStocks = stocks.map((s) => {
-        const quote = quotesMap[s.symbol.toUpperCase()];
+        const symUpper = s.symbol.toUpperCase();
+        const rawCode = symUpper.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+        const quote = quotesMap[symUpper] || quotesMap[`${rawCode}.TW`] || quotesMap[rawCode];
+
         if (quote && quote.currentPrice > 0) {
           updatedCount++;
           return {
             ...s,
             currentPrice: quote.currentPrice,
+            name: quote.name || s.name,
             previousClose: quote.previousClose || s.previousClose,
             lastUpdated: new Date().toISOString(),
           };
