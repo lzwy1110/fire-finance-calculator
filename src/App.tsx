@@ -143,22 +143,22 @@ export default function App() {
 
   // Auto-Sync Total Portfolio Market Value to FIRE Net Worth in Real Time
   useEffect(() => {
-    if (portfolioStocks && portfolioStocks.length > 0) {
-      let totalMarketValue = 0;
+    let totalMarketValue = 0;
+    if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
       portfolioStocks.forEach((s) => {
         const synced = syncStockCalculations(s);
         const val = synced.shares * (synced.currentPrice || 0);
         totalMarketValue += synced.market === 'US' ? val * 32.5 : val;
       });
+    }
 
-      const roundedVal = Math.round(totalMarketValue);
-      if (roundedVal > 0 && Math.abs((fireConfig.currentNetWorth || 0) - roundedVal) > 1) {
-        setFireConfig((prev) => {
-          const updated = { ...prev, currentNetWorth: roundedVal };
-          saveFIREConfig(updated);
-          return updated;
-        });
-      }
+    const roundedVal = Math.round(totalMarketValue);
+    if ((fireConfig.currentNetWorth || 0) !== roundedVal) {
+      setFireConfig((prev) => {
+        const updated = { ...prev, currentNetWorth: roundedVal };
+        saveFIREConfig(updated);
+        return updated;
+      });
     }
   }, [portfolioStocks]);
 
@@ -191,18 +191,6 @@ export default function App() {
       return updated;
     });
     syncSingleTransactionToCloud(newRecord);
-
-    // Also update currentNetWorth dynamically if investment was logged!
-    if (t.type === 'investment') {
-      setFireConfig((prevConfig) => {
-        const newConfig = {
-          ...prevConfig,
-          currentNetWorth: prevConfig.currentNetWorth + t.amount,
-        };
-        saveFIREConfig(newConfig);
-        return newConfig;
-      });
-    }
   };
 
   // Handle App Launch & Resume: Ingest Widget Recorded Transactions
