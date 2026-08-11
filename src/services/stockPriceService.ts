@@ -143,6 +143,15 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
     }
   }
 
+  // 3. Web Proxy Fallback via Backend Serverless Route (/api/quote) to bypass CORS on Desktop Web
+  try {
+    const proxyUrl = `/api/quote?symbol=${encodeURIComponent(cleanSymbol)}&market=${market}`;
+    const proxyData = await httpGetJson(proxyUrl);
+    if (proxyData && proxyData.success && proxyData.quote && proxyData.quote.currentPrice > 0) {
+      return proxyData.quote;
+    }
+  } catch (e) {}
+
   return null;
 }
 

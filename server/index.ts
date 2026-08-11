@@ -296,6 +296,109 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Universal Server-Side Stock Quote Fetcher (Bypasses Browser CORS completely)
+ */
+async function fetchQuoteOnServer(symbol: string, market: string) {
+  const cleanSymbol = symbol.trim().toUpperCase();
+  const rawCode = cleanSymbol.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+
+  if (market === 'TW' || /^\d+[A-Za-z]?$/.test(cleanSymbol)) {
+    try {
+      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${rawCode}.tw|otc_${rawCode}.two`;
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.msgArray) && data.msgArray.length > 0) {
+          const match = data.msgArray.find((it: any) => it && (it.z !== '-' || it.y !== '-' || it.o !== '-'));
+          const item = match || data.msgArray[0];
+          if (item) {
+            const livePrice = parseFloat(item.z) || parseFloat(item.y) || parseFloat(item.o) || 0;
+            const prevClose = parseFloat(item.y) || livePrice;
+            const change = livePrice - prevClose;
+            const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+            const stockName = item.n || item.nf || rawCode;
+
+            if (livePrice > 0) {
+              return {
+                symbol: `${rawCode}.TW`,
+                currentPrice: livePrice,
+                previousClose: prevClose,
+                change,
+                changePercent,
+                currency: 'TWD',
+                name: stockName,
+              };
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Yahoo Finance Proxy fallback for US & TW
+  let yahooSymbol = cleanSymbol;
+  if ((market === 'TW' || /^\d+[A-Za-z]?$/.test(cleanSymbol)) && !yahooSymbol.endsWith('.TW') && !yahooSymbol.endsWith('.TWO')) {
+    yahooSymbol = `${rawCode}.TW`;
+  }
+
+  const endpoints = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const meta = data?.chart?.result?.[0]?.meta;
+        if (meta && typeof meta.regularMarketPrice === 'number' && meta.regularMarketPrice > 0) {
+          const currentPrice = meta.regularMarketPrice;
+          const previousClose = meta.chartPreviousClose || meta.previousClose || currentPrice;
+          const change = currentPrice - previousClose;
+          const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
+          return {
+            symbol: cleanSymbol,
+            currentPrice,
+            previousClose,
+            change,
+            changePercent,
+            currency: market === 'TW' ? 'TWD' : 'USD',
+            name: meta.shortName || meta.longName || cleanSymbol,
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  return null;
+}
+
+app.get('/api/quote', async (req: Request, res: Response) => {
+  const symbol = (req.query.symbol as string) || '';
+  const market = (req.query.market as string) || 'US';
+
+  if (!symbol) {
+    return res.status(400).json({ success: false, error: 'Symbol is required' });
+  }
+
+  const quote = await fetchQuoteOnServer(symbol, market);
+  if (quote) {
+    return res.json({ success: true, quote });
+  }
+  return res.json({ success: false, error: 'Stock quote not found' });
+});
+
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
