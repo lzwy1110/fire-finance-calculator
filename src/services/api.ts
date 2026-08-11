@@ -172,7 +172,7 @@ export async function saveTransactionToCloud(syncCode: string, transaction: Tran
     // fall back
   }
 
-  return await saveTransactionDirect(syncCode, transaction);
+  return await saveTransactionDirect(transaction, syncCode);
 }
 
 /**
@@ -188,7 +188,7 @@ export async function deleteTransactionFromCloud(syncCode: string, id: string): 
     // fall back
   }
 
-  return await deleteTransactionDirect(syncCode, id);
+  return await deleteTransactionDirect(id, syncCode);
 }
 
 /**
@@ -206,5 +206,5 @@ export async function saveFIREConfigToCloud(syncCode: string, config: FIREConfig
     // fall back
   }
 
-  return await saveFIREConfigDirect(syncCode, config);
+  return await saveFIREConfigDirect(config, syncCode);
 }

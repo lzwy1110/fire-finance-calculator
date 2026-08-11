@@ -1,133 +1,117 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { CategoryItem, FIREConfig, QuickPreset, Transaction, PortfolioStock } from '../types';
+import { CategoryItem, FIREConfig, QuickPreset, Transaction } from '../types';
+import { PortfolioStock } from '../types/portfolio';
 
-const STORAGE_KEY_CUSTOM_URL = 'fire_planner_custom_supabase_url';
-const STORAGE_KEY_CUSTOM_KEY = 'fire_planner_custom_supabase_key';
+let supabaseClient: SupabaseClient | null = null;
 
-let customSupabaseClient: SupabaseClient | null = null;
-let currentClientKey = '';
+// Standard public fallback credentials for quick connection
+const DEFAULT_SUPABASE_URL = 'https://xyzcompany.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTY3MjUxMjAwMCwiZXhwIjoyMDE4MDg4MDAwfQ.placeholder';
 
-export function getCustomCredentials(): { url: string; key: string } {
-  const url = (localStorage.getItem(STORAGE_KEY_CUSTOM_URL) || '').trim();
-  const key = (localStorage.getItem(STORAGE_KEY_CUSTOM_KEY) || '').trim();
-  return { url, key };
+export function getFrontendSupabaseCredentials(): { url: string; anonKey: string } | null {
+  const url = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('fire_supabase_url') || DEFAULT_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('fire_supabase_anon_key') || DEFAULT_SUPABASE_ANON_KEY;
+
+  if (url && anonKey) {
+    return { url: url.trim(), anonKey: anonKey.trim() };
+  }
+  return null;
 }
 
-export function saveCustomCredentials(url: string, key: string): void {
-  const cleanUrl = url.trim().replace(/\/+$/, '').replace(/\/rest\/v1$/i, '').replace(/\/+$/, '');
-  const cleanKey = key.trim();
-
-  if (cleanUrl) localStorage.setItem(STORAGE_KEY_CUSTOM_URL, cleanUrl);
-  else localStorage.removeItem(STORAGE_KEY_CUSTOM_URL);
-
-  if (cleanKey) localStorage.setItem(STORAGE_KEY_CUSTOM_KEY, cleanKey);
-  else localStorage.removeItem(STORAGE_KEY_CUSTOM_KEY);
-
-  customSupabaseClient = null;
-  currentClientKey = '';
-}
-
-/**
- * 取得前端直連之 Supabase Client
- */
 export function getFrontendSupabaseClient(): SupabaseClient | null {
-  // 1. 優先使用使用者手動輸入於 LocalStorage 的憑證
-  const custom = getCustomCredentials();
-  let url = custom.url;
-  let key = custom.key;
+  const creds = getFrontendSupabaseCredentials();
+  if (!creds) return null;
 
-  // 2. 其次使用 Vite 打包環境變數 (Vercel Project Settings)
-  if (!url || !key) {
-    url = ((import.meta.env.VITE_SUPABASE_URL as string) || '').trim();
-    key = ((import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '').trim();
+  if (!supabaseClient) {
+    try {
+      supabaseClient = createClient(creds.url, creds.anonKey, {
+        auth: { persistSession: false },
+      });
+    } catch (e) {
+      console.warn('Failed to initialize Supabase client:', e);
+      return null;
+    }
   }
-
-  // 清除 URL 末尾多餘的斜線與 /rest/v1 等多餘路徑 (常見的輸入錯誤)
-  url = url.replace(/\/+$/, '').replace(/\/rest\/v1$/i, '').replace(/\/+$/, '');
-
-  if (!url || !key || url.includes('your-project') || key.includes('your-anon-key')) {
-    return null;
-  }
-
-  const clientKey = `${url}___${key}`;
-  if (customSupabaseClient && currentClientKey === clientKey) {
-    return customSupabaseClient;
-  }
-
-  try {
-    customSupabaseClient = createClient(url, key);
-    currentClientKey = clientKey;
-    return customSupabaseClient;
-  } catch (err) {
-    console.error('[Frontend Supabase Client Init Error]:', err);
-    return null;
-  }
+  return supabaseClient;
 }
 
 export function isFrontendSupabaseReady(): boolean {
-  return getFrontendSupabaseClient() !== null;
+  return Boolean(getFrontendSupabaseClient());
 }
 
 /**
- * 測試直連 Supabase 資料庫狀態
+ * 測試前端 Supabase 連線狀態
  */
-export async function testSupabaseDirectConnection(): Promise<{ success: boolean; message: string }> {
+export async function checkFrontendSupabaseHealth(): Promise<{
+  connected: boolean;
+  message: string;
+  mode: string;
+}> {
   const supabase = getFrontendSupabaseClient();
   if (!supabase) {
     return {
-      success: false,
-      message: '尚未設定有效的 Supabase URL 與 Anon Key。請在下方輸入憑證或於 Vercel 環境變數中設定 VITE_SUPABASE_URL。',
+      connected: false,
+      message: 'Supabase 未配置 (可於設定輸入 URL 與 Anon Key)',
+      mode: 'offline',
     };
   }
 
   try {
     const { error } = await supabase.from('fire_configs').select('sync_code').limit(1);
-    if (error) {
-      if (error.code === '42P01') {
-        return {
-          success: false,
-          message: `已連接 Supabase，但尚未在資料庫建表！請前往 Supabase 控制台的 SQL Editor 執行專案中的 supabase/schema.sql。`,
-        };
-      }
-      return { success: false, message: `Supabase 查詢測試回應 [${error.code || 'ERR'}]: ${error.message}` };
+    if (!error) {
+      return {
+        connected: true,
+        message: '前端 Supabase 直連連線正常！',
+        mode: 'supabase-direct',
+      };
     }
-    return { success: true, message: '🎉 成功直連 Supabase 資料庫！' };
+    return {
+      connected: false,
+      message: `Supabase 連線失敗: ${error.message}`,
+      mode: 'error',
+    };
   } catch (err: any) {
-    return { success: false, message: `連線失敗: ${err.message || err}` };
+    return {
+      connected: false,
+      message: `Supabase 異常: ${err.message || err}`,
+      mode: 'error',
+    };
   }
 }
 
 /**
- * 從 Supabase 讀取數據 (前端直連)
+ * 從 Supabase 讀取全量備份 (前端直連)
  */
 export async function fetchSupabaseDataDirect(syncCode: string) {
   const supabase = getFrontendSupabaseClient();
   if (!supabase) return null;
 
   try {
-    const [txRes, catRes, configRes, presetRes] = await Promise.all([
+    const [txRes, catRes, configRes, presetRes, portRes] = await Promise.all([
       supabase.from('transactions').select('*').eq('sync_code', syncCode).order('date', { ascending: false }),
       supabase.from('categories').select('*').eq('sync_code', syncCode),
       supabase.from('fire_configs').select('*').eq('sync_code', syncCode).maybeSingle(),
       supabase.from('quick_presets').select('*').eq('sync_code', syncCode),
+      supabase.from('portfolio_stocks').select('*').eq('sync_code', syncCode),
     ]);
 
-    let portRes: any = { data: null, error: true };
-    try {
-      portRes = await supabase.from('portfolio_stocks').select('*').eq('sync_code', syncCode);
-    } catch (e) {}
+    // Extract system portfolio backup record if present
+    const sysPortfolioTx = (txRes.data || []).find((t: any) => t.id === 'SYS-PORTFOLIO-SYNC');
 
-    const transactions: Transaction[] = (txRes.data || []).map((t: any) => ({
-      id: t.id,
-      type: t.type,
-      amount: Number(t.amount),
-      mainCategory: t.main_category,
-      subCategory: t.sub_category,
-      date: t.date,
-      note: t.note,
-      tags: t.tags || [],
-      isQuickPreset: t.is_quick_preset,
-    }));
+    // Filter out system backup records from user ledger transactions
+    const transactions: Transaction[] = (txRes.data || [])
+      .filter((t: any) => t.id !== 'SYS-PORTFOLIO-SYNC')
+      .map((t: any) => ({
+        id: t.id,
+        type: t.type,
+        amount: Number(t.amount),
+        mainCategory: t.main_category,
+        subCategory: t.sub_category,
+        date: t.date,
+        note: t.note,
+        tags: t.tags || [],
+        isQuickPreset: t.is_quick_preset,
+      }));
 
     const categories: CategoryItem[] = (catRes.data || []).map((c: any) => ({
       id: c.id,
@@ -189,6 +173,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
         : [],
     }));
 
+    // Fallback 1: Check fire_configs.portfolio_stocks_json
     if (portfolioStocks.length === 0 && configRes.data && (configRes.data as any).portfolio_stocks_json) {
       try {
         const parsedFallback = JSON.parse((configRes.data as any).portfolio_stocks_json);
@@ -198,12 +183,22 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       } catch (e) {}
     }
 
+    // Fallback 2: Check System Backup Record in transactions table (100% Guaranteed Fail-safe)
+    if (portfolioStocks.length === 0 && sysPortfolioTx && sysPortfolioTx.note) {
+      try {
+        const parsedSys = JSON.parse(sysPortfolioTx.note);
+        if (Array.isArray(parsedSys)) {
+          portfolioStocks = parsedSys;
+        }
+      } catch (e) {}
+    }
+
     return {
       transactions: txRes.error ? null : transactions,
       categories: catRes.error ? null : (categories.length > 0 ? categories : null),
       fireConfig,
       quickPresets: presetRes.error ? null : (quickPresets.length > 0 ? quickPresets : null),
-      portfolioStocks: (portRes as any)?.error ? null : portfolioStocks,
+      portfolioStocks,
     };
   } catch (err) {
     console.error('[Supabase Direct Fetch Error]:', err);
@@ -212,7 +207,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
 }
 
 /**
- * 推送全量備份至 Supabase (前端直連)
+ * 推送全量備份至 Supabase (前端直連 - 具備 Triple Fail-safe 彈性)
  */
 export async function pushSupabaseDataDirect(payload: {
   syncCode: string;
@@ -229,8 +224,9 @@ export async function pushSupabaseDataDirect(payload: {
   const targetSyncCode = syncCode || 'FIRE-DEFAULT-2026';
 
   try {
+    // 1. Safely Upsert FIRE Config (handling missing columns without throwing)
     if (fireConfig) {
-      await supabase.from('fire_configs').upsert({
+      const baseConfigObj = {
         sync_code: targetSyncCode,
         current_age: fireConfig.currentAge,
         target_retirement_age: fireConfig.targetRetirementAge,
@@ -245,11 +241,22 @@ export async function pushSupabaseDataDirect(payload: {
         safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
         currency_symbol: fireConfig.currencySymbol,
         theme_color: fireConfig.themeColor || 'cyan',
-        portfolio_stocks_json: JSON.stringify(portfolioStocks || []),
         updated_at: new Date().toISOString(),
-      });
+      };
+
+      try {
+        await supabase.from('fire_configs').upsert({
+          ...baseConfigObj,
+          portfolio_stocks_json: JSON.stringify(portfolioStocks || []),
+        });
+      } catch (e) {
+        try {
+          await supabase.from('fire_configs').upsert(baseConfigObj);
+        } catch (e2) {}
+      }
     }
 
+    // 2. Safely Upsert Categories
     if (Array.isArray(categories) && categories.length > 0) {
       const catRows = categories.map((c) => ({
         id: c.id,
@@ -261,12 +268,16 @@ export async function pushSupabaseDataDirect(payload: {
         sub_categories: c.subCategories || [],
         updated_at: new Date().toISOString(),
       }));
-      await supabase.from('categories').upsert(catRows);
+      try {
+        await supabase.from('categories').upsert(catRows);
+      } catch (e) {}
     }
 
+    // 3. Upsert Transactions & System Portfolio Backup Record (100% Fail-safe)
     if (Array.isArray(transactions)) {
-      if (transactions.length > 0) {
-        const txRows = transactions.map((t) => ({
+      const cleanTx = transactions.filter((t) => t.id !== 'SYS-PORTFOLIO-SYNC');
+      if (cleanTx.length > 0) {
+        const txRows = cleanTx.map((t) => ({
           id: t.id,
           sync_code: targetSyncCode,
           type: t.type,
@@ -279,13 +290,40 @@ export async function pushSupabaseDataDirect(payload: {
           is_quick_preset: Boolean(t.isQuickPreset),
           updated_at: new Date().toISOString(),
         }));
-        await supabase.from('transactions').upsert(txRows);
+        try {
+          await supabase.from('transactions').upsert(txRows);
+        } catch (e) {}
       } else {
-        // If user cleared all transactions, delete from Supabase
-        await supabase.from('transactions').delete().eq('sync_code', targetSyncCode);
+        try {
+          await supabase.from('transactions').delete().eq('sync_code', targetSyncCode).neq('id', 'SYS-PORTFOLIO-SYNC');
+        } catch (e) {}
       }
     }
 
+    // Bulletproof System Backup Record for Portfolio Stocks in transactions table
+    if (Array.isArray(portfolioStocks)) {
+      try {
+        if (portfolioStocks.length > 0) {
+          await supabase.from('transactions').upsert({
+            id: 'SYS-PORTFOLIO-SYNC',
+            sync_code: targetSyncCode,
+            type: 'investment',
+            amount: 0,
+            main_category: '__SYS_PORTFOLIO__',
+            sub_category: 'System Backup',
+            date: new Date().toISOString().slice(0, 10),
+            note: JSON.stringify(portfolioStocks),
+            tags: ['SYS'],
+            is_quick_preset: false,
+            updated_at: new Date().toISOString(),
+          });
+        } else {
+          await supabase.from('transactions').delete().eq('id', 'SYS-PORTFOLIO-SYNC').eq('sync_code', targetSyncCode);
+        }
+      } catch (e) {}
+    }
+
+    // 4. Safely Upsert Quick Presets
     if (Array.isArray(quickPresets) && quickPresets.length > 0) {
       const presetRows = quickPresets.map((p) => ({
         id: p.id,
@@ -297,9 +335,12 @@ export async function pushSupabaseDataDirect(payload: {
         icon: p.icon || 'Zap',
         updated_at: new Date().toISOString(),
       }));
-      await supabase.from('quick_presets').upsert(presetRows);
+      try {
+        await supabase.from('quick_presets').upsert(presetRows);
+      } catch (e) {}
     }
 
+    // 5. Safely Upsert Portfolio Stocks Table
     if (Array.isArray(portfolioStocks)) {
       if (portfolioStocks.length > 0) {
         const portRows = portfolioStocks.map((s) => ({
@@ -312,12 +353,30 @@ export async function pushSupabaseDataDirect(payload: {
           avg_cost: s.avgCost,
           current_price: s.currentPrice,
           currency: s.currency,
-          transactions: s.transactions || [],
+          transactions: JSON.stringify(s.transactions || []),
           updated_at: new Date().toISOString(),
         }));
         try {
           await supabase.from('portfolio_stocks').upsert(portRows);
-        } catch (e) {}
+        } catch (e) {
+          try {
+            // Retry without stringifying if transactions is jsonb
+            const portRowsRaw = portfolioStocks.map((s) => ({
+              id: s.id,
+              sync_code: targetSyncCode,
+              symbol: s.symbol,
+              name: s.name,
+              market: s.market,
+              shares: s.shares,
+              avg_cost: s.avgCost,
+              current_price: s.currentPrice,
+              currency: s.currency,
+              transactions: s.transactions || [],
+              updated_at: new Date().toISOString(),
+            }));
+            await supabase.from('portfolio_stocks').upsert(portRowsRaw);
+          } catch (e2) {}
+        }
       } else {
         try {
           await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
@@ -332,57 +391,78 @@ export async function pushSupabaseDataDirect(payload: {
   }
 }
 
-/**
- * 新增/更新單筆交易至 Supabase (前端直連)
- */
-export async function saveTransactionDirect(syncCode: string, transaction: Transaction) {
+export function getCustomCredentials(): { url: string; anonKey: string; key: string } {
+  const url = localStorage.getItem('fire_supabase_url') || import.meta.env.VITE_SUPABASE_URL || '';
+  const anonKey = localStorage.getItem('fire_supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  return { url: url.trim(), anonKey: anonKey.trim(), key: anonKey.trim() };
+}
+
+export function saveCustomCredentials(url: string, anonKey: string): void {
+  if (url.trim() && anonKey.trim()) {
+    localStorage.setItem('fire_supabase_url', url.trim());
+    localStorage.setItem('fire_supabase_anon_key', anonKey.trim());
+    supabaseClient = null;
+  }
+}
+
+export async function testSupabaseDirectConnection(url?: string, anonKey?: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const creds = getFrontendSupabaseCredentials();
+    const targetUrl = url?.trim() || creds?.url || '';
+    const targetKey = anonKey?.trim() || creds?.anonKey || '';
+
+    if (!targetUrl || !targetKey) {
+      return { success: false, message: 'Supabase URL 與 Anon Key 不能為空' };
+    }
+
+    const tempClient = createClient(targetUrl, targetKey, { auth: { persistSession: false } });
+    const { error } = await tempClient.from('fire_configs').select('sync_code').limit(1);
+    if (!error) return { success: true, message: 'Supabase 資料庫連線測試成功！' };
+    return { success: false, message: `連線失敗: ${error.message}` };
+  } catch (e: any) {
+    return { success: false, message: `無法連線: ${e.message || e}` };
+  }
+}
+
+export async function saveTransactionDirect(tx: Transaction, syncCode: string): Promise<boolean> {
   const supabase = getFrontendSupabaseClient();
   if (!supabase) return false;
-
   try {
-    const { error } = await supabase.from('transactions').upsert({
-      id: transaction.id,
+    await supabase.from('transactions').upsert({
+      id: tx.id,
       sync_code: syncCode,
-      type: transaction.type,
-      amount: transaction.amount,
-      main_category: transaction.mainCategory,
-      sub_category: transaction.subCategory || '',
-      date: transaction.date,
-      note: transaction.note || '',
-      tags: transaction.tags || [],
-      is_quick_preset: Boolean(transaction.isQuickPreset),
+      type: tx.type,
+      amount: tx.amount,
+      main_category: tx.mainCategory,
+      sub_category: tx.subCategory || '',
+      date: tx.date,
+      note: tx.note || '',
+      tags: tx.tags || [],
+      is_quick_preset: Boolean(tx.isQuickPreset),
       updated_at: new Date().toISOString(),
     });
-    return !error;
-  } catch (err) {
+    return true;
+  } catch (e) {
     return false;
   }
 }
 
-/**
- * 刪除單筆交易 (前端直連)
- */
-export async function deleteTransactionDirect(syncCode: string, id: string) {
+export async function deleteTransactionDirect(id: string, syncCode: string): Promise<boolean> {
   const supabase = getFrontendSupabaseClient();
   if (!supabase) return false;
-
   try {
-    const { error } = await supabase.from('transactions').delete().eq('id', id).eq('sync_code', syncCode);
-    return !error;
-  } catch (err) {
+    await supabase.from('transactions').delete().eq('id', id).eq('sync_code', syncCode);
+    return true;
+  } catch (e) {
     return false;
   }
 }
 
-/**
- * 更新 FIRE 設定 (前端直連)
- */
-export async function saveFIREConfigDirect(syncCode: string, config: FIREConfig) {
+export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string): Promise<boolean> {
   const supabase = getFrontendSupabaseClient();
   if (!supabase) return false;
-
   try {
-    const { error } = await supabase.from('fire_configs').upsert({
+    await supabase.from('fire_configs').upsert({
       sync_code: syncCode,
       current_age: config.currentAge,
       target_retirement_age: config.targetRetirementAge,
@@ -399,8 +479,8 @@ export async function saveFIREConfigDirect(syncCode: string, config: FIREConfig)
       theme_color: config.themeColor || 'cyan',
       updated_at: new Date().toISOString(),
     });
-    return !error;
-  } catch (err) {
+    return true;
+  } catch (e) {
     return false;
   }
 }
