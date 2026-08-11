@@ -141,30 +141,42 @@ export default function App() {
     }
   }, [categories]);
 
-  // Auto-Sync Total FIRE Net Worth (Stock Portfolio Value + Accumulated Cash Savings) in Real Time
+  // Double-Entry Accounting: Auto-Sync Total FIRE Net Worth in Real Time
+  // Total Net Worth = Live Stock Market Value + Cash Savings (Base Cash + Income - Expense - Tax - Stock Purchases + Stock Sales)
   useEffect(() => {
     let stockMarketValue = 0;
+    let stockTradeNetCash = 0;
+
     if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
       portfolioStocks.forEach((s) => {
         const synced = syncStockCalculations(s);
         const val = synced.shares * (synced.currentPrice || 0);
-        stockMarketValue += synced.market === 'US' ? val * 32.5 : val;
+        const rate = s.market === 'US' ? 32.5 : 1;
+        stockMarketValue += val * rate;
+
+        (synced.transactions || []).forEach((tx) => {
+          const tradeAmt = (tx.shares * tx.price) * rate;
+          if (tx.type === 'BUY') {
+            stockTradeNetCash -= tradeAmt; // Buying stock consumes cash
+          } else if (tx.type === 'SELL') {
+            stockTradeNetCash += tradeAmt; // Selling stock generates cash!
+          }
+        });
       });
     }
 
-    // Calculate Accumulated Cash Savings from Ledger Transactions (Income - Expense - Tax - Investment)
-    let netCashSavings = 0;
+    // Ledger Net Cash Savings (Income - Expense - Tax)
+    let ledgerNetCash = 0;
     if (Array.isArray(transactions)) {
       transactions.forEach((t) => {
-        if (t.type === 'income') netCashSavings += t.amount;
-        if (t.type === 'expense') netCashSavings -= t.amount;
-        if (t.type === 'tax') netCashSavings -= t.amount;
-        if (t.type === 'investment') netCashSavings -= t.amount;
+        if (t.type === 'income') ledgerNetCash += t.amount;
+        if (t.type === 'expense') ledgerNetCash -= t.amount;
+        if (t.type === 'tax') ledgerNetCash -= t.amount;
       });
     }
 
     const baseCash = fireConfig.baseCashBalance || 0;
-    const totalNetWorth = Math.round(stockMarketValue + baseCash + netCashSavings);
+    const totalNetWorth = Math.round(stockMarketValue + stockTradeNetCash + baseCash + ledgerNetCash);
 
     if ((fireConfig.currentNetWorth || 0) !== totalNetWorth) {
       setFireConfig((prev) => {
