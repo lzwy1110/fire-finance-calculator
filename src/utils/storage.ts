@@ -161,13 +161,13 @@ export async function syncWithCloudCodeAsync(inputCode: string): Promise<CloudBa
     if (apiRes && apiRes.success && apiRes.data) {
       const { transactions, categories, fireConfig, quickPresets, portfolioStocks } = apiRes.data;
 
+      setSyncCode(cleanCode);
+
       if (Array.isArray(transactions)) saveTransactions(transactions);
       if (Array.isArray(categories) && categories.length > 0) saveCategories(categories);
       if (fireConfig) saveFIREConfig(fireConfig);
       if (Array.isArray(quickPresets) && quickPresets.length > 0) saveQuickPresets(quickPresets);
       if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) savePortfolioStocks(portfolioStocks);
-
-      setSyncCode(cleanCode);
 
       return {
         version: '1.0 (Supabase)',
