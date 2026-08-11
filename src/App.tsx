@@ -141,26 +141,39 @@ export default function App() {
     }
   }, [categories]);
 
-  // Auto-Sync Total Portfolio Market Value to FIRE Net Worth in Real Time
+  // Auto-Sync Total FIRE Net Worth (Stock Portfolio Value + Accumulated Cash Savings) in Real Time
   useEffect(() => {
-    let totalMarketValue = 0;
+    let stockMarketValue = 0;
     if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
       portfolioStocks.forEach((s) => {
         const synced = syncStockCalculations(s);
         const val = synced.shares * (synced.currentPrice || 0);
-        totalMarketValue += synced.market === 'US' ? val * 32.5 : val;
+        stockMarketValue += synced.market === 'US' ? val * 32.5 : val;
       });
     }
 
-    const roundedVal = Math.round(totalMarketValue);
-    if ((fireConfig.currentNetWorth || 0) !== roundedVal) {
+    // Calculate Accumulated Cash Savings from Ledger Transactions (Income - Expense - Tax - Investment)
+    let netCashSavings = 0;
+    if (Array.isArray(transactions)) {
+      transactions.forEach((t) => {
+        if (t.type === 'income') netCashSavings += t.amount;
+        if (t.type === 'expense') netCashSavings -= t.amount;
+        if (t.type === 'tax') netCashSavings -= t.amount;
+        if (t.type === 'investment') netCashSavings -= t.amount;
+      });
+    }
+
+    const baseCash = fireConfig.baseCashBalance || 0;
+    const totalNetWorth = Math.round(stockMarketValue + Math.max(0, netCashSavings + baseCash));
+
+    if ((fireConfig.currentNetWorth || 0) !== totalNetWorth) {
       setFireConfig((prev) => {
-        const updated = { ...prev, currentNetWorth: roundedVal };
+        const updated = { ...prev, currentNetWorth: totalNetWorth };
         saveFIREConfig(updated);
         return updated;
       });
     }
-  }, [portfolioStocks]);
+  }, [portfolioStocks, transactions]);
 
   // Update Portfolio Stocks
   const handleUpdatePortfolioStocks = (newStocks: PortfolioStock[]) => {
