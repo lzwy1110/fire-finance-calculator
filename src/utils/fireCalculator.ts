@@ -34,7 +34,7 @@ export function calculateFIRE(config: FIREConfig, actualMonthlyStats?: {
     ? Math.min(100, Math.max(0, ((monthlyIncome - monthlyExpense - monthlyTax) / monthlyIncome) * 100))
     : 0;
 
-  const currentNetWorth = Math.max(0, config.currentNetWorth);
+  const currentNetWorth = config.currentNetWorth || 0;
   const currentProgressPercent = targetFIREAmount > 0
     ? Math.min(100, (currentNetWorth / targetFIREAmount) * 100)
     : 0;

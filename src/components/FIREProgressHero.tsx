@@ -24,6 +24,13 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
     return new Intl.NumberFormat('zh-TW').format(num);
   };
 
+  const formatCurrency = (num: number) => {
+    if (num < 0) {
+      return `-${sym} ${formatNumber(Math.abs(num))}`;
+    }
+    return `${sym} ${formatNumber(num)}`;
+  };
+
   const handleSaveSimulation = () => {
     onUpdateConfig(tempConfig);
     setIsSimulatorOpen(false);
@@ -150,7 +157,7 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                 <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
               </div>
               <div className="text-lg sm:text-xl font-bold text-white font-mono">
-                {sym} {formatNumber(config.currentNetWorth)}
+                {formatCurrency(config.currentNetWorth)}
               </div>
               <div className="text-[11px] mt-1 flex items-center gap-1 font-semibold" style={{ color: currentTheme.primaryHex }}>
                 <ArrowUpRight className="w-3 h-3" />

@@ -164,7 +164,7 @@ export default function App() {
     }
 
     const baseCash = fireConfig.baseCashBalance || 0;
-    const totalNetWorth = Math.round(stockMarketValue + Math.max(0, netCashSavings + baseCash));
+    const totalNetWorth = Math.round(stockMarketValue + baseCash + netCashSavings);
 
     if ((fireConfig.currentNetWorth || 0) !== totalNetWorth) {
       setFireConfig((prev) => {
