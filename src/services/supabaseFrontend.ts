@@ -176,6 +176,17 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       avgCost: Number(s.avg_cost),
       currentPrice: Number(s.current_price),
       currency: s.currency || 'USD',
+      transactions: Array.isArray(s.transactions)
+        ? s.transactions
+        : typeof s.transactions === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(s.transactions);
+            } catch (e) {
+              return [];
+            }
+          })()
+        : [],
     }));
 
     return {
@@ -183,7 +194,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       categories: catRes.error ? null : (categories.length > 0 ? categories : null),
       fireConfig,
       quickPresets: presetRes.error ? null : (quickPresets.length > 0 ? quickPresets : null),
-      portfolioStocks: (portRes as any)?.error ? null : (portfolioStocks.length > 0 ? portfolioStocks : null),
+      portfolioStocks: (portRes as any)?.error ? null : portfolioStocks,
     };
   } catch (err) {
     console.error('[Supabase Direct Fetch Error]:', err);
@@ -279,22 +290,29 @@ export async function pushSupabaseDataDirect(payload: {
       await supabase.from('quick_presets').upsert(presetRows);
     }
 
-    if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
-      const portRows = portfolioStocks.map((s) => ({
-        id: s.id,
-        sync_code: targetSyncCode,
-        symbol: s.symbol,
-        name: s.name,
-        market: s.market,
-        shares: s.shares,
-        avg_cost: s.avgCost,
-        current_price: s.currentPrice,
-        currency: s.currency,
-        updated_at: new Date().toISOString(),
-      }));
-      try {
-        await supabase.from('portfolio_stocks').upsert(portRows);
-      } catch (e) {}
+    if (Array.isArray(portfolioStocks)) {
+      if (portfolioStocks.length > 0) {
+        const portRows = portfolioStocks.map((s) => ({
+          id: s.id,
+          sync_code: targetSyncCode,
+          symbol: s.symbol,
+          name: s.name,
+          market: s.market,
+          shares: s.shares,
+          avg_cost: s.avgCost,
+          current_price: s.currentPrice,
+          currency: s.currency,
+          transactions: s.transactions || [],
+          updated_at: new Date().toISOString(),
+        }));
+        try {
+          await supabase.from('portfolio_stocks').upsert(portRows);
+        } catch (e) {}
+      } else {
+        try {
+          await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
+        } catch (e) {}
+      }
     }
 
     return true;

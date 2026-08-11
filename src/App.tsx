@@ -83,7 +83,7 @@ export default function App() {
     // Background fetch from Supabase backend
     fetchCloudData(code).then((cloudRes) => {
       if (cloudRes && cloudRes.success && cloudRes.data) {
-        const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets } = cloudRes.data;
+        const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
         if (Array.isArray(cTx)) {
           setTransactions(cTx);
           saveTransactions(cTx);
@@ -99,6 +99,10 @@ export default function App() {
         }
         if (Array.isArray(cPresets) && cPresets.length > 0) {
           setQuickPresets(cPresets);
+        }
+        if (Array.isArray(cStocks)) {
+          setPortfolioStocks(cStocks);
+          savePortfolioStocks(cStocks);
         }
       }
     });
@@ -347,7 +351,7 @@ export default function App() {
     try {
       const cloudRes = await fetchCloudData(code);
       if (cloudRes && cloudRes.success && cloudRes.data) {
-        const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets } = cloudRes.data;
+        const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
         if (Array.isArray(cTx)) {
           setTransactions(cTx);
           saveTransactions(cTx);
@@ -363,6 +367,10 @@ export default function App() {
         }
         if (Array.isArray(cPresets) && cPresets.length > 0) {
           setQuickPresets(cPresets);
+        }
+        if (Array.isArray(cStocks)) {
+          setPortfolioStocks(cStocks);
+          savePortfolioStocks(cStocks);
         }
       }
     } catch (e) {}
