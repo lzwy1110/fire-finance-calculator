@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { CategoryItem, FIREConfig, QuickPreset, Transaction } from '../types';
+import { CategoryItem, FIREConfig, QuickPreset, Transaction, PortfolioStock } from '../types';
 
 const STORAGE_KEY_CUSTOM_URL = 'fire_planner_custom_supabase_url';
 const STORAGE_KEY_CUSTOM_KEY = 'fire_planner_custom_supabase_key';
@@ -112,6 +112,11 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       supabase.from('quick_presets').select('*').eq('sync_code', syncCode),
     ]);
 
+    let portRes: any = { data: null, error: true };
+    try {
+      portRes = await supabase.from('portfolio_stocks').select('*').eq('sync_code', syncCode);
+    } catch (e) {}
+
     const transactions: Transaction[] = (txRes.data || []).map((t: any) => ({
       id: t.id,
       type: t.type,
@@ -162,11 +167,23 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       icon: p.icon,
     }));
 
+    const portfolioStocks: PortfolioStock[] = ((portRes as any)?.data || []).map((s: any) => ({
+      id: s.id,
+      symbol: s.symbol,
+      name: s.name,
+      market: s.market || 'US',
+      shares: Number(s.shares),
+      avgCost: Number(s.avg_cost),
+      currentPrice: Number(s.current_price),
+      currency: s.currency || 'USD',
+    }));
+
     return {
       transactions: txRes.error ? null : transactions,
       categories: catRes.error ? null : (categories.length > 0 ? categories : null),
       fireConfig,
       quickPresets: presetRes.error ? null : (quickPresets.length > 0 ? quickPresets : null),
+      portfolioStocks: (portRes as any)?.error ? null : (portfolioStocks.length > 0 ? portfolioStocks : null),
     };
   } catch (err) {
     console.error('[Supabase Direct Fetch Error]:', err);
@@ -183,11 +200,12 @@ export async function pushSupabaseDataDirect(payload: {
   categories?: CategoryItem[];
   fireConfig?: FIREConfig;
   quickPresets?: QuickPreset[];
+  portfolioStocks?: PortfolioStock[];
 }) {
   const supabase = getFrontendSupabaseClient();
   if (!supabase) return false;
 
-  const { syncCode, transactions, categories, fireConfig, quickPresets } = payload;
+  const { syncCode, transactions, categories, fireConfig, quickPresets, portfolioStocks } = payload;
   const targetSyncCode = syncCode || 'FIRE-DEFAULT-2026';
 
   try {
@@ -259,6 +277,24 @@ export async function pushSupabaseDataDirect(payload: {
         updated_at: new Date().toISOString(),
       }));
       await supabase.from('quick_presets').upsert(presetRows);
+    }
+
+    if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
+      const portRows = portfolioStocks.map((s) => ({
+        id: s.id,
+        sync_code: targetSyncCode,
+        symbol: s.symbol,
+        name: s.name,
+        market: s.market,
+        shares: s.shares,
+        avg_cost: s.avgCost,
+        current_price: s.currentPrice,
+        currency: s.currency,
+        updated_at: new Date().toISOString(),
+      }));
+      try {
+        await supabase.from('portfolio_stocks').upsert(portRows);
+      } catch (e) {}
     }
 
     return true;

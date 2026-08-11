@@ -69,11 +69,28 @@ CREATE TABLE IF NOT EXISTS public.quick_presets (
 
 CREATE INDEX IF NOT EXISTS idx_quick_presets_sync_code ON public.quick_presets(sync_code);
 
+-- 5. 美股與台股投資庫存表 (Portfolio Stocks)
+CREATE TABLE IF NOT EXISTS public.portfolio_stocks (
+    id TEXT PRIMARY KEY,
+    sync_code TEXT NOT NULL DEFAULT 'FIRE-DEFAULT-2026',
+    symbol TEXT NOT NULL,
+    name TEXT NOT NULL,
+    market TEXT NOT NULL DEFAULT 'US',
+    shares NUMERIC(15, 4) NOT NULL DEFAULT 0,
+    avg_cost NUMERIC(15, 4) NOT NULL DEFAULT 0,
+    current_price NUMERIC(15, 4) NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_stocks_sync_code ON public.portfolio_stocks(sync_code);
+
 -- 啟用 Row Level Security (RLS) 並允許公開 API KEY (Anon) 讀寫
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fire_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quick_presets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.portfolio_stocks ENABLE ROW LEVEL SECURITY;
 
 -- 建立通用讀寫 Policy (允許所有具備 anon/authenticated 權限之請求)
 DROP POLICY IF EXISTS "Allow public access to transactions" ON public.transactions;
@@ -87,3 +104,6 @@ CREATE POLICY "Allow public access to fire_configs" ON public.fire_configs FOR A
 
 DROP POLICY IF EXISTS "Allow public access to quick_presets" ON public.quick_presets;
 CREATE POLICY "Allow public access to quick_presets" ON public.quick_presets FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public access to portfolio_stocks" ON public.portfolio_stocks;
+CREATE POLICY "Allow public access to portfolio_stocks" ON public.portfolio_stocks FOR ALL USING (true) WITH CHECK (true);

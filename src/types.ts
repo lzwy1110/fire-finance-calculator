@@ -1,3 +1,5 @@
+import { PortfolioStock } from './types/portfolio';
+
 export type TransactionType = 'income' | 'expense' | 'investment' | 'tax';
 
 export interface CategoryItem {
@@ -71,6 +73,7 @@ export interface CloudBackupData {
   categories: CategoryItem[];
   fireConfig: FIREConfig;
   quickPresets: QuickPreset[];
+  portfolioStocks?: PortfolioStock[];
 }
 
 export * from './types/portfolio';

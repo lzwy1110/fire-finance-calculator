@@ -213,6 +213,7 @@ export function createFullBackupJSON(): string {
     categories: loadCategories(),
     fireConfig: loadFIREConfig(),
     quickPresets: loadQuickPresets(),
+    portfolioStocks: loadPortfolioStocks(),
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -226,6 +227,7 @@ export function restoreFromBackupJSON(jsonString: string): boolean {
     if (Array.isArray(parsed.categories)) saveCategories(parsed.categories);
     if (parsed.fireConfig) saveFIREConfig(parsed.fireConfig);
     if (Array.isArray(parsed.quickPresets)) saveQuickPresets(parsed.quickPresets);
+    if (Array.isArray(parsed.portfolioStocks)) savePortfolioStocks(parsed.portfolioStocks);
     if (parsed.syncCode) setSyncCode(parsed.syncCode);
     return true;
   } catch (e) {
