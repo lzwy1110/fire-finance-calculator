@@ -99,6 +99,19 @@ export async function fetchCloudData(syncCode: string): Promise<FetchDataRespons
     // API offline or 404
   }
 
+  // 2. 前端 Supabase 直連
+  if (isFrontendSupabaseReady()) {
+    const directData = await fetchSupabaseDataDirect(syncCode);
+    if (directData) {
+      return {
+        success: true,
+        mode: 'supabase',
+        syncCode,
+        data: directData,
+      };
+    }
+  }
+
   // 3. 通用免費全球雲端 Relay Fallback (KVDB Global Storage)
   try {
     const cleanCode = syncCode.trim().toUpperCase();
