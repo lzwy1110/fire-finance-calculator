@@ -8,12 +8,23 @@ let supabaseClient: SupabaseClient | null = null;
 const DEFAULT_SUPABASE_URL = 'https://xyzcompany.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTY3MjUxMjAwMCwiZXhwIjoyMDE4MDg4MDAwfQ.placeholder';
 
+export function cleanSupabaseUrl(rawUrl: string): string {
+  if (!rawUrl) return '';
+  let url = rawUrl.trim();
+  url = url.replace(/\/+$/, '');
+  url = url.replace(/\/rest\/v1$/i, '');
+  url = url.replace(/\/rest\/v1\/$/i, '');
+  return url.replace(/\/+$/, '');
+}
+
 export function getFrontendSupabaseCredentials(): { url: string; anonKey: string } | null {
-  const url = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('fire_supabase_url') || DEFAULT_SUPABASE_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('fire_supabase_anon_key') || DEFAULT_SUPABASE_ANON_KEY;
+  const rawUrl = localStorage.getItem('fire_supabase_url') || import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const anonKey = localStorage.getItem('fire_supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+
+  const url = cleanSupabaseUrl(rawUrl);
 
   if (url && anonKey) {
-    return { url: url.trim(), anonKey: anonKey.trim() };
+    return { url, anonKey: anonKey.trim() };
   }
   return null;
 }
@@ -392,15 +403,18 @@ export async function pushSupabaseDataDirect(payload: {
 }
 
 export function getCustomCredentials(): { url: string; anonKey: string; key: string } {
-  const url = localStorage.getItem('fire_supabase_url') || import.meta.env.VITE_SUPABASE_URL || '';
+  const rawUrl = localStorage.getItem('fire_supabase_url') || import.meta.env.VITE_SUPABASE_URL || '';
   const anonKey = localStorage.getItem('fire_supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-  return { url: url.trim(), anonKey: anonKey.trim(), key: anonKey.trim() };
+  const url = cleanSupabaseUrl(rawUrl);
+  return { url, anonKey: anonKey.trim(), key: anonKey.trim() };
 }
 
 export function saveCustomCredentials(url: string, anonKey: string): void {
-  if (url.trim() && anonKey.trim()) {
-    localStorage.setItem('fire_supabase_url', url.trim());
-    localStorage.setItem('fire_supabase_anon_key', anonKey.trim());
+  const cleanedUrl = cleanSupabaseUrl(url);
+  const cleanedKey = anonKey.trim();
+  if (cleanedUrl && cleanedKey) {
+    localStorage.setItem('fire_supabase_url', cleanedUrl);
+    localStorage.setItem('fire_supabase_anon_key', cleanedKey);
     supabaseClient = null;
   }
 }
@@ -408,8 +422,8 @@ export function saveCustomCredentials(url: string, anonKey: string): void {
 export async function testSupabaseDirectConnection(url?: string, anonKey?: string): Promise<{ success: boolean; message: string }> {
   try {
     const creds = getFrontendSupabaseCredentials();
-    const targetUrl = url?.trim() || creds?.url || '';
-    const targetKey = anonKey?.trim() || creds?.anonKey || '';
+    const targetUrl = cleanSupabaseUrl(url || creds?.url || '');
+    const targetKey = (anonKey || creds?.anonKey || '').trim();
 
     if (!targetUrl || !targetKey) {
       return { success: false, message: 'Supabase URL 與 Anon Key 不能為空' };
