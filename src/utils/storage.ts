@@ -1,11 +1,12 @@
-import { CategoryItem, CloudBackupData, FIREConfig, QuickPreset, Transaction } from '../types';
-import { DEFAULT_CATEGORIES, DEFAULT_FIRE_CONFIG, DEFAULT_QUICK_PRESETS, INITIAL_TRANSACTIONS } from '../data/initialData';
+import { CategoryItem, CloudBackupData, FIREConfig, QuickPreset, Transaction, PortfolioStock } from '../types';
+import { DEFAULT_CATEGORIES, DEFAULT_FIRE_CONFIG, DEFAULT_QUICK_PRESETS, INITIAL_TRANSACTIONS, DEFAULT_PORTFOLIO_STOCKS } from '../data/initialData';
 import { fetchCloudData, pushCloudData, saveFIREConfigToCloud, saveTransactionToCloud, deleteTransactionFromCloud } from '../services/api';
 
 const STORAGE_KEY_TRANSACTIONS = 'fire_planner_transactions_v1';
 const STORAGE_KEY_CATEGORIES = 'fire_planner_categories_v1';
 const STORAGE_KEY_CONFIG = 'fire_planner_config_v1';
 const STORAGE_KEY_PRESETS = 'fire_planner_presets_v1';
+const STORAGE_KEY_PORTFOLIO = 'fire_planner_portfolio_v1';
 const STORAGE_KEY_SYNC_CODE = 'fire_planner_sync_code_v1';
 const STORAGE_KEY_CLOUD_SIMULATION = 'fire_planner_cloud_db_v1';
 
@@ -238,4 +239,25 @@ export function resetAllDataToDefault(): void {
   localStorage.removeItem(STORAGE_KEY_CATEGORIES);
   localStorage.removeItem(STORAGE_KEY_CONFIG);
   localStorage.removeItem(STORAGE_KEY_PRESETS);
+  localStorage.removeItem(STORAGE_KEY_PORTFOLIO);
+}
+
+export function loadPortfolioStocks(): PortfolioStock[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
+    if (raw === null) return DEFAULT_PORTFOLIO_STOCKS;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : DEFAULT_PORTFOLIO_STOCKS;
+  } catch (e) {
+    return DEFAULT_PORTFOLIO_STOCKS;
+  }
+}
+
+export function savePortfolioStocks(data: PortfolioStock[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(data));
+    autoSyncToCloud();
+  } catch (e) {
+    console.error('Failed to save portfolio stocks:', e);
+  }
 }

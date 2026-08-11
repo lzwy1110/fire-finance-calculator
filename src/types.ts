@@ -72,3 +72,5 @@ export interface CloudBackupData {
   fireConfig: FIREConfig;
   quickPresets: QuickPreset[];
 }
+
+export * from './types/portfolio';

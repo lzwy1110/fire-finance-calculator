@@ -5,6 +5,7 @@ import {
   FIREConfig,
   QuickPreset,
   Transaction,
+  PortfolioStock,
 } from './types';
 import { calculateFIRE } from './utils/fireCalculator';
 import {
@@ -14,6 +15,8 @@ import {
   loadFIREConfig,
   loadQuickPresets,
   loadTransactions,
+  loadPortfolioStocks,
+  savePortfolioStocks,
   removeSingleTransactionFromCloud,
   resetAllDataToDefault,
   saveCategories,
@@ -28,6 +31,7 @@ import { DashboardOverview } from './components/DashboardOverview';
 import { MonthlyYearlySummary } from './components/MonthlyYearlySummary';
 import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { TransactionList } from './components/TransactionList';
+import { PortfolioView } from './components/PortfolioView';
 import { QuickAddModal } from './components/QuickAddModal';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
@@ -44,10 +48,11 @@ interface WidgetBridgePluginType {
 const WidgetBridge = registerPlugin<WidgetBridgePluginType>('WidgetBridge');
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'monthly' | 'yearly' | 'ledger' | 'analytics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'monthly' | 'yearly' | 'ledger' | 'analytics' | 'portfolio'>('dashboard');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [quickPresets, setQuickPresets] = useState<QuickPreset[]>([]);
+  const [portfolioStocks, setPortfolioStocks] = useState<PortfolioStock[]>([]);
   const [fireConfig, setFireConfig] = useState<FIREConfig>(loadFIREConfig());
   const [syncCode, setSyncCode] = useState<string>('');
 
@@ -62,12 +67,14 @@ export default function App() {
     const localTx = loadTransactions();
     const localCat = loadCategories();
     const localPresets = loadQuickPresets();
+    const localStocks = loadPortfolioStocks();
     const loadedConfig = loadFIREConfig();
     const code = getOrCreateSyncCode();
 
     setTransactions(localTx);
     setCategories(localCat);
     setQuickPresets(localPresets);
+    setPortfolioStocks(localStocks);
     setFireConfig(loadedConfig);
     setSyncCode(code);
     applyThemeToCSSVariables(loadedConfig.themeColor);
@@ -133,6 +140,23 @@ export default function App() {
     }
   }, [categories]);
 
+  // Update Portfolio Stocks
+  const handleUpdatePortfolioStocks = (newStocks: PortfolioStock[]) => {
+    setPortfolioStocks(newStocks);
+    savePortfolioStocks(newStocks);
+  };
+
+  // Sync Total Portfolio Value to FIRE Model Net Worth
+  const handleSyncNetWorthToFIRE = (totalMarketValueTWD: number) => {
+    const newConfig = {
+      ...fireConfig,
+      currentNetWorth: Math.round(totalMarketValueTWD),
+    };
+    setFireConfig(newConfig);
+    saveFIREConfig(newConfig);
+    alert(`🎉 已成功將最新的投資庫存總市值 (NT$ ${new Intl.NumberFormat('zh-TW').format(Math.round(totalMarketValueTWD))}) 自動連通同步為 FIRE 模型的淨資產總額！`);
+  };
+
   // Add Transaction
   const handleAddTransaction = (t: Omit<Transaction, 'id'>) => {
     const newRecord: Transaction = {
@@ -173,8 +197,6 @@ export default function App() {
                 if (newItems.length > 0) {
                   const merged = [...newItems, ...prev];
                   saveTransactions(merged);
-
-                  // Sync newly ingested items to Supabase cloud
                   newItems.forEach((item) => syncSingleTransactionToCloud(item));
                   return merged;
                 }
@@ -255,6 +277,7 @@ export default function App() {
     setTransactions(loadTransactions());
     setCategories(loadCategories());
     setQuickPresets(loadQuickPresets());
+    setPortfolioStocks(loadPortfolioStocks());
     const loadedConfig = loadFIREConfig();
     setFireConfig(loadedConfig);
     setSyncCode(getOrCreateSyncCode());
@@ -355,7 +378,17 @@ export default function App() {
           />
         )}
 
-        {/* Tab 2: Monthly Summary */}
+        {/* Tab 2: Portfolio Holdings */}
+        {activeTab === 'portfolio' && (
+          <PortfolioView
+            stocks={portfolioStocks}
+            fireConfig={fireConfig}
+            onUpdateStocks={handleUpdatePortfolioStocks}
+            onSyncNetWorthToFIRE={handleSyncNetWorthToFIRE}
+          />
+        )}
+
+        {/* Tab 3: Monthly Summary */}
         {activeTab === 'monthly' && (
           <MonthlyYearlySummary
             transactions={transactions}
@@ -364,7 +397,7 @@ export default function App() {
           />
         )}
 
-        {/* Tab 3: Yearly Summary */}
+        {/* Tab 4: Yearly Summary */}
         {activeTab === 'yearly' && (
           <MonthlyYearlySummary
             transactions={transactions}
@@ -373,7 +406,7 @@ export default function App() {
           />
         )}
 
-        {/* Tab 4: Ledger Transactions */}
+        {/* Tab 5: Ledger Transactions */}
         {activeTab === 'ledger' && (
           <TransactionList
             transactions={transactions}
@@ -388,7 +421,7 @@ export default function App() {
           />
         )}
 
-        {/* Tab 5: Analytics Charts */}
+        {/* Tab 6: Analytics Charts */}
         {activeTab === 'analytics' && (
           <AnalyticsCharts
             transactions={transactions}
@@ -402,7 +435,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-bold text-zinc-300">FIRE Planner</span>
-            <span>• 整合收入、支出細類、稅金、投資與 FIRE 退休天數預估（Supabase 資料庫連通版）</span>
+            <span>• 整合美股與台股庫存、收支細類、稅金、投資與 FIRE 退休估估算（Supabase 雲端同步版）</span>
           </div>
           <div className="flex items-center gap-4 text-zinc-400">
             <button onClick={() => setIsCloudSyncOpen(true)} className="hover:text-amber-400 cursor-pointer">
