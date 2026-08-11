@@ -8,6 +8,7 @@ import {
   PortfolioStock,
 } from './types';
 import { calculateFIRE } from './utils/fireCalculator';
+import { syncStockCalculations } from './utils/portfolioMath';
 import {
   autoSyncToCloud,
   getOrCreateSyncCode,
@@ -145,8 +146,9 @@ export default function App() {
     if (portfolioStocks && portfolioStocks.length > 0) {
       let totalMarketValue = 0;
       portfolioStocks.forEach((s) => {
-        const val = (s.shares || 0) * (s.currentPrice || 0);
-        totalMarketValue += s.market === 'US' ? val * 32.5 : val;
+        const synced = syncStockCalculations(s);
+        const val = synced.shares * (synced.currentPrice || 0);
+        totalMarketValue += synced.market === 'US' ? val * 32.5 : val;
       });
 
       const roundedVal = Math.round(totalMarketValue);
@@ -162,8 +164,9 @@ export default function App() {
 
   // Update Portfolio Stocks
   const handleUpdatePortfolioStocks = (newStocks: PortfolioStock[]) => {
-    setPortfolioStocks(newStocks);
-    savePortfolioStocks(newStocks);
+    const synced = newStocks.map((s) => syncStockCalculations(s));
+    setPortfolioStocks(synced);
+    savePortfolioStocks(synced);
   };
 
   // Sync Total Portfolio Value to FIRE Model Net Worth (Implicitly called or auto-synced)
