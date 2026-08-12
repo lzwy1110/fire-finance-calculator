@@ -18,12 +18,16 @@ export function cleanSupabaseUrl(rawUrl: string): string {
 }
 
 export function getFrontendSupabaseCredentials(): { url: string; anonKey: string } | null {
-  const rawUrl = localStorage.getItem('fire_supabase_url') || import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const anonKey = localStorage.getItem('fire_supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+  const rawUrl = localStorage.getItem('fire_supabase_url');
+  const anonKey = localStorage.getItem('fire_supabase_anon_key');
+
+  if (!rawUrl || !anonKey) {
+    return null;
+  }
 
   const url = cleanSupabaseUrl(rawUrl);
 
-  if (url && anonKey) {
+  if (url && anonKey && !url.includes('xyzcompany.supabase.co')) {
     return { url, anonKey: anonKey.trim() };
   }
   return null;
@@ -403,8 +407,8 @@ export async function pushSupabaseDataDirect(payload: {
 }
 
 export function getCustomCredentials(): { url: string; anonKey: string; key: string } {
-  const rawUrl = localStorage.getItem('fire_supabase_url') || import.meta.env.VITE_SUPABASE_URL || '';
-  const anonKey = localStorage.getItem('fire_supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const rawUrl = localStorage.getItem('fire_supabase_url') || '';
+  const anonKey = localStorage.getItem('fire_supabase_anon_key') || '';
   const url = cleanSupabaseUrl(rawUrl);
   return { url, anonKey: anonKey.trim(), key: anonKey.trim() };
 }
