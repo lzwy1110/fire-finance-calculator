@@ -23,7 +23,7 @@ import { ConfirmModal } from './ConfirmModal';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
-  searchStockSuggestionsAsync,
+  searchStockSuggestionsSync,
   StockSearchResult,
 } from '../services/stockPriceService';
 import {
@@ -163,14 +163,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
   };
 
-  // Fast & Safe Debounced Search Input Change (0% Stale Candidate Overwrite)
+  // Fast & Safe Synchronous Instant Search (0ms Delay, 100% Reliability)
   const handleSymbolInputChange = (val: string, currentMarket: MarketType = marketInput) => {
     setSymbolInput(val);
-    const currentSeq = ++searchSeqRef.current;
-
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
 
     if (!val.trim()) {
       setSearchSuggestions([]);
@@ -179,28 +174,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       return;
     }
 
-    setIsSearching(true);
-    searchTimeoutRef.current = setTimeout(async () => {
-      const finalVal = val.trim();
-      if (!finalVal || currentSeq !== searchSeqRef.current) {
-        if (currentSeq === searchSeqRef.current) setIsSearching(false);
-        return;
-      }
-      try {
-        const matches = await searchStockSuggestionsAsync(finalVal, currentMarket);
-        if (currentSeq === searchSeqRef.current) {
-          setSearchSuggestions(matches);
-          setShowSuggestions(matches.length > 0);
-          setIsSearching(false);
-        }
-      } catch (e) {
-        if (currentSeq === searchSeqRef.current) {
-          setSearchSuggestions([]);
-          setShowSuggestions(false);
-          setIsSearching(false);
-        }
-      }
-    }, 250);
+    const matches = searchStockSuggestionsSync(val, currentMarket);
+    setSearchSuggestions(matches);
+    setShowSuggestions(matches.length > 0);
+    setIsSearching(false);
   };
 
   // Market Tab Switch in Modal

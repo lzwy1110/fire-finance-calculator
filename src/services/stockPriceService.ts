@@ -186,7 +186,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
  * Verified Master Stock Dictionary (Fast 0ms Lookup for Popular Stocks)
  * Strictly verified against Taiwan Stock Exchange (TWSE/TPEX) official filings.
  */
-const VERIFIED_STOCK_DICTIONARY: Record<string, string> = {
+export const VERIFIED_STOCK_DICTIONARY: Record<string, string> = {
   // 🇹🇼 台股熱門與主要標的 (100% 官方名稱)
   '2610': '華航',
   '2610.TW': '華航',
@@ -271,12 +271,12 @@ const VERIFIED_STOCK_DICTIONARY: Record<string, string> = {
 };
 
 /**
- * Fast-Search Auto-Suggest with Instant Local Lookup & Max 800ms Non-Blocking Live Fetch
+ * 100% Synchronous Instant Fast-Search Auto-Suggest (0ms Latency Guaranteed)
  */
-export async function searchStockSuggestionsAsync(
+export function searchStockSuggestionsSync(
   keyword: string,
   targetMarket: MarketType = 'US'
-): Promise<StockSearchResult[]> {
+): StockSearchResult[] {
   const clean = keyword.trim();
   if (!clean) return [];
 
@@ -287,7 +287,6 @@ export async function searchStockSuggestionsAsync(
 
   const candidatesMap = new Map<string, StockSearchResult>();
 
-  // Helper to register candidates
   const addCandidate = (sym: string, name: string, price?: number) => {
     const key = sym.toUpperCase();
     if (!candidatesMap.has(key)) {
@@ -301,13 +300,13 @@ export async function searchStockSuggestionsAsync(
     }
   };
 
-  // 1. INSTANT SEED (0ms): Seed candidates from verified dictionary or fallback format
   if (isTw) {
+    // 1. Direct code lookup
     const defaultName = VERIFIED_STOCK_DICTIONARY[rawCode] || VERIFIED_STOCK_DICTIONARY[upperClean] || VERIFIED_STOCK_DICTIONARY[`${rawCode}.TW`];
     const mainSym = !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
     addCandidate(mainSym, defaultName || `台股 (${mainSym})`);
 
-    // Check prefix matches in verified dictionary (e.g. typing "00981" matches "00981A")
+    // 2. Prefix lookup (e.g. typing "00981" matches "00981A")
     for (const [key, name] of Object.entries(VERIFIED_STOCK_DICTIONARY)) {
       const cleanKey = key.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
       if (cleanKey.startsWith(rawCode) || name.includes(clean)) {
@@ -318,28 +317,15 @@ export async function searchStockSuggestionsAsync(
   } else {
     const defaultName = VERIFIED_STOCK_DICTIONARY[upperClean] || `美股 (${upperClean})`;
     addCandidate(upperClean, defaultName);
-  }
 
-  // 2. FAST NON-BLOCKING BACKGROUND LIVE FETCH (Max 800ms Timeout Race)
-  try {
-    const fetchPromise = isTw ? fetchTaiwanStockQuote(rawCode) : fetchSingleStockQuote(upperClean, 'US');
-    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 800));
-
-    const liveQuote = await Promise.race([fetchPromise, timeoutPromise]);
-    if (liveQuote && liveQuote.currentPrice > 0) {
-      addCandidate(liveQuote.symbol, liveQuote.name || liveQuote.symbol, liveQuote.currentPrice);
-      // Also update existing candidate if already present
-      const existing = candidatesMap.get(liveQuote.symbol.toUpperCase());
-      if (existing) {
-        existing.price = liveQuote.currentPrice;
-        if (liveQuote.name) existing.name = liveQuote.name;
+    for (const [key, name] of Object.entries(VERIFIED_STOCK_DICTIONARY)) {
+      if ((key.startsWith(upperClean) || name.toUpperCase().includes(upperClean)) && !key.endsWith('.TW') && !/^\d+/.test(key)) {
+        addCandidate(key, name);
       }
     }
-  } catch (e) {
-    // Non-blocking fallback
   }
 
-  return Array.from(candidatesMap.values()).slice(0, 5);
+  return Array.from(candidatesMap.values()).slice(0, 6);
 }
 
 /**
