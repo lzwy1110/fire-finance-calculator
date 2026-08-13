@@ -77,6 +77,75 @@ export function calculateStockMetrics(
 }
 
 /**
+ * Validate chronological timeline of stock transactions to prevent naked shorting / negative shares
+ */
+export function validateTradeTimeline(transactions: StockTransaction[]): {
+  isValid: boolean;
+  errorMessage?: string;
+  dipDate?: string;
+  dipShares?: number;
+} {
+  if (!transactions || transactions.length === 0) {
+    return { isValid: true };
+  }
+
+  const sortedTx = [...transactions].sort((a, b) => {
+    const timeA = new Date(a.date).getTime() || 0;
+    const timeB = new Date(b.date).getTime() || 0;
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+    if (a.type === 'BUY' && b.type === 'SELL') return -1;
+    if (a.type === 'SELL' && b.type === 'BUY') return 1;
+    return a.id.localeCompare(b.id);
+  });
+
+  let runningShares = 0;
+
+  for (const tx of sortedTx) {
+    const count = Math.abs(tx.shares) || 0;
+    if (tx.type === 'BUY') {
+      runningShares += count;
+    } else if (tx.type === 'SELL') {
+      runningShares -= count;
+      if (runningShares < 0) {
+        return {
+          isValid: false,
+          errorMessage: `庫存不足：於 ${tx.date} 賣出 ${count} 股後，剩餘庫存變為 ${runningShares} 股。`,
+          dipDate: tx.date,
+          dipShares: runningShares,
+        };
+      }
+    }
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * Check if deleting or modifying a historical transaction causes downstream negative inventory
+ */
+export function validateTradeDeletionOrEdit(
+  existingTxs: StockTransaction[],
+  targetTxId: string,
+  updatedTx?: StockTransaction
+): { isValid: boolean; errorMessage?: string } {
+  const simulated = existingTxs
+    .map((t) => (t.id === targetTxId ? updatedTx : t))
+    .filter((t): t is StockTransaction => Boolean(t));
+
+  const result = validateTradeTimeline(simulated);
+  if (!result.isValid) {
+    return {
+      isValid: false,
+      errorMessage: `無法完成變更：${result.errorMessage || '會導致歷史庫存變為負數！'}請先調整或刪除後續的賣出紀錄！`,
+    };
+  }
+
+  return { isValid: true };
+}
+
+/**
  * Ensure stock object has valid transactions array and updated metrics
  */
 export function syncStockCalculations(stock: PortfolioStock): PortfolioStock {

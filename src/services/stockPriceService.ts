@@ -36,21 +36,38 @@ async function httpGetJson(url: string): Promise<any> {
       return typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
     }
   } catch (e) {
-    console.warn('CapacitorHttp error, trying web fetch fallback:', e);
+    // Non-native web browser fallback
   }
 
-  // 2. Fallback to web fetch
+  // 2. Fallback to direct web fetch
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (res.ok) {
       const text = await res.text();
       return JSON.parse(text);
     }
-  } catch (e) {
-    console.warn('Web fetch error:', e);
+  } catch (e) {}
+
+  // 3. Fallback to Web CORS Proxies for Desktop Web Browser
+  const corsProxies = [
+    `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  ];
+
+  for (const proxyUrl of corsProxies) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const text = await res.text();
+        return JSON.parse(text);
+      }
+    } catch (e) {}
   }
 
   return null;
@@ -101,7 +118,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
   const cleanSymbol = symbol.trim().toUpperCase();
   if (!cleanSymbol) return null;
 
-  // 1. If Taiwan Stock, query MIS TWSE Official Real-Time API via Native HTTP
+  // 1. If Taiwan Stock, query MIS TWSE Official Real-Time API via Native HTTP / Proxy
   if (market === 'TW') {
     const twQuote = await fetchTaiwanStockQuote(cleanSymbol);
     if (twQuote && twQuote.currentPrice > 0) {
@@ -169,6 +186,8 @@ const POPULAR_STOCK_NAMES: Record<string, string> = {
   '00929.TW': '復華台灣科技優息',
   '00940': '元大台灣價值高息',
   '00940.TW': '元大台灣價值高息',
+  '00981A': '中信上游半導體',
+  '00981A.TW': '中信上游半導體',
   '00713': '元大台灣高息低波',
   '00713.TW': '元大台灣高息低波',
   '006208': '富邦台50',
@@ -214,7 +233,7 @@ const POPULAR_STOCK_NAMES: Record<string, string> = {
 };
 
 /**
- * 100% Dynamic Fast-Search Auto-Suggest with Popular Fallback Names
+ * 100% Dynamic Fast-Search Auto-Suggest with Prefix Matching and Real-Time Query
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -226,31 +245,74 @@ export async function searchStockSuggestionsAsync(
   const upperClean = clean.toUpperCase();
   const rawCode = upperClean.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   const isTw = targetMarket === 'TW' || /^\d+[A-Za-z]?$/.test(clean);
-  const sym = isTw && !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
   const mkt: MarketType = isTw ? 'TW' : 'US';
 
-  const defaultName = POPULAR_STOCK_NAMES[rawCode] || POPULAR_STOCK_NAMES[upperClean] || POPULAR_STOCK_NAMES[sym] || `${mkt === 'TW' ? '台股' : '美股'} (${sym})`;
+  const candidatesMap = new Map<string, StockSearchResult>();
 
-  // 1. Primary candidate object
-  const primaryResult: StockSearchResult = {
-    symbol: sym,
-    name: defaultName,
-    market: mkt,
-    currency: mkt === 'TW' ? 'TWD' : 'USD',
+  // Helper to register candidates
+  const addCandidate = (sym: string, name: string) => {
+    const key = sym.toUpperCase();
+    if (!candidatesMap.has(key)) {
+      candidatesMap.set(key, {
+        symbol: key,
+        name: name || key,
+        market: mkt,
+        currency: mkt === 'TW' ? 'TWD' : 'USD',
+      });
+    }
   };
 
-  // 2. Fetch live quote in background to attach real-time market price & name
-  try {
-    const quote = await fetchSingleStockQuote(sym, mkt);
-    if (quote && quote.currentPrice > 0) {
-      primaryResult.price = quote.currentPrice;
-      if (quote.name && quote.name !== sym) primaryResult.name = quote.name;
+  // 1. Direct typed candidate
+  const mainSym = isTw && !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
+  const defaultName = POPULAR_STOCK_NAMES[rawCode] || POPULAR_STOCK_NAMES[upperClean] || POPULAR_STOCK_NAMES[mainSym] || `${mkt === 'TW' ? '台股' : '美股'} (${mainSym})`;
+  addCandidate(mainSym, defaultName);
+
+  // 2. Prefix matching in POPULAR_STOCK_NAMES (e.g. typing "00981" matches "00981A")
+  for (const [key, name] of Object.entries(POPULAR_STOCK_NAMES)) {
+    const keyUpper = key.toUpperCase();
+    const cleanKey = keyUpper.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+    if (cleanKey.startsWith(rawCode) || name.includes(clean)) {
+      const sym = isTw && !keyUpper.endsWith('.TW') ? `${cleanKey}.TW` : keyUpper;
+      addCandidate(sym, name);
     }
-  } catch (e) {
-    // Non-blocking
   }
 
-  return [primaryResult];
+  // 3. Dynamic Real-Time Yahoo Finance Search Endpoint
+  try {
+    const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(rawCode)}&quotesCount=6&newsCount=0`;
+    const searchData = await httpGetJson(searchUrl);
+    if (searchData && Array.isArray(searchData.quotes)) {
+      for (const q of searchData.quotes) {
+        if (!q || !q.symbol) continue;
+        const qSym = q.symbol.toUpperCase();
+        if (mkt === 'TW' && (qSym.endsWith('.TW') || qSym.endsWith('.TWO') || /^\d+[A-Za-z]?$/.test(qSym))) {
+          const normSym = qSym.endsWith('.TW') || qSym.endsWith('.TWO') ? qSym : `${qSym}.TW`;
+          addCandidate(normSym, q.shortname || q.longname || qSym);
+        } else if (mkt === 'US' && !qSym.includes('.')) {
+          addCandidate(qSym, q.shortname || q.longname || qSym);
+        }
+      }
+    }
+  } catch (e) {}
+
+  const results = Array.from(candidatesMap.values()).slice(0, 5);
+
+  // 4. Fetch live quotes for candidates concurrently to attach real-time prices
+  await Promise.all(
+    results.map(async (item) => {
+      try {
+        const quote = await fetchSingleStockQuote(item.symbol, item.market);
+        if (quote && quote.currentPrice > 0) {
+          item.price = quote.currentPrice;
+          if (quote.name && quote.name !== item.symbol) {
+            item.name = quote.name;
+          }
+        }
+      } catch (e) {}
+    })
+  );
+
+  return results;
 }
 
 /**

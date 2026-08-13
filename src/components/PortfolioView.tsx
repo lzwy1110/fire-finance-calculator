@@ -26,7 +26,12 @@ import {
   searchStockSuggestionsAsync,
   StockSearchResult,
 } from '../services/stockPriceService';
-import { calculateStockMetrics, syncStockCalculations } from '../utils/portfolioMath';
+import {
+  calculateStockMetrics,
+  syncStockCalculations,
+  validateTradeTimeline,
+  validateTradeDeletionOrEdit,
+} from '../utils/portfolioMath';
 
 interface PortfolioViewProps {
   stocks: PortfolioStock[];
@@ -285,6 +290,17 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       (s) => s.symbol.toUpperCase() === cleanSym.toUpperCase()
     );
 
+    const existingStock = existingStockIndex >= 0 ? syncedStocks[existingStockIndex] : null;
+    const existingTxs = existingStock ? existingStock.transactions || [] : [];
+    const simulatedTxs = [newTx, ...existingTxs];
+
+    // Validate chronological timeline to prevent naked shorting / negative shares
+    const timelineCheck = validateTradeTimeline(simulatedTxs);
+    if (!timelineCheck.isValid) {
+      alert(`❌ ${timelineCheck.errorMessage || '庫存不足，無法執行交易！'}`);
+      return;
+    }
+
     let updatedStocksList: PortfolioStock[];
 
     if (existingStockIndex >= 0) {
@@ -342,6 +358,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const handleDeleteTransaction = (stockId: string, txId: string) => {
     const targetStock = syncedStocks.find((s) => s.id === stockId);
     if (!targetStock) return;
+
+    // Check if deleting this transaction causes downstream negative inventory
+    const valResult = validateTradeDeletionOrEdit(targetStock.transactions || [], txId);
+    if (!valResult.isValid) {
+      alert(`⚠️ ${valResult.errorMessage}`);
+      return;
+    }
 
     const targetTx = targetStock.transactions.find((t) => t.id === txId);
     const txDesc = targetTx ? `${targetTx.type === 'BUY' ? '買入' : '賣出'} ${targetTx.shares} 股 @ $${targetTx.price}` : '這筆交易';
