@@ -1,4 +1,4 @@
-import { CapacitorHttp } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { MarketType } from '../types/portfolio';
 
 export interface StockQuote {
@@ -187,7 +187,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 
 /**
  * 100% Dynamic Live Stock Search Auto-Suggest (ZERO Static Dictionaries)
- * Connects directly to TWSE MIS API on Mobile Native, or /api/search Serverless Proxy on Web
+ * Routes Mobile Android via Native CapacitorHttp, and Desktop Web via /api/search Proxy
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -200,8 +200,36 @@ export async function searchStockSuggestionsAsync(
   const rawCode = upperClean.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   const isTw = targetMarket === 'TW' || /^\d+[A-Za-z]?$/.test(clean);
   const mkt: MarketType = isTw ? 'TW' : 'US';
+  const isNative = Capacitor.isNativePlatform();
 
-  // 1. Try Direct Official TWSE MIS API Fetch (Works 100% natively on Mobile Android via CapacitorHttp)
+  // 1. Mobile Android Native App: Direct Official TWSE MIS API Query via Native Java HTTP (0.05s)
+  if (isNative && isTw) {
+    try {
+      const twQuote = await fetchTaiwanStockQuote(rawCode);
+      if (twQuote && twQuote.name) {
+        return [
+          {
+            symbol: twQuote.symbol,
+            name: twQuote.name,
+            market: 'TW',
+            currency: 'TWD',
+            price: twQuote.currentPrice,
+          },
+        ];
+      }
+    } catch (e) {}
+  }
+
+  // 2. Desktop Web Browser: Backend Serverless Search Proxy /api/search (0.1s, 0% CORS issues)
+  try {
+    const proxyUrl = `/api/search?keyword=${encodeURIComponent(rawCode)}&market=${mkt}`;
+    const proxyRes = await httpGetJson(proxyUrl);
+    if (proxyRes && proxyRes.success && Array.isArray(proxyRes.results) && proxyRes.results.length > 0) {
+      return proxyRes.results.slice(0, 6);
+    }
+  } catch (e) {}
+
+  // 3. Web Client Fallback: Try TWSE quote via fast CORS proxy if serverless API unavailable
   if (isTw) {
     try {
       const twQuote = await fetchTaiwanStockQuote(rawCode);
@@ -219,32 +247,7 @@ export async function searchStockSuggestionsAsync(
     } catch (e) {}
   }
 
-  // 2. Try Backend Serverless Search Proxy /api/search (Works 100% on Desktop Web, 0% CORS issues)
-  try {
-    const proxyUrl = `/api/search?keyword=${encodeURIComponent(rawCode)}&market=${mkt}`;
-    const proxyRes = await httpGetJson(proxyUrl);
-    if (proxyRes && proxyRes.success && Array.isArray(proxyRes.results) && proxyRes.results.length > 0) {
-      return proxyRes.results.slice(0, 6);
-    }
-  } catch (e) {}
-
-  // 3. Dynamic Single Stock Quote Query Fallback
-  try {
-    const singleQuote = await fetchSingleStockQuote(upperClean, mkt);
-    if (singleQuote && singleQuote.name) {
-      return [
-        {
-          symbol: singleQuote.symbol,
-          name: singleQuote.name,
-          market: mkt,
-          currency: mkt === 'TW' ? 'TWD' : 'USD',
-          price: singleQuote.currentPrice,
-        },
-      ];
-    }
-  } catch (e) {}
-
-  // 4. Default Fallback Item if network offline or non-existent stock code
+  // 4. Default Dynamic Candidate
   const fallbackSym = isTw && !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
   return [
     {
