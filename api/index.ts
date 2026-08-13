@@ -301,7 +301,15 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
 
   if (market === 'TW' || /^\d+[A-Za-z]?$/.test(cleanSymbol)) {
     try {
-      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${rawCode}.tw|otc_${rawCode}.two`;
+      const exCh = [
+        `tse_${rawCode}.tw`,
+        `otc_${rawCode}.two`,
+        `tse_${rawCode}A.tw`,
+        `otc_${rawCode}A.two`,
+        `tse_${rawCode}B.tw`,
+        `otc_${rawCode}B.two`,
+      ].join('|');
+      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exCh}`;
       const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -311,18 +319,19 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.msgArray) && data.msgArray.length > 0) {
-          const match = data.msgArray.find((it: any) => it && (it.z !== '-' || it.y !== '-' || it.o !== '-'));
-          const item = match || data.msgArray[0];
-          if (item) {
+          const validItems = data.msgArray.filter((it: any) => it && (it.z !== '-' || it.y !== '-' || it.o !== '-'));
+          const item = validItems.length > 0 ? validItems[0] : data.msgArray[0];
+          if (item && (item.z || item.y || item.o)) {
             const livePrice = parseFloat(item.z) || parseFloat(item.y) || parseFloat(item.o) || 0;
             const prevClose = parseFloat(item.y) || livePrice;
             const change = livePrice - prevClose;
             const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
-            const stockName = item.n || item.nf || rawCode;
+            const realCode = item.c || rawCode;
+            const stockName = item.n || item.nf || realCode;
 
             if (livePrice > 0) {
               return {
-                symbol: `${rawCode}.TW`,
+                symbol: `${realCode}.TW`,
                 currentPrice: livePrice,
                 previousClose: prevClose,
                 change,

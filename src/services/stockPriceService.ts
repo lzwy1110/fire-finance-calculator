@@ -80,23 +80,33 @@ async function fetchTaiwanStockQuote(symbol: string): Promise<StockQuote | null>
   const rawCode = symbol.trim().toUpperCase().replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   if (!rawCode) return null;
 
-  const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${rawCode}.tw|otc_${rawCode}.two`;
+  const exCh = [
+    `tse_${rawCode}.tw`,
+    `otc_${rawCode}.two`,
+    `tse_${rawCode}A.tw`,
+    `otc_${rawCode}A.two`,
+    `tse_${rawCode}B.tw`,
+    `otc_${rawCode}B.two`,
+  ].join('|');
+
+  const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exCh}`;
   const data = await httpGetJson(url);
 
   if (data && Array.isArray(data.msgArray) && data.msgArray.length > 0) {
-    const match = data.msgArray.find((it: any) => it && (it.z !== '-' || it.y !== '-' || it.o !== '-'));
-    const item = match || data.msgArray[0];
+    const validItems = data.msgArray.filter((it: any) => it && (it.z !== '-' || it.y !== '-' || it.o !== '-'));
+    const item = validItems.length > 0 ? validItems[0] : data.msgArray[0];
 
-    if (item) {
+    if (item && (item.z || item.y || item.o)) {
       const livePrice = parseFloat(item.z) || parseFloat(item.y) || parseFloat(item.o) || parseFloat(item.a?.split('_')?.[0]) || 0;
       const prevClose = parseFloat(item.y) || livePrice;
       const change = livePrice - prevClose;
       const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
-      const stockName = item.n || item.nf || rawCode;
+      const realCode = item.c || rawCode;
+      const stockName = item.n || item.nf || realCode;
 
       if (livePrice > 0) {
         return {
-          symbol: `${rawCode}.TW`,
+          symbol: `${realCode}.TW`,
           currentPrice: livePrice,
           previousClose: prevClose,
           change,
@@ -119,7 +129,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
   if (!cleanSymbol) return null;
 
   // 1. If Taiwan Stock, query MIS TWSE Official Real-Time API via Native HTTP / Proxy
-  if (market === 'TW') {
+  if (market === 'TW' || /^\d+[A-Za-z]?$/.test(cleanSymbol)) {
     const twQuote = await fetchTaiwanStockQuote(cleanSymbol);
     if (twQuote && twQuote.currentPrice > 0) {
       return twQuote;
@@ -172,68 +182,8 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
   return null;
 }
 
-const POPULAR_STOCK_NAMES: Record<string, string> = {
-  // 🇹🇼 台股熱門標的
-  '0050': '元大台灣50',
-  '0050.TW': '元大台灣50',
-  '0056': '元大高股息',
-  '0056.TW': '元大高股息',
-  '00878': '國泰永續高股息',
-  '00878.TW': '國泰永續高股息',
-  '00919': '群益台灣精選高息',
-  '00919.TW': '群益台灣精選高息',
-  '00929': '復華台灣科技優息',
-  '00929.TW': '復華台灣科技優息',
-  '00940': '元大台灣價值高息',
-  '00940.TW': '元大台灣價值高息',
-  '00981A': '中信上游半導體',
-  '00981A.TW': '中信上游半導體',
-  '00713': '元大台灣高息低波',
-  '00713.TW': '元大台灣高息低波',
-  '006208': '富邦台50',
-  '006208.TW': '富邦台50',
-  '2330': '台積電',
-  '2330.TW': '台積電',
-  '2317': '鴻海',
-  '2317.TW': '鴻海',
-  '2454': '聯發科',
-  '2454.TW': '聯發科',
-  '2308': '台達電',
-  '2308.TW': '台達電',
-  '2382': '廣達',
-  '2382.TW': '廣達',
-  '3008': '大立光',
-  '3008.TW': '大立光',
-  '2881': '富邦金',
-  '2881.TW': '富邦金',
-  '2882': '國泰金',
-  '2882.TW': '國泰金',
-  '2891': '中信金',
-  '2891.TW': '中信金',
-  '2886': '兆豐金',
-  '2886.TW': '兆豐金',
-  '2603': '長榮',
-  '2603.TW': '長榮',
-
-  // 🇺🇸 美股熱門標的
-  'AAPL': 'Apple Inc. (蘋果)',
-  'NVDA': 'NVIDIA Corporation (輝達)',
-  'TSLA': 'Tesla Inc. (特斯拉)',
-  'MSFT': 'Microsoft Corporation (微軟)',
-  'GOOGL': 'Alphabet Inc. (Google)',
-  'GOOG': 'Alphabet Inc. (Google)',
-  'AMZN': 'Amazon.com Inc. (亞馬遜)',
-  'META': 'Meta Platforms Inc. (臉書)',
-  'AMD': 'Advanced Micro Devices (超微)',
-  'SPY': 'SPDR S&P 500 ETF Trust',
-  'VOO': 'Vanguard S&P 500 ETF',
-  'QQQ': 'Invesco QQQ Trust (納斯達克100)',
-  'VT': 'Vanguard Total World Stock ETF',
-  'VTI': 'Vanguard Total Stock Market ETF',
-};
-
 /**
- * 100% Dynamic Fast-Search Auto-Suggest with Prefix Matching and Real-Time Query
+ * 100% Dynamic Fast-Search Auto-Suggest with Official TWSE Names (ZERO Hardcoded Dictionaries)
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -250,7 +200,7 @@ export async function searchStockSuggestionsAsync(
   const candidatesMap = new Map<string, StockSearchResult>();
 
   // Helper to register candidates
-  const addCandidate = (sym: string, name: string) => {
+  const addCandidate = (sym: string, name: string, price?: number) => {
     const key = sym.toUpperCase();
     if (!candidatesMap.has(key)) {
       candidatesMap.set(key, {
@@ -258,42 +208,44 @@ export async function searchStockSuggestionsAsync(
         name: name || key,
         market: mkt,
         currency: mkt === 'TW' ? 'TWD' : 'USD',
+        price,
       });
     }
   };
 
-  // 1. Direct typed candidate
-  const mainSym = isTw && !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
-  const defaultName = POPULAR_STOCK_NAMES[rawCode] || POPULAR_STOCK_NAMES[upperClean] || POPULAR_STOCK_NAMES[mainSym] || `${mkt === 'TW' ? '台股' : '美股'} (${mainSym})`;
-  addCandidate(mainSym, defaultName);
-
-  // 2. Prefix matching in POPULAR_STOCK_NAMES (e.g. typing "00981" matches "00981A")
-  for (const [key, name] of Object.entries(POPULAR_STOCK_NAMES)) {
-    const keyUpper = key.toUpperCase();
-    const cleanKey = keyUpper.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
-    if (cleanKey.startsWith(rawCode) || name.includes(clean)) {
-      const sym = isTw && !keyUpper.endsWith('.TW') ? `${cleanKey}.TW` : keyUpper;
-      addCandidate(sym, name);
+  // 1. If TW stock code, query TWSE MIS API dynamically for official Chinese name & live price
+  if (isTw) {
+    try {
+      const twQuote = await fetchTaiwanStockQuote(rawCode);
+      if (twQuote) {
+        addCandidate(twQuote.symbol, twQuote.name || `${rawCode}.TW`, twQuote.currentPrice);
+      }
+    } catch (e) {}
+  } else {
+    // 2. US Stock: query single quote dynamically
+    try {
+      const usQuote = await fetchSingleStockQuote(upperClean, 'US');
+      if (usQuote) {
+        addCandidate(usQuote.symbol, usQuote.name || upperClean, usQuote.currentPrice);
+      } else {
+        addCandidate(upperClean, `美股 (${upperClean})`);
+      }
+    } catch (e) {
+      addCandidate(upperClean, `美股 (${upperClean})`);
     }
   }
 
-  // 3. Dynamic Real-Time Yahoo Finance Search Endpoint
-  try {
-    const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(rawCode)}&quotesCount=6&newsCount=0`;
-    const searchData = await httpGetJson(searchUrl);
-    if (searchData && Array.isArray(searchData.quotes)) {
-      for (const q of searchData.quotes) {
-        if (!q || !q.symbol) continue;
-        const qSym = q.symbol.toUpperCase();
-        if (mkt === 'TW' && (qSym.endsWith('.TW') || qSym.endsWith('.TWO') || /^\d+[A-Za-z]?$/.test(qSym))) {
-          const normSym = qSym.endsWith('.TW') || qSym.endsWith('.TWO') ? qSym : `${qSym}.TW`;
-          addCandidate(normSym, q.shortname || q.longname || qSym);
-        } else if (mkt === 'US' && !qSym.includes('.')) {
-          addCandidate(qSym, q.shortname || q.longname || qSym);
-        }
+  // 3. Fallback / Secondary Web Proxy Query for Desktop Web if needed
+  if (candidatesMap.size === 0 && isTw) {
+    try {
+      const proxyUrl = `/api/quote?symbol=${encodeURIComponent(rawCode)}&market=TW`;
+      const proxyData = await httpGetJson(proxyUrl);
+      if (proxyData && proxyData.success && proxyData.quote) {
+        const q = proxyData.quote;
+        addCandidate(q.symbol, q.name || q.symbol, q.currentPrice);
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
 
   return Array.from(candidatesMap.values()).slice(0, 5);
 }
