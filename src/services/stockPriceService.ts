@@ -183,100 +183,13 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 }
 
 /**
- * Verified Master Stock Dictionary (Fast 0ms Lookup for Popular Stocks)
- * Strictly verified against Taiwan Stock Exchange (TWSE/TPEX) official filings.
+ * 100% Dynamic Live Stock Search Auto-Suggest (ZERO Static Dictionaries)
+ * Connects directly to TWSE MIS API on Mobile Native, or /api/search Serverless Proxy on Web
  */
-export const VERIFIED_STOCK_DICTIONARY: Record<string, string> = {
-  // 🇹🇼 台股熱門與主要標的 (100% 官方名稱)
-  '2610': '華航',
-  '2610.TW': '華航',
-  '2618': '長榮航',
-  '2618.TW': '長榮航',
-  '2603': '長榮',
-  '2603.TW': '長榮',
-  '2609': '陽明',
-  '2609.TW': '陽明',
-  '2615': '萬海',
-  '2615.TW': '萬海',
-  '2330': '台積電',
-  '2330.TW': '台積電',
-  '2317': '鴻海',
-  '2317.TW': '鴻海',
-  '2454': '聯發科',
-  '2454.TW': '聯發科',
-  '2308': '台達電',
-  '2308.TW': '台達電',
-  '2382': '廣達',
-  '2382.TW': '廣達',
-  '3231': '緯創',
-  '3231.TW': '緯創',
-  '2356': '英業達',
-  '2356.TW': '英業達',
-  '2376': '技嘉',
-  '2376.TW': '技嘉',
-  '2377': '微星',
-  '2377.TW': '微星',
-  '3008': '大立光',
-  '3008.TW': '大立光',
-  '2881': '富邦金',
-  '2881.TW': '富邦金',
-  '2882': '國泰金',
-  '2882.TW': '國泰金',
-  '2891': '中信金',
-  '2891.TW': '中信金',
-  '2886': '兆豐金',
-  '2886.TW': '兆豐金',
-  '2884': '玉山金',
-  '2884.TW': '玉山金',
-  '2892': '第一金',
-  '2892.TW': '第一金',
-  '0050': '元大台灣50',
-  '0050.TW': '元大台灣50',
-  '0056': '元大高股息',
-  '0056.TW': '元大高股息',
-  '00878': '國泰永續高股息',
-  '00878.TW': '國泰永續高股息',
-  '00919': '群益台灣精選高息',
-  '00919.TW': '群益台灣精選高息',
-  '00929': '復華台灣科技優息',
-  '00929.TW': '復華台灣科技優息',
-  '00940': '元大台灣價值高息',
-  '00940.TW': '元大台灣價值高息',
-  '00941': '中信上游半導體',
-  '00941.TW': '中信上游半導體',
-  '00981': '主動統一台股增長',
-  '00981A': '主動統一台股增長',
-  '00981A.TW': '主動統一台股增長',
-  '00713': '元大台灣高息低波',
-  '00713.TW': '元大台灣高息低波',
-  '006208': '富邦台50',
-  '006208.TW': '富邦台50',
-
-  // 🇺🇸 美股熱門標的
-  'AAPL': 'Apple Inc. (蘋果)',
-  'NVDA': 'NVIDIA Corporation (輝達)',
-  'TSLA': 'Tesla Inc. (特斯拉)',
-  'MSFT': 'Microsoft Corporation (微軟)',
-  'GOOGL': 'Alphabet Inc. (Google)',
-  'GOOG': 'Alphabet Inc. (Google)',
-  'AMZN': 'Amazon.com Inc. (亞馬遜)',
-  'META': 'Meta Platforms Inc. (臉書)',
-  'AMD': 'Advanced Micro Devices (超微)',
-  'INTC': 'Intel Corporation (英特爾)',
-  'SPY': 'SPDR S&P 500 ETF Trust',
-  'VOO': 'Vanguard S&P 500 ETF',
-  'QQQ': 'Invesco QQQ Trust (納斯達克100)',
-  'VT': 'Vanguard Total World Stock ETF',
-  'VTI': 'Vanguard Total Stock Market ETF',
-};
-
-/**
- * 100% Synchronous Instant Fast-Search Auto-Suggest (0ms Latency Guaranteed)
- */
-export function searchStockSuggestionsSync(
+export async function searchStockSuggestionsAsync(
   keyword: string,
   targetMarket: MarketType = 'US'
-): StockSearchResult[] {
+): Promise<StockSearchResult[]> {
   const clean = keyword.trim();
   if (!clean) return [];
 
@@ -285,47 +198,59 @@ export function searchStockSuggestionsSync(
   const isTw = targetMarket === 'TW' || /^\d+[A-Za-z]?$/.test(clean);
   const mkt: MarketType = isTw ? 'TW' : 'US';
 
-  const candidatesMap = new Map<string, StockSearchResult>();
-
-  const addCandidate = (sym: string, name: string, price?: number) => {
-    const key = sym.toUpperCase();
-    if (!candidatesMap.has(key)) {
-      candidatesMap.set(key, {
-        symbol: key,
-        name: name || key,
-        market: mkt,
-        currency: mkt === 'TW' ? 'TWD' : 'USD',
-        price,
-      });
-    }
-  };
-
+  // 1. Try Direct Official TWSE MIS API Fetch (Works 100% natively on Mobile Android via CapacitorHttp)
   if (isTw) {
-    // 1. Direct code lookup
-    const defaultName = VERIFIED_STOCK_DICTIONARY[rawCode] || VERIFIED_STOCK_DICTIONARY[upperClean] || VERIFIED_STOCK_DICTIONARY[`${rawCode}.TW`];
-    const mainSym = !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
-    addCandidate(mainSym, defaultName || `台股 (${mainSym})`);
-
-    // 2. Prefix lookup (e.g. typing "00981" matches "00981A")
-    for (const [key, name] of Object.entries(VERIFIED_STOCK_DICTIONARY)) {
-      const cleanKey = key.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
-      if (cleanKey.startsWith(rawCode) || name.includes(clean)) {
-        const sym = !key.endsWith('.TW') ? `${cleanKey}.TW` : key;
-        addCandidate(sym, name);
+    try {
+      const twQuote = await fetchTaiwanStockQuote(rawCode);
+      if (twQuote && twQuote.name) {
+        return [
+          {
+            symbol: twQuote.symbol,
+            name: twQuote.name,
+            market: 'TW',
+            currency: 'TWD',
+            price: twQuote.currentPrice,
+          },
+        ];
       }
-    }
-  } else {
-    const defaultName = VERIFIED_STOCK_DICTIONARY[upperClean] || `美股 (${upperClean})`;
-    addCandidate(upperClean, defaultName);
-
-    for (const [key, name] of Object.entries(VERIFIED_STOCK_DICTIONARY)) {
-      if ((key.startsWith(upperClean) || name.toUpperCase().includes(upperClean)) && !key.endsWith('.TW') && !/^\d+/.test(key)) {
-        addCandidate(key, name);
-      }
-    }
+    } catch (e) {}
   }
 
-  return Array.from(candidatesMap.values()).slice(0, 6);
+  // 2. Try Backend Serverless Search Proxy /api/search (Works 100% on Desktop Web, 0% CORS issues)
+  try {
+    const proxyUrl = `/api/search?keyword=${encodeURIComponent(rawCode)}&market=${mkt}`;
+    const proxyRes = await httpGetJson(proxyUrl);
+    if (proxyRes && proxyRes.success && Array.isArray(proxyRes.results) && proxyRes.results.length > 0) {
+      return proxyRes.results.slice(0, 6);
+    }
+  } catch (e) {}
+
+  // 3. Dynamic Single Stock Quote Query Fallback
+  try {
+    const singleQuote = await fetchSingleStockQuote(upperClean, mkt);
+    if (singleQuote && singleQuote.name) {
+      return [
+        {
+          symbol: singleQuote.symbol,
+          name: singleQuote.name,
+          market: mkt,
+          currency: mkt === 'TW' ? 'TWD' : 'USD',
+          price: singleQuote.currentPrice,
+        },
+      ];
+    }
+  } catch (e) {}
+
+  // 4. Default Fallback Item if network offline or non-existent stock code
+  const fallbackSym = isTw && !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
+  return [
+    {
+      symbol: fallbackSym,
+      name: `${mkt === 'TW' ? '台股' : '美股'} (${fallbackSym})`,
+      market: mkt,
+      currency: mkt === 'TW' ? 'TWD' : 'USD',
+    },
+  ];
 }
 
 /**

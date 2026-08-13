@@ -404,4 +404,82 @@ app.get('/api/quote', async (req: Request, res: Response) => {
   return res.json({ success: false, error: 'Stock quote not found' });
 });
 
+app.get('/api/search', async (req: Request, res: Response) => {
+  const keyword = ((req.query.keyword as string) || (req.query.q as string) || '').trim();
+  const market = ((req.query.market as string) || 'TW').toUpperCase();
+
+  if (!keyword) {
+    return res.json({ success: true, results: [] });
+  }
+
+  const clean = keyword.toUpperCase();
+  const rawCode = clean.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+  const isTw = market === 'TW' || /^\d+[A-Za-z]?$/.test(clean);
+
+  if (isTw) {
+    try {
+      const exCh = [
+        `tse_${rawCode}.tw`,
+        `otc_${rawCode}.two`,
+        `tse_${rawCode}A.tw`,
+        `otc_${rawCode}A.two`,
+        `tse_${rawCode}B.tw`,
+        `otc_${rawCode}B.two`,
+      ].join('|');
+
+      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exCh}`;
+      const twseRes = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+        },
+      });
+
+      if (twseRes.ok) {
+        const data = await twseRes.json();
+        if (data && Array.isArray(data.msgArray)) {
+          const results = data.msgArray
+            .filter((it: any) => it && (it.n || it.nf || it.c))
+            .map((it: any) => ({
+              symbol: `${it.c || rawCode}.TW`,
+              name: it.n || it.nf || it.c,
+              price: parseFloat(it.z) || parseFloat(it.y) || parseFloat(it.o) || 0,
+              market: 'TW',
+              currency: 'TWD',
+            }));
+
+          if (results.length > 0) {
+            return res.json({ success: true, results });
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Fallback to Yahoo Finance Search
+  try {
+    const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(rawCode)}&quotesCount=6`;
+    const yRes = await fetch(yahooUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (yRes.ok) {
+      const data = await yRes.json();
+      if (data && Array.isArray(data.quotes)) {
+        const results = data.quotes.map((q: any) => ({
+          symbol: q.symbol,
+          name: q.shortname || q.longname || q.symbol,
+          market: isTw ? 'TW' : 'US',
+          currency: isTw ? 'TWD' : 'USD',
+        }));
+        return res.json({ success: true, results });
+      }
+    }
+  } catch (e) {}
+
+  return res.json({ success: true, results: [] });
+});
+
 export default app;
