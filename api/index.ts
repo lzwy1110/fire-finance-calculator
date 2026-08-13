@@ -389,7 +389,7 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
   return null;
 }
 
-app.get('/api/quote', async (req: Request, res: Response) => {
+app.get(['/api/quote', '/quote'], async (req: Request, res: Response) => {
   const symbol = (req.query.symbol as string) || '';
   const market = (req.query.market as string) || 'US';
 
@@ -404,7 +404,7 @@ app.get('/api/quote', async (req: Request, res: Response) => {
   return res.json({ success: false, error: 'Stock quote not found' });
 });
 
-app.get('/api/search', async (req: Request, res: Response) => {
+app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
   const keyword = ((req.query.keyword as string) || (req.query.q as string) || '').trim();
   const market = ((req.query.market as string) || 'TW').toUpperCase();
 

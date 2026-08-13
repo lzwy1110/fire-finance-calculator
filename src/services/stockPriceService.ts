@@ -25,8 +25,9 @@ export interface StockSearchResult {
 async function httpGetJson(url: string): Promise<any> {
   // 1. Try Native CapacitorHttp (Native Android Java HTTP GET)
   try {
+    const requestUrl = url.startsWith('/') && typeof window !== 'undefined' ? `${window.location.origin}${url}` : url;
     const res = await CapacitorHttp.get({
-      url,
+      url: requestUrl,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
@@ -39,7 +40,7 @@ async function httpGetJson(url: string): Promise<any> {
     // Non-native web browser fallback
   }
 
-  // 2. Fallback to direct web fetch
+  // 2. Direct web fetch
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2500);
@@ -51,23 +52,25 @@ async function httpGetJson(url: string): Promise<any> {
     }
   } catch (e) {}
 
-  // 3. Fallback to Web CORS Proxies for Desktop Web Browser
-  const corsProxies = [
-    `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  ];
+  // 3. Fallback to Web CORS Proxies for Desktop Web Browser ONLY for ABSOLUTE HTTP URLs
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    const corsProxies = [
+      `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    ];
 
-  for (const proxyUrl of corsProxies) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
-      const res = await fetch(proxyUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const text = await res.text();
-        return JSON.parse(text);
-      }
-    } catch (e) {}
+    for (const proxyUrl of corsProxies) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch(proxyUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const text = await res.text();
+          return JSON.parse(text);
+        }
+      } catch (e) {}
+    }
   }
 
   return null;
