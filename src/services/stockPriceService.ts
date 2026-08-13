@@ -295,24 +295,7 @@ export async function searchStockSuggestionsAsync(
     }
   } catch (e) {}
 
-  const results = Array.from(candidatesMap.values()).slice(0, 5);
-
-  // 4. Fetch live quotes for candidates concurrently to attach real-time prices
-  await Promise.all(
-    results.map(async (item) => {
-      try {
-        const quote = await fetchSingleStockQuote(item.symbol, item.market);
-        if (quote && quote.currentPrice > 0) {
-          item.price = quote.currentPrice;
-          if (quote.name && quote.name !== item.symbol) {
-            item.name = quote.name;
-          }
-        }
-      } catch (e) {}
-    })
-  );
-
-  return results;
+  return Array.from(candidatesMap.values()).slice(0, 5);
 }
 
 /**
