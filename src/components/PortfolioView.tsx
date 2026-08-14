@@ -201,7 +201,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           setIsSearching(false);
         }
       }
-    }, 150);
+    }, 80);
   };
 
   // Market Tab Switch in Modal

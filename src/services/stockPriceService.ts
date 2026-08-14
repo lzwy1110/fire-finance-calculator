@@ -198,7 +198,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 
 /**
  * 100% Dynamic Live Stock Search Auto-Suggest (ZERO Static Dictionaries)
- * Routes Mobile Android via Native CapacitorHttp, and Desktop Web via /api/search Proxy
+ * Option C: Accelerates Desktop Web Browser Search using Promise.race (Serverless Proxy vs Direct CORS Proxy)
  */
 export async function searchStockSuggestionsAsync(
   keyword: string,
@@ -231,55 +231,76 @@ export async function searchStockSuggestionsAsync(
     } catch (e) {}
   }
 
-  // 2. Desktop Web Browser: Backend Serverless Search Proxy /api/search (0.1s, 0% CORS issues)
+  // 2. Desktop Web Browser: Promise.race Acceleration (Races Serverless Proxy vs Direct CORS Proxy)
+  const reqServerless = (async (): Promise<StockSearchResult[]> => {
+    try {
+      const proxyUrl = `/api/search?keyword=${encodeURIComponent(rawCode)}&market=${mkt}`;
+      const proxyRes = await httpGetJson(proxyUrl);
+      if (proxyRes && proxyRes.success && Array.isArray(proxyRes.results) && proxyRes.results.length > 0) {
+        return proxyRes.results.slice(0, 6);
+      }
+    } catch (e) {}
+    return [];
+  })();
+
+  const reqDirect = (async (): Promise<StockSearchResult[]> => {
+    if (isTw) {
+      try {
+        const twQuote = await fetchTaiwanStockQuote(rawCode);
+        if (twQuote && twQuote.name) {
+          return [
+            {
+              symbol: twQuote.symbol,
+              name: twQuote.name,
+              market: 'TW',
+              currency: 'TWD',
+              price: twQuote.currentPrice,
+            },
+          ];
+        }
+      } catch (e) {}
+    } else {
+      try {
+        const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(upperClean)}&quotesCount=6`;
+        const yahooRes = await httpGetJson(yahooUrl);
+        if (yahooRes && Array.isArray(yahooRes.quotes) && yahooRes.quotes.length > 0) {
+          const matches: StockSearchResult[] = [];
+          for (const q of yahooRes.quotes) {
+            if (!q || !q.symbol) continue;
+            const qSym = q.symbol.toUpperCase();
+            if (!qSym.includes('.')) {
+              matches.push({
+                symbol: qSym,
+                name: q.shortname || q.longname || qSym,
+                market: 'US',
+                currency: 'USD',
+              });
+            }
+          }
+          if (matches.length > 0) return matches.slice(0, 6);
+        }
+      } catch (e) {}
+    }
+    return [];
+  })();
+
   try {
-    const proxyUrl = `/api/search?keyword=${encodeURIComponent(rawCode)}&market=${mkt}`;
-    const proxyRes = await httpGetJson(proxyUrl);
-    if (proxyRes && proxyRes.success && Array.isArray(proxyRes.results) && proxyRes.results.length > 0) {
-      return proxyRes.results.slice(0, 6);
+    const winner = await Promise.race([
+      reqServerless.then((res) => (res.length > 0 ? res : new Promise<StockSearchResult[]>(() => {}))),
+      reqDirect.then((res) => (res.length > 0 ? res : new Promise<StockSearchResult[]>(() => {}))),
+      new Promise<StockSearchResult[]>((resolve) => setTimeout(() => resolve([]), 2500)),
+    ]);
+
+    if (Array.isArray(winner) && winner.length > 0) {
+      return winner;
     }
   } catch (e) {}
 
-  // 3. Web Client Fallback: Try TWSE quote or Yahoo Finance via fast CORS proxy if serverless API unavailable
-  if (isTw) {
-    try {
-      const twQuote = await fetchTaiwanStockQuote(rawCode);
-      if (twQuote && twQuote.name) {
-        return [
-          {
-            symbol: twQuote.symbol,
-            name: twQuote.name,
-            market: 'TW',
-            currency: 'TWD',
-            price: twQuote.currentPrice,
-          },
-        ];
-      }
-    } catch (e) {}
-  } else {
-    try {
-      const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(upperClean)}&quotesCount=6`;
-      const yahooRes = await httpGetJson(yahooUrl);
-      if (yahooRes && Array.isArray(yahooRes.quotes) && yahooRes.quotes.length > 0) {
-        const matches: StockSearchResult[] = [];
-        for (const q of yahooRes.quotes) {
-          if (!q || !q.symbol) continue;
-          const qSym = q.symbol.toUpperCase();
-          if (!qSym.includes('.')) {
-            matches.push({
-              symbol: qSym,
-              name: q.shortname || q.longname || qSym,
-              market: 'US',
-              currency: 'USD',
-            });
-          }
-        }
-        if (matches.length > 0) return matches.slice(0, 6);
-      }
-    } catch (e) {}
-  }
+  // Fallback check if race timed out
+  const [sRes, dRes] = await Promise.all([reqServerless, reqDirect]);
+  if (sRes.length > 0) return sRes;
+  if (dRes.length > 0) return dRes;
 
-  // 4. Return [] if no valid stock found from API (DO NOT show dummy fallback suggestions!)
   return [];
 }
 
