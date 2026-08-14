@@ -415,9 +415,72 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
 
   const clean = keyword.toUpperCase();
   const rawCode = clean.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
-  const isTw = market === 'TW' || /^\d+[A-Za-z]?$/.test(clean);
+  const hasChinese = /[\u4e00-\u9fa5]/.test(keyword);
+  const isTw = market === 'TW' || /^\d+[A-Za-z]?$/.test(clean) || hasChinese;
 
   if (isTw) {
+    // 1. Chinese Keyword Live Search via Official TWSE & TPEX OpenAPI (Zero Hardcoded Dictionaries)
+    if (hasChinese) {
+      try {
+        const [twseRes, tpexRes] = await Promise.allSettled([
+          fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+          }),
+          fetch('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes', {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+          }),
+        ]);
+
+        const matches: Array<{ symbol: string; name: string; price: number; market: string; currency: string }> = [];
+
+        if (twseRes.status === 'fulfilled' && twseRes.value.ok) {
+          const twseData = await twseRes.value.json();
+          if (Array.isArray(twseData)) {
+            const filtered = twseData.filter((it: any) => it && it.Code && it.Name && it.Name.includes(keyword));
+            for (const it of filtered) {
+              matches.push({
+                symbol: `${it.Code}.TW`,
+                name: it.Name,
+                price: parseFloat(it.ClosingPrice) || 0,
+                market: 'TW',
+                currency: 'TWD',
+              });
+            }
+          }
+        }
+
+        if (tpexRes.status === 'fulfilled' && tpexRes.value.ok) {
+          const tpexData = await tpexRes.value.json();
+          if (Array.isArray(tpexData)) {
+            const filtered = tpexData.filter(
+              (it: any) => it && it.SecuritiesCompanyCode && it.CompanyName && it.CompanyName.includes(keyword)
+            );
+            for (const it of filtered) {
+              matches.push({
+                symbol: `${it.SecuritiesCompanyCode}.TWO`,
+                name: it.CompanyName,
+                price: parseFloat(it.Close) || 0,
+                market: 'TW',
+                currency: 'TWD',
+              });
+            }
+          }
+        }
+
+        // Sort main stocks & ETFs (code <= 6 chars) first
+        matches.sort((a, b) => {
+          const codeA = a.symbol.split('.')[0];
+          const codeB = b.symbol.split('.')[0];
+          return codeA.length - codeB.length;
+        });
+
+        if (matches.length > 0) {
+          return res.json({ success: true, results: matches.slice(0, 8) });
+        }
+      } catch (e) {}
+    }
+
+    // 2. Stock Code Direct Channel Search via TWSE MIS Real-Time API
     try {
       const suffixes = ['', 'L', 'R', 'U', 'K', 'A', 'B', 'C'];
       const channels: string[] = [];

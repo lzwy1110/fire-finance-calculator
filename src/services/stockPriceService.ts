@@ -209,11 +209,64 @@ export async function searchStockSuggestionsAsync(
 
   const upperClean = clean.toUpperCase();
   const rawCode = upperClean.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
-  const isTw = targetMarket === 'TW' || /^\d+[A-Za-z]?$/.test(clean);
+  const hasChinese = /[\u4e00-\u9fa5]/.test(clean);
+  const isTw = targetMarket === 'TW' || /^\d+[A-Za-z]?$/.test(clean) || hasChinese;
   const mkt: MarketType = isTw ? 'TW' : 'US';
   const isNative = Capacitor.isNativePlatform();
 
-  // 1. Mobile Android Native App: Direct Official TWSE MIS API Query via Native Java HTTP (0.05s)
+  // 1. Chinese Keyword Live Search via Official TWSE & TPEX OpenAPI (Zero Hardcoded Dictionaries)
+  if (hasChinese) {
+    try {
+      const proxyUrl = `/api/search?keyword=${encodeURIComponent(clean)}&market=TW`;
+      const proxyRes = await httpGetJson(proxyUrl);
+      if (proxyRes && proxyRes.success && Array.isArray(proxyRes.results) && proxyRes.results.length > 0) {
+        return proxyRes.results.slice(0, 8);
+      }
+    } catch (e) {}
+
+    // Fallback: Query official TWSE/TPEX OpenAPI directly on client/native
+    try {
+      const [twseData, tpexData] = await Promise.all([
+        httpGetJson('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL'),
+        httpGetJson('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes'),
+      ]);
+
+      const matches: StockSearchResult[] = [];
+      if (Array.isArray(twseData)) {
+        const filtered = twseData.filter((it: any) => it && it.Code && it.Name && it.Name.includes(clean));
+        for (const it of filtered) {
+          matches.push({
+            symbol: `${it.Code}.TW`,
+            name: it.Name,
+            price: parseFloat(it.ClosingPrice) || 0,
+            market: 'TW',
+            currency: 'TWD',
+          });
+        }
+      }
+      if (Array.isArray(tpexData)) {
+        const filtered = tpexData.filter(
+          (it: any) => it && it.SecuritiesCompanyCode && it.CompanyName && it.CompanyName.includes(clean)
+        );
+        for (const it of filtered) {
+          matches.push({
+            symbol: `${it.SecuritiesCompanyCode}.TWO`,
+            name: it.CompanyName,
+            price: parseFloat(it.Close) || 0,
+            market: 'TW',
+            currency: 'TWD',
+          });
+        }
+      }
+
+      matches.sort((a, b) => a.symbol.split('.')[0].length - b.symbol.split('.')[0].length);
+      if (matches.length > 0) return matches.slice(0, 8);
+    } catch (e) {}
+
+    return [];
+  }
+
+  // 2. Mobile Android Native App: Direct Official TWSE MIS API Query via Native Java HTTP (0.05s)
   if (isNative && isTw) {
     try {
       const twQuote = await fetchTaiwanStockQuote(rawCode);
@@ -231,7 +284,7 @@ export async function searchStockSuggestionsAsync(
     } catch (e) {}
   }
 
-  // 2. Desktop Web Browser: Promise.race Acceleration (Races Serverless Proxy vs Direct CORS Proxy)
+  // 3. Desktop Web Browser: Promise.race Acceleration (Races Serverless Proxy vs Direct CORS Proxy)
   const reqServerless = (async (): Promise<StockSearchResult[]> => {
     try {
       const proxyUrl = `/api/search?keyword=${encodeURIComponent(rawCode)}&market=${mkt}`;
