@@ -87,11 +87,11 @@ async function fetchTaiwanStockQuote(symbol: string): Promise<StockQuote | null>
 
   const exCh = [
     `tse_${rawCode}.tw`,
-    `otc_${rawCode}.two`,
+    `otc_${rawCode}.tw`,
     `tse_${rawCode}A.tw`,
-    `otc_${rawCode}A.two`,
+    `otc_${rawCode}A.tw`,
     `tse_${rawCode}B.tw`,
-    `otc_${rawCode}B.two`,
+    `otc_${rawCode}B.tw`,
   ].join('|');
 
   const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exCh}`;
@@ -108,10 +108,12 @@ async function fetchTaiwanStockQuote(symbol: string): Promise<StockQuote | null>
       const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
       const realCode = item.c || rawCode;
       const stockName = item.n || item.nf || realCode;
+      const isOtc = item.ex === 'otc';
+      const normSym = `${realCode}.${isOtc ? 'TWO' : 'TW'}`;
 
       if (livePrice > 0 || stockName) {
         return {
-          symbol: `${realCode}.TW`,
+          symbol: normSym,
           currentPrice: livePrice,
           previousClose: prevClose,
           change,
@@ -143,35 +145,43 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 
   // 2. US Stock or TW Fallback via Yahoo Finance Chart API
   const rawCode = cleanSymbol.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
-  let yahooSymbol = cleanSymbol;
-  if (market === 'TW' && !yahooSymbol.endsWith('.TW') && !yahooSymbol.endsWith('.TWO')) {
-    yahooSymbol = `${rawCode}.TW`;
+  const isTw = market === 'TW' || cleanSymbol.endsWith('.TW') || cleanSymbol.endsWith('.TWO') || /^\d+[A-Za-z]?$/.test(cleanSymbol);
+
+  let symbolsToTry = [cleanSymbol];
+  if (isTw) {
+    if (cleanSymbol.endsWith('.TWO')) {
+      symbolsToTry = [`${rawCode}.TWO`, `${rawCode}.TW`];
+    } else {
+      symbolsToTry = [`${rawCode}.TW`, `${rawCode}.TWO`];
+    }
   }
 
-  const endpoints = [
-    `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
-    `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
-  ];
+  for (const sym of symbolsToTry) {
+    const endpoints = [
+      `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`,
+    ];
 
-  for (const url of endpoints) {
-    const data = await httpGetJson(url);
-    const meta = data?.chart?.result?.[0]?.meta;
+    for (const url of endpoints) {
+      const data = await httpGetJson(url);
+      const meta = data?.chart?.result?.[0]?.meta;
 
-    if (meta && typeof meta.regularMarketPrice === 'number' && meta.regularMarketPrice > 0) {
-      const currentPrice = meta.regularMarketPrice;
-      const previousClose = meta.chartPreviousClose || meta.previousClose || currentPrice;
-      const change = currentPrice - previousClose;
-      const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
+      if (meta && typeof meta.regularMarketPrice === 'number' && meta.regularMarketPrice > 0) {
+        const currentPrice = meta.regularMarketPrice;
+        const previousClose = meta.chartPreviousClose || meta.previousClose || currentPrice;
+        const change = currentPrice - previousClose;
+        const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
 
-      return {
-        symbol: cleanSymbol,
-        currentPrice,
-        previousClose,
-        change,
-        changePercent,
-        currency: market === 'TW' ? 'TWD' : 'USD',
-        name: meta.shortName || meta.longName || cleanSymbol,
-      };
+        return {
+          symbol: sym,
+          currentPrice,
+          previousClose,
+          change,
+          changePercent,
+          currency: market === 'TW' ? 'TWD' : 'USD',
+          name: meta.shortName || meta.longName || cleanSymbol,
+        };
+      }
     }
   }
 

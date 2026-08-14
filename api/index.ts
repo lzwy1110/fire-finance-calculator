@@ -303,11 +303,11 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
     try {
       const exCh = [
         `tse_${rawCode}.tw`,
-        `otc_${rawCode}.two`,
+        `otc_${rawCode}.tw`,
         `tse_${rawCode}A.tw`,
-        `otc_${rawCode}A.two`,
+        `otc_${rawCode}A.tw`,
         `tse_${rawCode}B.tw`,
-        `otc_${rawCode}B.two`,
+        `otc_${rawCode}B.tw`,
       ].join('|');
       const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exCh}`;
       const res = await fetch(url, {
@@ -328,10 +328,12 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
             const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
             const realCode = item.c || rawCode;
             const stockName = item.n || item.nf || realCode;
+            const isOtc = item.ex === 'otc';
+            const normSym = `${realCode}.${isOtc ? 'TWO' : 'TW'}`;
 
             if (livePrice > 0 || stockName) {
               return {
-                symbol: `${realCode}.TW`,
+                symbol: normSym,
                 currentPrice: livePrice,
                 previousClose: prevClose,
                 change,
@@ -420,11 +422,11 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
     try {
       const exCh = [
         `tse_${rawCode}.tw`,
-        `otc_${rawCode}.two`,
+        `otc_${rawCode}.tw`,
         `tse_${rawCode}A.tw`,
-        `otc_${rawCode}A.two`,
+        `otc_${rawCode}A.tw`,
         `tse_${rawCode}B.tw`,
-        `otc_${rawCode}B.two`,
+        `otc_${rawCode}B.tw`,
       ].join('|');
 
       const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exCh}`;
@@ -440,13 +442,17 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
         if (data && Array.isArray(data.msgArray)) {
           const results = data.msgArray
             .filter((it: any) => Boolean(it && it.c && (it.n || it.nf)))
-            .map((it: any) => ({
-              symbol: `${it.c || rawCode}.TW`,
-              name: it.n || it.nf || it.c,
-              price: parseFloat(it.z) || parseFloat(it.y) || parseFloat(it.o) || 0,
-              market: 'TW',
-              currency: 'TWD',
-            }));
+            .map((it: any) => {
+              const isOtc = it.ex === 'otc';
+              const normSym = `${it.c || rawCode}.${isOtc ? 'TWO' : 'TW'}`;
+              return {
+                symbol: normSym,
+                name: it.n || it.nf || it.c,
+                price: parseFloat(it.z) || parseFloat(it.y) || parseFloat(it.o) || 0,
+                market: 'TW',
+                currency: 'TWD',
+              };
+            });
 
           if (results.length > 0) {
             return res.json({ success: true, results });
