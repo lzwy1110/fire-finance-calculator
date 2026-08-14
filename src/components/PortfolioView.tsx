@@ -16,6 +16,7 @@ import {
   Calendar,
   DollarSign,
   PlusCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -297,7 +298,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     // Validate chronological timeline to prevent naked shorting / negative shares
     const timelineCheck = validateTradeTimeline(simulatedTxs);
     if (!timelineCheck.isValid) {
-      alert(`❌ ${timelineCheck.errorMessage || '庫存不足，無法執行交易！'}`);
+      setWarningModal({
+        isOpen: true,
+        title: '現股庫存不足警告 ⚠️',
+        message: timelineCheck.errorMessage || '現有持股庫存數量不足，無法執行賣出交易！',
+        details: '【防裸賣機制】系統已依據交易日期比對歷史庫存。在該日期賣出的股數，不得大於當時實際持有的可賣現股數量。',
+      });
       return;
     }
 
@@ -346,6 +352,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
   };
 
+  // Warning Alert Modal state for Naked Short Selling / Insufficient Inventory
+  const [warningModal, setWarningModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    details?: string;
+  } | null>(null);
+
   // Confirm Modal state for deleting stocks or single trade logs
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -362,7 +376,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     // Check if deleting this transaction causes downstream negative inventory
     const valResult = validateTradeDeletionOrEdit(targetStock.transactions || [], txId);
     if (!valResult.isValid) {
-      alert(`⚠️ ${valResult.errorMessage}`);
+      setWarningModal({
+        isOpen: true,
+        title: '無法刪除歷史買入紀錄 ⚠️',
+        message: valResult.errorMessage || '刪除此筆買入紀錄會導致後續日期的賣出庫存變為負數！',
+        details: '【時序完整性維護】刪除此筆買入前，請先刪除或調整在該日期之後發生的賣出交易紀錄。',
+      });
       return;
     }
 
@@ -1093,6 +1112,54 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 className="px-5 py-2 bg-white/10 hover:bg-white/15 text-white font-bold rounded-xl cursor-pointer"
               >
                 關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* High-End Modern Warning Alert Dialog Modal */}
+      {warningModal?.isOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#121216] border border-rose-500/30 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-6 relative overflow-hidden transform transition-all scale-100">
+            {/* Background Ambient Glow */}
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex items-start gap-4 relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 shadow-lg shadow-rose-500/10">
+                <AlertTriangle className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div className="space-y-1 pr-6">
+                <h3 className="text-xl font-extrabold text-white tracking-tight">
+                  {warningModal.title}
+                </h3>
+                <p className="text-xs text-rose-400 font-semibold uppercase tracking-wider">
+                  現股庫存與交易時序安全校驗
+                </p>
+              </div>
+              <button
+                onClick={() => setWarningModal(null)}
+                className="absolute top-0 right-0 p-1.5 rounded-xl bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-rose-950/30 border border-rose-500/20 rounded-2xl p-4 space-y-2 text-sm text-gray-200 relative z-10">
+              <p className="leading-relaxed font-medium">{warningModal.message}</p>
+              {warningModal.details && (
+                <p className="text-xs text-gray-400 pt-2 border-t border-rose-500/15 leading-relaxed">
+                  💡 {warningModal.details}
+                </p>
+              )}
+            </div>
+
+            <div className="pt-2 relative z-10">
+              <button
+                onClick={() => setWarningModal(null)}
+                className="w-full py-3.5 px-6 rounded-2xl font-bold text-white bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>知道了，重新調整</span>
               </button>
             </div>
           </div>
