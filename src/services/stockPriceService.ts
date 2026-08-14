@@ -96,10 +96,10 @@ async function fetchTaiwanStockQuote(symbol: string): Promise<StockQuote | null>
   const data = await httpGetJson(url);
 
   if (data && Array.isArray(data.msgArray) && data.msgArray.length > 0) {
-    const validItems = data.msgArray.filter((it: any) => it && (it.z !== '-' || it.y !== '-' || it.o !== '-'));
-    const item = validItems.length > 0 ? validItems[0] : data.msgArray[0];
+    const validItems = data.msgArray.filter((it: any) => Boolean(it && it.c && (it.n || it.nf)));
+    const item = validItems.length > 0 ? validItems[0] : null;
 
-    if (item && (item.z || item.y || item.o)) {
+    if (item) {
       const livePrice = parseFloat(item.z) || parseFloat(item.y) || parseFloat(item.o) || parseFloat(item.a?.split('_')?.[0]) || 0;
       const prevClose = parseFloat(item.y) || livePrice;
       const change = livePrice - prevClose;
@@ -107,7 +107,7 @@ async function fetchTaiwanStockQuote(symbol: string): Promise<StockQuote | null>
       const realCode = item.c || rawCode;
       const stockName = item.n || item.nf || realCode;
 
-      if (livePrice > 0) {
+      if (livePrice > 0 || stockName) {
         return {
           symbol: `${realCode}.TW`,
           currentPrice: livePrice,
@@ -247,16 +247,8 @@ export async function searchStockSuggestionsAsync(
     } catch (e) {}
   }
 
-  // 4. Default Dynamic Candidate
-  const fallbackSym = isTw && !upperClean.endsWith('.TW') ? `${rawCode}.TW` : upperClean;
-  return [
-    {
-      symbol: fallbackSym,
-      name: `${mkt === 'TW' ? '台股' : '美股'} (${fallbackSym})`,
-      market: mkt,
-      currency: mkt === 'TW' ? 'TWD' : 'USD',
-    },
-  ];
+  // 4. Return [] if no valid stock found from API (DO NOT show dummy fallback suggestions!)
+  return [];
 }
 
 /**

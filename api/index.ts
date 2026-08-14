@@ -319,9 +319,9 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.msgArray) && data.msgArray.length > 0) {
-          const validItems = data.msgArray.filter((it: any) => it && (it.z !== '-' || it.y !== '-' || it.o !== '-'));
-          const item = validItems.length > 0 ? validItems[0] : data.msgArray[0];
-          if (item && (item.z || item.y || item.o)) {
+          const validItems = data.msgArray.filter((it: any) => Boolean(it && it.c && (it.n || it.nf)));
+          const item = validItems.length > 0 ? validItems[0] : null;
+          if (item) {
             const livePrice = parseFloat(item.z) || parseFloat(item.y) || parseFloat(item.o) || 0;
             const prevClose = parseFloat(item.y) || livePrice;
             const change = livePrice - prevClose;
@@ -329,7 +329,7 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
             const realCode = item.c || rawCode;
             const stockName = item.n || item.nf || realCode;
 
-            if (livePrice > 0) {
+            if (livePrice > 0 || stockName) {
               return {
                 symbol: `${realCode}.TW`,
                 currentPrice: livePrice,
@@ -439,7 +439,7 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
         const data = await twseRes.json();
         if (data && Array.isArray(data.msgArray)) {
           const results = data.msgArray
-            .filter((it: any) => it && (it.n || it.nf || it.c))
+            .filter((it: any) => Boolean(it && it.c && (it.n || it.nf)))
             .map((it: any) => ({
               symbol: `${it.c || rawCode}.TW`,
               name: it.n || it.nf || it.c,
