@@ -85,14 +85,13 @@ async function fetchTaiwanStockQuote(symbol: string): Promise<StockQuote | null>
   const rawCode = symbol.trim().toUpperCase().replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   if (!rawCode) return null;
 
-  const exCh = [
-    `tse_${rawCode}.tw`,
-    `otc_${rawCode}.tw`,
-    `tse_${rawCode}A.tw`,
-    `otc_${rawCode}A.tw`,
-    `tse_${rawCode}B.tw`,
-    `otc_${rawCode}B.tw`,
-  ].join('|');
+  const suffixes = ['', 'L', 'R', 'U', 'K', 'A', 'B', 'C'];
+  const channels: string[] = [];
+  for (const s of suffixes) {
+    channels.push(`tse_${rawCode}${s}.tw`);
+    channels.push(`otc_${rawCode}${s}.tw`);
+  }
+  const exCh = channels.join('|');
 
   const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exCh}`;
   const data = await httpGetJson(url);
