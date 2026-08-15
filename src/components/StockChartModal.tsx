@@ -585,6 +585,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       }
     };
 
+    let touchStartTime = 0;
+
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -594,6 +596,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       const chartH = canvas.clientHeight - padding.top - padding.bottom;
 
       touchMoved = false;
+      touchStartTime = Date.now();
 
       if (e.touches.length >= 2) {
         // Two-Finger Pinch detected immediately on touch start
@@ -691,7 +694,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
         const deltaX = touch.clientX - startTouchX;
         const deltaY = startTouchY - touch.clientY;
 
-        if (Math.hypot(deltaX, deltaY) > 5) {
+        // Tolerant movement threshold (12px) to prevent finger contact area changes from cancelling taps
+        if (Math.hypot(deltaX, deltaY) > 12) {
           touchMoved = true;
         }
 
@@ -712,7 +716,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
           // Bottom Time Axis: Slide LEFT (deltaX < 0) expands/zooms in, Slide RIGHT (deltaX > 0) compresses/zooms out
           if (allCandles.length > 0) {
             const origLen = startTouchWindow.end - startTouchWindow.start;
-            const factor = 1 + deltaX * 0.007; // Corrected: slide left (<0) decreases len = zoom in; slide right (>0) increases len = zoom out
+            const factor = 1 + deltaX * 0.007;
             const newLen = Math.max(10, Math.min(allCandles.length, Math.round(origLen * factor)));
             const center = Math.round((startTouchWindow.start + startTouchWindow.end) / 2);
             const half = Math.round(newLen / 2);
@@ -765,8 +769,11 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       e.preventDefault();
       if (longPressTimer) clearTimeout(longPressTimer);
 
-      // If user tapped without moving while in Crosshair mode, dismiss crosshair (TradingView behavior)
-      if (!touchMoved && isCrosshairActiveRef.current) {
+      const touchDuration = Date.now() - touchStartTime;
+      const isQuickTap = touchDuration < 320 && !touchMoved;
+
+      // If user did a quick tap while in Crosshair mode, dismiss crosshair (TradingView behavior)
+      if (isQuickTap && isCrosshairActiveRef.current) {
         setIsCrosshairActive(false);
         setHoverData(null);
       }
