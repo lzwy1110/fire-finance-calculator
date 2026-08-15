@@ -168,6 +168,8 @@ export const DEFAULT_FIRE_CONFIG: FIREConfig = {
   currentAge: 28,
   targetRetirementAge: 45,
   currentNetWorth: 2450000,
+  cashSavings: 650000,
+  baseCashBalance: 650000,
   monthlyIncome: 85000,
   monthlyExpenses: 35000,
   monthlyTax: 5000,

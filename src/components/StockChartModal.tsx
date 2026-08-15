@@ -8,6 +8,8 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
+  HelpCircle,
+  Smartphone,
 } from 'lucide-react';
 import { PortfolioStock } from '../types';
 import { fetchStockHistoricalChart, CandleData } from '../services/stockPriceService';
@@ -76,6 +78,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   const [customDown, setCustomDown] = useState<string>('#ab47bc');
   const [selectedThemeId, setSelectedThemeId] = useState<string>('neon-purple');
   const [showColorPicker, setShowColorPicker] = useState<boolean>(false);
+  const [showGestureHelp, setShowGestureHelp] = useState<boolean>(false);
 
   // View & Transform States for 2D Panning & Scaling
   const [viewWindow, setViewWindow] = useState<{ start: number; end: number }>({ start: 0, end: 100 });
@@ -319,7 +322,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     const width = canvas.parentElement?.clientWidth || 700;
-    const height = 360;
+    const height = window.innerWidth < 640 ? 280 : 340;
 
     canvas.width = width * dpr;
     canvas.height = height * dpr;
@@ -551,6 +554,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     let startTouchYPanOffset = 0;
     let longPressTimer: any = null;
     let touchMoved = false;
+    let touchStartTime = 0;
 
     const getTouchCoords = (touch: Touch) => {
       const rect = canvas.getBoundingClientRect();
@@ -584,8 +588,6 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
         setHoverData({ candle, x, y });
       }
     };
-
-    let touchStartTime = 0;
 
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
@@ -916,12 +918,12 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#121216] border border-white/10 rounded-3xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[95vh] relative transform transition-all scale-100">
+      <div className="bg-[#121216] border border-white/10 rounded-3xl max-w-3xl w-full shadow-2xl overflow-y-auto max-h-[92vh] flex flex-col relative transform transition-all scale-100">
         {/* Background Ambient Glow */}
         <div className="absolute -top-32 -right-32 w-64 h-64 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* 1. Header */}
-        <div className="p-5 md:p-6 border-b border-white/10 flex items-start justify-between relative z-10">
+        <div className="p-4 sm:p-6 border-b border-white/10 flex items-start justify-between relative z-10 flex-shrink-0">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5 flex-wrap">
               <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">
@@ -967,7 +969,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
         </div>
 
         {/* 2. Control Toolbar */}
-        <div className="px-5 py-3 bg-white/[0.02] border-b border-white/5 flex items-center justify-between gap-3 flex-wrap relative z-10 text-xs">
+        <div className="px-4 sm:px-6 py-2.5 bg-white/[0.02] border-b border-white/5 flex items-center justify-between gap-2.5 flex-wrap relative z-10 text-xs flex-shrink-0">
           {/* Smart Dynamic Timeframe Switcher */}
           <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5">
             {chartType === 'line' ? (
@@ -976,7 +978,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
                 <button
                   key={t}
                   onClick={() => setLineRange(t)}
-                  className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all cursor-pointer ${
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold uppercase transition-all cursor-pointer ${
                     lineRange === t
                       ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
                       : 'text-gray-400 hover:text-white'
@@ -996,7 +998,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
                 <button
                   key={item.id}
                   onClick={() => setCandleResolution(item.id)}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                     candleResolution === item.id
                       ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
                       : 'text-gray-400 hover:text-white'
@@ -1008,12 +1010,12 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Chart Type Toggle */}
             <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5">
               <button
                 onClick={() => setChartType('line')}
-                className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
                   chartType === 'line'
                     ? 'bg-white/15 text-white'
                     : 'text-gray-400 hover:text-white'
@@ -1024,7 +1026,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
               </button>
               <button
                 onClick={() => setChartType('candle')}
-                className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
                   chartType === 'candle'
                     ? 'bg-white/15 text-white'
                     : 'text-gray-400 hover:text-white'
@@ -1039,7 +1041,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             <div className="relative">
               <button
                 onClick={() => setShowColorPicker(!showColorPicker)}
-                className="px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 text-gray-300 hover:text-white flex items-center gap-1.5 font-medium transition-all cursor-pointer"
+                className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 text-gray-300 hover:text-white flex items-center gap-1.5 font-medium transition-all cursor-pointer"
                 title="自訂 K 線配色"
               >
                 <div
@@ -1138,6 +1140,72 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
               )}
             </div>
 
+            {/* Gesture Guide Help Button */}
+            <div className="relative">
+              <button
+                onClick={() => setShowGestureHelp(!showGestureHelp)}
+                className="p-1.5 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 text-gray-400 hover:text-emerald-400 transition-all cursor-pointer"
+                title="手機操作手勢指南"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Gesture Help Dropdown Modal */}
+              {showGestureHelp && (
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-[#18181f] border border-white/15 rounded-2xl p-4 shadow-2xl z-30 space-y-3 animate-fadeIn text-gray-200">
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                    <div className="flex items-center gap-1.5 font-bold text-white text-xs">
+                      <Smartphone className="w-4 h-4 text-emerald-400" />
+                      <span>TradingView 手勢操作指南</span>
+                    </div>
+                    <button
+                      onClick={() => setShowGestureHelp(false)}
+                      className="text-gray-400 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-2 text-[11px] leading-relaxed">
+                    <div className="flex items-start gap-2 bg-white/5 p-2 rounded-xl">
+                      <span className="text-sm">🗺️</span>
+                      <div>
+                        <strong className="text-white block">2D 自由平移</strong>
+                        <span className="text-gray-400">手指在圖表上滑動，上下移動價格走勢、左右移動時間。</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 bg-white/5 p-2 rounded-xl">
+                      <span className="text-sm">🕯️</span>
+                      <div>
+                        <strong className="text-white block">長按連續查價</strong>
+                        <span className="text-gray-400">長按 0.15 秒呼出十字游標，手指滑動可連續讀取每根 K 棒數據。</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 bg-white/5 p-2 rounded-xl">
+                      <span className="text-sm">❌</span>
+                      <div>
+                        <strong className="text-white block">單擊關閉十字</strong>
+                        <span className="text-gray-400">輕點圖表任一處，立即退出查價模式並回到自由平移。</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 bg-white/5 p-2 rounded-xl">
+                      <span className="text-sm">📈</span>
+                      <div>
+                        <strong className="text-white block">右側/底部邊界縮放</strong>
+                        <span className="text-gray-400">右側價格欄上下拖曳拉伸價格；底部時間欄左右拖曳調整跨度。</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 bg-white/5 p-2 rounded-xl">
+                      <span className="text-sm">🤏</span>
+                      <div>
+                        <strong className="text-white block">雙指捏合縮放</strong>
+                        <span className="text-gray-400">雙指直接放大或縮小時間軸。</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Reset Zoom Button */}
             <button
               onClick={handleResetZoom}
@@ -1150,7 +1218,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
         </div>
 
         {/* 3. Main Chart Canvas Area */}
-        <div className="p-4 md:p-6 relative flex-1 min-h-[360px] flex items-center justify-center">
+        <div className="p-3 sm:p-5 md:p-6 relative flex-1 flex items-center justify-center min-h-[280px]">
           {isLoading ? (
             <div className="flex flex-col items-center gap-3 text-gray-400">
               <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
@@ -1222,18 +1290,14 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
               <canvas
                 ref={setupCanvas}
                 style={{ touchAction: 'none' }}
-                className="w-full h-[360px] block"
+                className="w-full h-[280px] sm:h-[340px] md:h-[360px] block"
               />
-
-              <div className="text-[10px] text-gray-500 text-center pt-1.5 flex items-center justify-center gap-2">
-                <span>📱 手機端：長按查價、單指2D自由平移、雙指捏合縮放、右側/底部拉伸縮放、單擊關閉十字</span>
-              </div>
             </div>
           )}
         </div>
 
         {/* 4. Bottom Metric Cards */}
-        <div className="p-4 md:p-6 bg-white/[0.02] border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-3 relative z-10 text-xs">
+        <div className="p-4 sm:p-6 bg-white/[0.02] border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-3 relative z-10 text-xs flex-shrink-0">
           <div className="bg-black/30 border border-white/5 rounded-2xl p-3 space-y-1">
             <span className="text-gray-400 font-medium">持有股數</span>
             <div className="text-base font-bold text-white font-mono">

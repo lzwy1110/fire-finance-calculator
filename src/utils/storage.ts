@@ -81,7 +81,15 @@ export function loadFIREConfig(): FIREConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CONFIG);
     if (!raw) return DEFAULT_FIRE_CONFIG;
-    return { ...DEFAULT_FIRE_CONFIG, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    const merged = { ...DEFAULT_FIRE_CONFIG, ...parsed };
+    if (merged.baseCashBalance === undefined) {
+      merged.baseCashBalance = merged.cashSavings ?? (merged.currentNetWorth ? Math.max(0, merged.currentNetWorth) : 650000);
+    }
+    if (merged.cashSavings === undefined) {
+      merged.cashSavings = merged.baseCashBalance;
+    }
+    return merged;
   } catch (e) {
     return DEFAULT_FIRE_CONFIG;
   }

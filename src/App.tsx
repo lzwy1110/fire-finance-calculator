@@ -220,13 +220,14 @@ export default function App() {
       });
     }
 
-    const baseCash = fireConfig.baseCashBalance ?? (fireConfig.currentNetWorth ? Math.max(0, fireConfig.currentNetWorth - stockMarketValue) : 500000);
+    const baseCash = fireConfig.baseCashBalance ?? (fireConfig.cashSavings ?? (fireConfig.currentNetWorth ? Math.max(0, fireConfig.currentNetWorth) : 650000));
     const computedCashSavings = Math.round(baseCash + ledgerNetCash + stockTradeNetCash);
     const totalNetWorth = Math.round(stockMarketValue + computedCashSavings);
 
     if (
       (fireConfig.currentNetWorth || 0) !== totalNetWorth ||
-      (fireConfig.cashSavings || 0) !== computedCashSavings
+      (fireConfig.cashSavings || 0) !== computedCashSavings ||
+      fireConfig.baseCashBalance === undefined
     ) {
       setFireConfig((prev) => {
         const updated = {
