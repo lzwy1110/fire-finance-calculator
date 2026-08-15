@@ -153,15 +153,15 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
             {/* Current Net Worth */}
             <div className="bg-[#111111] p-4 rounded-2xl border border-white/5">
               <div className="text-xs text-gray-400 flex items-center justify-between mb-1">
-                <span>目前累積資產</span>
+                <span>目前總資產 (Total)</span>
                 <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
               </div>
               <div className="text-lg sm:text-xl font-bold text-white font-mono">
                 {formatCurrency(config.currentNetWorth)}
               </div>
-              <div className="text-[11px] mt-1 flex items-center gap-1 font-semibold" style={{ color: currentTheme.primaryHex }}>
-                <ArrowUpRight className="w-3 h-3" />
-                <span>FIRE 目標進度 {result.currentProgressPercent}%</span>
+              <div className="text-[10px] text-gray-400 mt-1.5 pt-1.5 border-t border-white/5 flex items-center justify-between flex-wrap gap-1">
+                <span>💵 現金: <strong className="text-emerald-400 font-mono">{sym}{formatNumber(config.cashSavings || config.baseCashBalance || 0)}</strong></span>
+                <span>📈 股票: <strong className="text-cyan-400 font-mono">{sym}{formatNumber(Math.max(0, (config.currentNetWorth || 0) - (config.cashSavings || config.baseCashBalance || 0)))}</strong></span>
               </div>
             </div>
 
@@ -309,13 +309,31 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
               </div>
 
               <div>
-                <label className="block text-gray-400 mb-1">目前淨資產組合 ({sym})</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-gray-300 font-medium">現金儲蓄與其他非投資資產 ({sym})</label>
+                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                    獨立現金儲備
+                  </span>
+                </div>
                 <input
                   type="number"
-                  value={tempConfig.currentNetWorth}
-                  onChange={(e) => setTempConfig({ ...tempConfig, currentNetWorth: Number(e.target.value) })}
+                  value={tempConfig.baseCashBalance ?? (tempConfig.cashSavings || 0)}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    const stockVal = Math.max(0, (tempConfig.currentNetWorth || 0) - (tempConfig.cashSavings || tempConfig.baseCashBalance || 0));
+                    setTempConfig({
+                      ...tempConfig,
+                      baseCashBalance: val,
+                      cashSavings: val,
+                      currentNetWorth: val + stockVal,
+                    });
+                  }}
                   className="w-full bg-[#111111] border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none font-mono"
+                  placeholder="輸入您的活存、定存等備用金"
                 />
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{sym}{formatNumber(tempConfig.baseCashBalance ?? (tempConfig.cashSavings || 0))}</span> + 股票市值 <span className="text-cyan-400 font-mono">{sym}{formatNumber(Math.max(0, (tempConfig.currentNetWorth || 0) - (tempConfig.cashSavings || tempConfig.baseCashBalance || 0)))}</span> = <span className="text-white font-bold font-mono">{sym}{formatNumber(tempConfig.currentNetWorth)}</span>
+                </p>
               </div>
 
               <div>

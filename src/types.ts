@@ -29,7 +29,8 @@ export interface FIREConfig {
   currentAge: number;
   targetRetirementAge: number;
   currentNetWorth: number; // 現有總資產 = 股票庫存市值 + 現金儲蓄 (NTD / USD)
-  baseCashBalance?: number; // 現金與存款備用金
+  cashSavings?: number; // 即時計算之非投資淨資產 / 現金儲蓄餘額 (隨買賣股票與記帳浮動)
+  baseCashBalance?: number; // 使用者手動設定之非投資現金儲備基準 (活存/定存/備用金)
   monthlyIncome: number; // 預估月收入
   monthlyExpenses: number; // 預估月支出
   monthlyTax: number; // 預估月稅務扣除

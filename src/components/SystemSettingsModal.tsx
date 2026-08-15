@@ -314,13 +314,31 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
               </div>
 
               <div>
-                <label className="text-gray-400 block mb-1">目前淨資產 / 投資組合 ({formData.currencySymbol}):</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-gray-300 font-medium block">現金儲蓄與其他非投資資產 ({formData.currencySymbol}):</label>
+                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                    獨立現金儲備
+                  </span>
+                </div>
                 <input
                   type="number"
-                  value={formData.currentNetWorth}
-                  onChange={(e) => handleChange('currentNetWorth', parseFloat(e.target.value) || 0)}
+                  value={formData.baseCashBalance ?? (formData.cashSavings || 0)}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value) || 0;
+                    const stockVal = Math.max(0, (formData.currentNetWorth || 0) - (formData.cashSavings || formData.baseCashBalance || 0));
+                    setFormData((prev) => ({
+                      ...prev,
+                      baseCashBalance: val,
+                      cashSavings: val,
+                      currentNetWorth: val + stockVal,
+                    }));
+                  }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
+                  placeholder="輸入活存、定存等備用金"
                 />
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{formData.currencySymbol}{(formData.baseCashBalance ?? (formData.cashSavings || 0)).toLocaleString()}</span> + 股票市值 <span className="text-cyan-400 font-mono">{formData.currencySymbol}{Math.max(0, (formData.currentNetWorth || 0) - (formData.cashSavings || formData.baseCashBalance || 0)).toLocaleString()}</span> = <span className="text-white font-bold font-mono">{formData.currencySymbol}{(formData.currentNetWorth || 0).toLocaleString()}</span>
+                </p>
               </div>
 
               <div>

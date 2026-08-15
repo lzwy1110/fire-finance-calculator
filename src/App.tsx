@@ -220,17 +220,26 @@ export default function App() {
       });
     }
 
-    const baseCash = fireConfig.baseCashBalance || 0;
-    const totalNetWorth = Math.round(stockMarketValue + stockTradeNetCash + baseCash + ledgerNetCash);
+    const baseCash = fireConfig.baseCashBalance ?? (fireConfig.currentNetWorth ? Math.max(0, fireConfig.currentNetWorth - stockMarketValue) : 500000);
+    const computedCashSavings = Math.round(baseCash + ledgerNetCash + stockTradeNetCash);
+    const totalNetWorth = Math.round(stockMarketValue + computedCashSavings);
 
-    if ((fireConfig.currentNetWorth || 0) !== totalNetWorth) {
+    if (
+      (fireConfig.currentNetWorth || 0) !== totalNetWorth ||
+      (fireConfig.cashSavings || 0) !== computedCashSavings
+    ) {
       setFireConfig((prev) => {
-        const updated = { ...prev, currentNetWorth: totalNetWorth };
+        const updated = {
+          ...prev,
+          baseCashBalance: prev.baseCashBalance ?? baseCash,
+          cashSavings: computedCashSavings,
+          currentNetWorth: totalNetWorth,
+        };
         saveFIREConfig(updated);
         return updated;
       });
     }
-  }, [portfolioStocks, transactions]);
+  }, [portfolioStocks, transactions, fireConfig.baseCashBalance]);
 
   // Update Portfolio Stocks
   const handleUpdatePortfolioStocks = (newStocks: PortfolioStock[]) => {
@@ -240,12 +249,14 @@ export default function App() {
     savePortfolioStocks(synced);
   };
 
-  // Sync Total Portfolio Value to FIRE Model Net Worth (Implicitly called or auto-synced)
+  // Sync Total Portfolio Value to FIRE Model Net Worth
   const handleSyncNetWorthToFIRE = (totalMarketValueTWD: number) => {
     lastUserEditTimeRef.current = Date.now();
+    const cash = fireConfig.cashSavings ?? (fireConfig.baseCashBalance || 0);
+    const totalNetWorth = Math.round(cash + totalMarketValueTWD);
     const newConfig = {
       ...fireConfig,
-      currentNetWorth: Math.round(totalMarketValueTWD),
+      currentNetWorth: totalNetWorth,
     };
     setFireConfig(newConfig);
     saveFIREConfig(newConfig);

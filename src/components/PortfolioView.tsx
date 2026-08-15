@@ -522,10 +522,16 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               />
             </div>
 
+            {/* Available Cash Savings Balance */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-bold rounded-2xl">
+              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+              <span>現金儲備: <strong className="font-mono">{sym} {formatNum(fireConfig.cashSavings ?? (fireConfig.baseCashBalance || 0))}</strong></span>
+            </div>
+
             {/* Auto-sync Indicator */}
             <div className="flex items-center gap-1.5 px-3.5 py-1.5 bg-pink-500/15 text-pink-300 border border-pink-500/30 text-xs font-bold rounded-2xl shadow-sm">
               <Flame className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
-              <span>✨ 已實時自動連動 FIRE 淨資產</span>
+              <span>✨ 股票市值已連動 FIRE 總資產</span>
             </div>
           </div>
         </div>
