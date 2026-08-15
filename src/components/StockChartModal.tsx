@@ -3,12 +3,12 @@ import {
   X,
   TrendingUp,
   Activity,
-  Calendar,
   RotateCcw,
   Palette,
   Clock,
   ArrowUpRight,
   ArrowDownRight,
+  Sparkles,
 } from 'lucide-react';
 import { PortfolioStock } from '../types';
 import { fetchStockHistoricalChart, CandleData } from '../services/stockPriceService';
@@ -21,7 +21,8 @@ interface StockChartModalProps {
 }
 
 type ChartType = 'line' | 'candle';
-type TimeRange = '1m' | '6m' | '1y' | '5y' | 'max';
+type LineRange = '5y' | '1y' | '1m' | '5d' | '1d';
+type CandleResolution = '5m' | 'd' | 'w' | 'mo';
 
 interface ColorTheme {
   id: string;
@@ -65,7 +66,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   onClose,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('line');
-  const [range, setRange] = useState<TimeRange>('1y');
+  const [lineRange, setLineRange] = useState<LineRange>('1y');
+  const [candleResolution, setCandleResolution] = useState<CandleResolution>('d');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [candles, setCandles] = useState<CandleData[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +128,38 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     } catch (e) {}
   };
 
-  // Fetch chart data when stock or range changes
+  // Determine query parameters based on chartType and selected timeframe
+  const { queryRange, queryInterval, periodLabel } = useMemo(() => {
+    if (chartType === 'line') {
+      switch (lineRange) {
+        case '1d':
+          return { queryRange: '1d', queryInterval: '5m', periodLabel: '今日' };
+        case '5d':
+          return { queryRange: '5d', queryInterval: '15m', periodLabel: '近5日' };
+        case '1m':
+          return { queryRange: '1mo', queryInterval: '1d', periodLabel: '近1個月' };
+        case '1y':
+          return { queryRange: '1y', queryInterval: '1d', periodLabel: '近1年' };
+        case '5y':
+        default:
+          return { queryRange: '5y', queryInterval: '1wk', periodLabel: '近5年' };
+      }
+    } else {
+      switch (candleResolution) {
+        case '5m':
+          return { queryRange: '1d', queryInterval: '5m', periodLabel: '5分' };
+        case 'd':
+          return { queryRange: '1y', queryInterval: '1d', periodLabel: '天 (日K)' };
+        case 'w':
+          return { queryRange: '5y', queryInterval: '1wk', periodLabel: '週 (週K)' };
+        case 'mo':
+        default:
+          return { queryRange: 'max', queryInterval: '1mo', periodLabel: '月 (月K)' };
+      }
+    }
+  }, [chartType, lineRange, candleResolution]);
+
+  // Fetch chart data when stock, chartType, or timeframe changes
   useEffect(() => {
     if (!stock) return;
     let isCancelled = false;
@@ -134,13 +167,10 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     const loadData = async () => {
       setIsLoading(true);
       setError(null);
-
-      let interval = '1d';
-      if (range === '5y') interval = '1wk';
-      if (range === 'max') interval = '1mo';
+      setHoverData(null);
 
       try {
-        const res = await fetchStockHistoricalChart(stock.symbol, range, interval);
+        const res = await fetchStockHistoricalChart(stock.symbol, queryRange, queryInterval);
         if (isCancelled) return;
 
         if (res && res.candles && res.candles.length > 0) {
@@ -162,7 +192,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [stock, range]);
+  }, [stock, queryRange, queryInterval]);
 
   // Current active colors
   const activeUpColor = selectedThemeId === 'custom' ? customUp : COLOR_PRESETS.find((p) => p.id === selectedThemeId)?.upColor || customUp;
@@ -176,9 +206,25 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     return candles.slice(s, e + 1);
   }, [candles, viewWindow]);
 
+  // Calculate Period Return (Period Start vs Period End)
+  const periodReturn = useMemo(() => {
+    if (visibleCandles.length === 0) return { diff: 0, percent: 0, isPositive: true };
+    const first = visibleCandles[0];
+    const last = visibleCandles[visibleCandles.length - 1];
+    const startPrice = first.open || first.close;
+    const endPrice = last.close;
+    const diff = endPrice - startPrice;
+    const percent = startPrice > 0 ? (diff / startPrice) * 100 : 0;
+    return {
+      diff,
+      percent,
+      isPositive: diff >= 0,
+    };
+  }, [visibleCandles]);
+
   // Min, Max, and Avg Cost
-  const { minPrice, maxPrice, rangeHigh, rangeLow } = useMemo(() => {
-    if (visibleCandles.length === 0) return { minPrice: 0, maxPrice: 100, rangeHigh: 0, rangeLow: 0 };
+  const { minPrice, maxPrice } = useMemo(() => {
+    if (visibleCandles.length === 0) return { minPrice: 0, maxPrice: 100 };
     let min = Infinity;
     let max = -Infinity;
     visibleCandles.forEach((c) => {
@@ -196,8 +242,6 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     return {
       minPrice: min - padding,
       maxPrice: max + padding,
-      rangeHigh: max,
-      rangeLow: min,
     };
   }, [visibleCandles, stock?.avgCost]);
 
@@ -374,10 +418,13 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     const dateInterval = Math.max(1, Math.floor(visibleCandles.length / 5));
     for (let i = 0; i < visibleCandles.length; i += dateInterval) {
       const d = new Date(visibleCandles[i].time * 1000);
-      const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
+      const dateStr =
+        queryInterval === '5m' || queryInterval === '15m'
+          ? `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+          : `${d.getMonth() + 1}/${d.getDate()}`;
       ctx.fillText(dateStr, getX(i), height - 10);
     }
-  }, [visibleCandles, minPrice, maxPrice, chartType, activeUpColor, activeDownColor, stock, hoverData]);
+  }, [visibleCandles, minPrice, maxPrice, chartType, activeUpColor, activeDownColor, stock, hoverData, queryInterval]);
 
   useEffect(() => {
     renderChart();
@@ -482,7 +529,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   const priceDisplay = stock.currentPrice.toFixed(2);
   const costDiff = stock.avgCost > 0 ? stock.currentPrice - stock.avgCost : 0;
   const costDiffPercent = stock.avgCost > 0 ? (costDiff / stock.avgCost) * 100 : 0;
-  const isProfit = costDiff >= 0;
+  const isCostProfit = costDiff >= 0;
 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
@@ -513,18 +560,18 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
               <span className="text-2xl md:text-3xl font-black text-white font-mono tracking-tight">
                 {currencySymbol} {priceDisplay}
               </span>
-              {stock.avgCost > 0 && (
-                <span
-                  className={`flex items-center text-xs md:text-sm font-bold ${
-                    isProfit ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
-                >
-                  {isProfit ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                  {isProfit ? '+' : ''}
-                  {currencySymbol} {costDiff.toFixed(2)} ({costDiffPercent > 0 ? '+' : ''}
-                  {costDiffPercent.toFixed(2)}% vs 成本)
-                </span>
-              )}
+
+              {/* Period Return: Period Start vs Period End */}
+              <span
+                className={`flex items-center text-xs md:text-sm font-bold ${
+                  periodReturn.isPositive ? 'text-emerald-400' : 'text-rose-400'
+                }`}
+              >
+                {periodReturn.isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                {periodReturn.isPositive ? '+' : ''}
+                {currencySymbol} {periodReturn.diff.toFixed(2)} ({periodReturn.percent > 0 ? '+' : ''}
+                {periodReturn.percent.toFixed(2)}% {periodLabel})
+              </span>
             </div>
           </div>
 
@@ -538,21 +585,44 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
 
         {/* 2. Control Toolbar */}
         <div className="px-5 py-3 bg-white/[0.02] border-b border-white/5 flex items-center justify-between gap-3 flex-wrap relative z-10 text-xs">
-          {/* Timeframe Switcher */}
+          {/* Smart Dynamic Timeframe Switcher */}
           <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5">
-            {(['1m', '6m', '1y', '5y', 'max'] as TimeRange[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setRange(t)}
-                className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all cursor-pointer ${
-                  range === t
-                    ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+            {chartType === 'line' ? (
+              // Line Chart Mode: Time Ranges (5Y, 1Y, 1M, 5D, 1D)
+              (['5y', '1y', '1m', '5d', '1d'] as LineRange[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setLineRange(t)}
+                  className={`px-2.5 py-1 rounded-lg font-bold uppercase transition-all cursor-pointer ${
+                    lineRange === t
+                      ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))
+            ) : (
+              // K-Line Mode: Candle Resolutions (5分, 天, 週, 月)
+              ([
+                { id: '5m', label: '5分' },
+                { id: 'd', label: '天' },
+                { id: 'w', label: '週' },
+                { id: 'mo', label: '月' },
+              ] as { id: CandleResolution; label: string }[]).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setCandleResolution(item.id)}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    candleResolution === item.id
+                      ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -707,7 +777,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             <div className="text-center p-8 space-y-2">
               <p className="text-gray-400 text-sm">{error}</p>
               <button
-                onClick={() => setRange(range)}
+                onClick={() => setLineRange(lineRange)}
                 className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all cursor-pointer"
               >
                 重試載入
@@ -780,10 +850,21 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             </div>
           </div>
           <div className="bg-black/30 border border-white/5 rounded-2xl p-3 space-y-1">
-            <span className="text-gray-400 font-medium">區間最高 / 最低</span>
-            <div className="text-xs font-bold text-gray-300 font-mono pt-1">
-              高: <span className="text-emerald-400">{rangeHigh.toFixed(1)}</span> / 低: <span className="text-rose-400">{rangeLow.toFixed(1)}</span>
-            </div>
+            <span className="text-gray-400 font-medium">現價 vs 買入成本</span>
+            {stock.avgCost > 0 ? (
+              <div
+                className={`text-xs font-bold font-mono pt-0.5 flex items-center gap-1 ${
+                  isCostProfit ? 'text-emerald-400' : 'text-rose-400'
+                }`}
+              >
+                {isCostProfit ? '+' : ''}
+                {currencySymbol}
+                {costDiff.toFixed(1)} ({costDiffPercent > 0 ? '+' : ''}
+                {costDiffPercent.toFixed(1)}%)
+              </div>
+            ) : (
+              <div className="text-xs font-mono text-gray-500 pt-0.5">尚無成本數據</div>
+            )}
           </div>
         </div>
       </div>
