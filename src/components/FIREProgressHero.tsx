@@ -87,7 +87,12 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
 
           <button
             onClick={() => {
-              setTempConfig(config);
+              const currentLiveCash = config.cashSavings ?? (config.baseCashBalance || 0);
+              setTempConfig({
+                ...config,
+                cashSavings: currentLiveCash,
+                baseCashBalance: currentLiveCash,
+              });
               setIsSimulatorOpen(true);
             }}
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl text-xs sm:text-sm font-semibold transition cursor-pointer shadow-md"
@@ -372,7 +377,7 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
               </div>
 
               <div>
-                <label className="block text-gray-400 mb-1">預計目標退休年齡 (歲)</label>
+                <label className="block text-gray-400 mb-1">期望目標退休年齡基準線 (歲)</label>
                 <input
                   type="number"
                   value={tempConfig.targetRetirementAge}
@@ -388,25 +393,33 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                     獨立現金儲備
                   </span>
                 </div>
-                <input
-                  type="number"
-                  value={tempConfig.baseCashBalance ?? (tempConfig.cashSavings || 0)}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    const stockVal = Math.max(0, (tempConfig.currentNetWorth || 0) - (tempConfig.cashSavings || tempConfig.baseCashBalance || 0));
-                    setTempConfig({
-                      ...tempConfig,
-                      baseCashBalance: val,
-                      cashSavings: val,
-                      currentNetWorth: val + stockVal,
-                    });
-                  }}
-                  className="w-full bg-[#111111] border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none font-mono"
-                  placeholder="輸入您的活存、定存等備用金"
-                />
-                <p className="text-[11px] text-gray-400 mt-1.5">
-                  💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{sym}{formatNumber(tempConfig.baseCashBalance ?? (tempConfig.cashSavings || 0))}</span> + 股票市值 <span className="text-cyan-400 font-mono">{sym}{formatNumber(Math.max(0, (tempConfig.currentNetWorth || 0) - (tempConfig.cashSavings || tempConfig.baseCashBalance || 0)))}</span> = <span className="text-white font-bold font-mono">{sym}{formatNumber(tempConfig.currentNetWorth)}</span>
-                </p>
+                {(() => {
+                  const liveStockVal = Math.max(0, (config.currentNetWorth || 0) - (config.cashSavings || config.baseCashBalance || 0));
+                  const currentCashVal = tempConfig.cashSavings ?? (tempConfig.baseCashBalance || 0);
+
+                  return (
+                    <>
+                      <input
+                        type="number"
+                        value={currentCashVal}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setTempConfig({
+                            ...tempConfig,
+                            baseCashBalance: val,
+                            cashSavings: val,
+                            currentNetWorth: Math.round(val + liveStockVal),
+                          });
+                        }}
+                        className="w-full bg-[#111111] border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none font-mono"
+                        placeholder="輸入您的活存、定存等備用金"
+                      />
+                      <p className="text-[11px] text-gray-400 mt-1.5">
+                        💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{sym}{formatNumber(currentCashVal)}</span> + 股票市值 <span className="text-cyan-400 font-mono">{sym}{formatNumber(liveStockVal)}</span> = <span className="text-white font-bold font-mono">{sym}{formatNumber(currentCashVal + liveStockVal)}</span>
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
 
               <div>
