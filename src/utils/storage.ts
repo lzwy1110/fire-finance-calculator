@@ -85,7 +85,7 @@ export function loadFIREConfig(): FIREConfig {
     const parsed = JSON.parse(raw);
     const merged = { ...DEFAULT_FIRE_CONFIG, ...parsed };
     if (merged.baseCashBalance === undefined) {
-      merged.baseCashBalance = merged.cashSavings ?? (merged.currentNetWorth ? Math.max(0, merged.currentNetWorth) : 650000);
+      merged.baseCashBalance = merged.cashSavings ?? (merged.currentNetWorth ? Math.max(0, merged.currentNetWorth) : 0);
     }
     if (merged.cashSavings === undefined) {
       merged.cashSavings = merged.baseCashBalance;
@@ -212,10 +212,20 @@ export async function syncWithCloudCodeAsync(inputCode: string): Promise<CloudBa
       setSyncCode(cleanCode);
 
       if (Array.isArray(transactions)) saveTransactions(transactions);
-      if (Array.isArray(categories) && categories.length > 0) saveCategories(categories);
-      if (fireConfig) saveFIREConfig(fireConfig);
-      if (Array.isArray(quickPresets) && quickPresets.length > 0) saveQuickPresets(quickPresets);
-      if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) savePortfolioStocks(portfolioStocks);
+      if (Array.isArray(categories)) saveCategories(categories);
+      if (fireConfig) {
+        saveFIREConfig(fireConfig);
+      } else {
+        const zeroConfig: FIREConfig = {
+          ...DEFAULT_FIRE_CONFIG,
+          currentNetWorth: 0,
+          baseCashBalance: 0,
+          cashSavings: 0,
+        };
+        saveFIREConfig(zeroConfig);
+      }
+      if (Array.isArray(quickPresets)) saveQuickPresets(quickPresets);
+      if (Array.isArray(portfolioStocks)) savePortfolioStocks(portfolioStocks);
 
       return {
         version: '1.0 (Supabase)',
@@ -305,25 +315,6 @@ export function resetAllDataToDefault(): void {
 export async function clearLocalAndCloudData(targetCode?: string): Promise<boolean> {
   const code = (targetCode || getOrCreateSyncCode()).trim().toUpperCase();
   resetAllDataToDefault();
-
-  const zeroConfig: FIREConfig = {
-    ...DEFAULT_FIRE_CONFIG,
-    currentNetWorth: 0,
-    baseCashBalance: 0,
-    cashSavings: 0,
-  };
-
-  // Push clean zero state to cloud
-  try {
-    await pushCloudData({
-      syncCode: code,
-      transactions: [],
-      categories: DEFAULT_CATEGORIES,
-      fireConfig: zeroConfig,
-      quickPresets: DEFAULT_QUICK_PRESETS,
-      portfolioStocks: [],
-    });
-  } catch (e) {}
 
   const success = await clearCloudData(code);
   broadcastDataSyncEvent(code);

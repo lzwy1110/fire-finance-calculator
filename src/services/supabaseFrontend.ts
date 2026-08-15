@@ -550,7 +550,32 @@ export async function clearCloudDataDirect(syncCode: string): Promise<boolean> {
       supabase.from('categories').delete().eq('sync_code', cleanCode),
       supabase.from('quick_presets').delete().eq('sync_code', cleanCode),
       supabase.from('portfolio_stocks').delete().eq('sync_code', cleanCode),
-      supabase.from('fire_configs').delete().eq('sync_code', cleanCode),
+      supabase.from('fire_configs').upsert({
+        sync_code: cleanCode,
+        current_age: 28,
+        target_retirement_age: 45,
+        current_net_worth: 0,
+        cash_savings: 0,
+        base_cash_balance: 0,
+        monthly_income: 85000,
+        monthly_expenses: 35000,
+        monthly_tax: 5000,
+        monthly_investment: 35000,
+        target_annual_expense_post_retirement: 480000,
+        expected_investment_return_rate: 7.0,
+        expected_inflation_rate: 2.5,
+        safe_withdrawal_rate: 4.0,
+        currency_symbol: 'NT$',
+        theme_color: 'sakura',
+        portfolio_stocks_json: JSON.stringify({
+          stocks: [],
+          _metaConfig: {
+            cashSavings: 0,
+            baseCashBalance: 0,
+          },
+        }),
+        updated_at: new Date().toISOString(),
+      }),
     ]);
     return true;
   } catch (e) {
