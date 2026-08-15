@@ -630,17 +630,15 @@ export default function App() {
           saveCategoriesLocalOnly(cCat);
         }
         if (cCfg) {
-          setFireConfig((prev) => {
-            const merged = {
-              ...prev,
-              ...cCfg,
-              baseCashBalance: cCfg.baseCashBalance ?? (cCfg.cashSavings ?? prev.baseCashBalance),
-              cashSavings: cCfg.cashSavings ?? (cCfg.baseCashBalance ?? prev.cashSavings),
-            };
-            saveFIREConfigLocalOnly(merged);
-            applyThemeToCSSVariables(merged.themeColor);
-            return merged;
-          });
+          const merged = {
+            ...DEFAULT_FIRE_CONFIG,
+            ...cCfg,
+            baseCashBalance: cCfg.baseCashBalance ?? (cCfg.cashSavings ?? 0),
+            cashSavings: cCfg.cashSavings ?? (cCfg.baseCashBalance ?? 0),
+          };
+          setFireConfig(merged);
+          saveFIREConfigLocalOnly(merged);
+          applyThemeToCSSVariables(merged.themeColor);
         }
         if (Array.isArray(cPresets) && cPresets.length > 0) {
           setQuickPresets(cPresets);
@@ -653,8 +651,6 @@ export default function App() {
         }
       }
     } catch (e) {}
-
-    handleDataRestored();
   };
 
   const handleResetDefaultData = () => {
