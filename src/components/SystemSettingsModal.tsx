@@ -34,11 +34,29 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
 
+  // Dedicated string states for numeric inputs to avoid premature 0 resets during typing
+  const [cashInput, setCashInput] = useState<string>('');
+  const [currentAgeInput, setCurrentAgeInput] = useState<string>('');
+  const [targetRetirementAgeInput, setTargetRetirementAgeInput] = useState<string>('');
+  const [targetAnnualExpenseInput, setTargetAnnualExpenseInput] = useState<string>('');
+  const [expectedReturnRateInput, setExpectedReturnRateInput] = useState<string>('');
+  const [expectedInflationRateInput, setExpectedInflationRateInput] = useState<string>('');
+
   // Widget Category Configuration State
   const [widgetCats, setWidgetCats] = useState<string[]>(['飲食', '娛樂', '交通', '日用', '收入', '投資']);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     setFormData(config);
+    const initialCash = config.cashSavings ?? (config.baseCashBalance || 0);
+    setCashInput(String(initialCash));
+    setCurrentAgeInput(String(config.currentAge || 30));
+    setTargetRetirementAgeInput(String(config.targetRetirementAge || 50));
+    setTargetAnnualExpenseInput(String(config.targetAnnualExpensePostRetirement || 600000));
+    setExpectedReturnRateInput(String(config.expectedInvestmentReturnRate ?? 7));
+    setExpectedInflationRateInput(String(config.expectedInflationRate ?? 2.5));
+
     const isStandardCurrency = CURRENCY_OPTIONS.some((c) => c.symbol === config.currencySymbol);
     if (!isStandardCurrency) {
       setIsCustomCurrency(true);
@@ -64,7 +82,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
         }
       }
     } catch (e) {}
-  }, [config, isOpen]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -106,10 +124,26 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
       ? customCurrencyInput.trim() || 'NT$'
       : formData.currencySymbol;
 
-    const finalConfig = {
+    const parsedCash = parseFloat(cashInput);
+    const finalCash = isNaN(parsedCash) ? 0 : parsedCash;
+    const finalAge = parseInt(currentAgeInput) || 30;
+    const finalRetirementAge = parseInt(targetRetirementAgeInput) || 50;
+    const finalExpense = parseFloat(targetAnnualExpenseInput) || 0;
+    const finalReturnRate = parseFloat(expectedReturnRateInput) || 0;
+    const finalInflationRate = parseFloat(expectedInflationRateInput) || 0;
+
+    const finalConfig: FIREConfig = {
       ...formData,
       currencySymbol: finalCurrency,
       themeColor: isCustomColor ? customColorHex : formData.themeColor || 'sakura',
+      cashSavings: finalCash,
+      baseCashBalance: finalCash,
+      currentNetWorth: Math.round(finalCash + stockMarketValue),
+      currentAge: finalAge,
+      targetRetirementAge: finalRetirementAge,
+      targetAnnualExpensePostRetirement: finalExpense,
+      expectedInvestmentReturnRate: finalReturnRate,
+      expectedInflationRate: finalInflationRate,
     };
 
     // Save Widget custom categories
@@ -468,8 +502,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <label className="text-gray-400 block mb-1">目前年齡 (歲):</label>
                 <input
                   type="number"
-                  value={formData.currentAge}
-                  onChange={(e) => handleChange('currentAge', parseInt(e.target.value) || 0)}
+                  value={currentAgeInput}
+                  onChange={(e) => {
+                    setCurrentAgeInput(e.target.value);
+                    handleChange('currentAge', parseInt(e.target.value) || 0);
+                  }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-bold text-white focus:border-cyan-500 focus:outline-none"
                 />
               </div>
@@ -478,8 +515,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <label className="text-gray-400 block mb-1">期望退休年齡基準線 (歲):</label>
                 <input
                   type="number"
-                  value={formData.targetRetirementAge}
-                  onChange={(e) => handleChange('targetRetirementAge', parseInt(e.target.value) || 0)}
+                  value={targetRetirementAgeInput}
+                  onChange={(e) => {
+                    setTargetRetirementAgeInput(e.target.value);
+                    handleChange('targetRetirementAge', parseInt(e.target.value) || 0);
+                  }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-bold text-white focus:border-cyan-500 focus:outline-none"
                 />
                 <p className="text-[10px] text-gray-500 mt-1">
@@ -496,9 +536,12 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 </div>
                 <input
                   type="number"
-                  value={formData.cashSavings ?? (formData.baseCashBalance || 0)}
+                  value={cashInput}
                   onChange={(e) => {
-                    const val = parseFloat(e.target.value) || 0;
+                    const rawStr = e.target.value;
+                    setCashInput(rawStr);
+                    const parsed = parseFloat(rawStr);
+                    const val = isNaN(parsed) ? 0 : parsed;
                     setFormData((prev) => ({
                       ...prev,
                       baseCashBalance: val,
@@ -510,7 +553,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   placeholder="輸入活存、定存等備用金"
                 />
                 <p className="text-[11px] text-gray-400 mt-1.5">
-                  💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{formData.currencySymbol}{(formData.cashSavings ?? (formData.baseCashBalance || 0)).toLocaleString()}</span> + 股票市值 <span className="text-cyan-400 font-mono">{formData.currencySymbol}{Math.round(stockMarketValue).toLocaleString()}</span> = <span className="text-white font-bold font-mono">{formData.currencySymbol}{((formData.cashSavings ?? (formData.baseCashBalance || 0)) + Math.round(stockMarketValue)).toLocaleString()}</span>
+                  💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{formData.currencySymbol}{(parseFloat(cashInput) || 0).toLocaleString()}</span> + 股票市值 <span className="text-cyan-400 font-mono">{formData.currencySymbol}{Math.round(stockMarketValue).toLocaleString()}</span> = <span className="text-white font-bold font-mono">{formData.currencySymbol}{((parseFloat(cashInput) || 0) + Math.round(stockMarketValue)).toLocaleString()}</span>
                 </p>
               </div>
 
@@ -518,10 +561,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <label className="text-gray-400 block mb-1">退休後預期年支出 ({formData.currencySymbol}):</label>
                 <input
                   type="number"
-                  value={formData.targetAnnualExpensePostRetirement}
-                  onChange={(e) =>
-                    handleChange('targetAnnualExpensePostRetirement', parseFloat(e.target.value) || 0)
-                  }
+                  value={targetAnnualExpenseInput}
+                  onChange={(e) => {
+                    setTargetAnnualExpenseInput(e.target.value);
+                    handleChange('targetAnnualExpensePostRetirement', parseFloat(e.target.value) || 0);
+                  }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
                 />
               </div>
@@ -531,10 +575,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <input
                   type="number"
                   step="0.1"
-                  value={formData.expectedInvestmentReturnRate}
-                  onChange={(e) =>
-                    handleChange('expectedInvestmentReturnRate', parseFloat(e.target.value) || 0)
-                  }
+                  value={expectedReturnRateInput}
+                  onChange={(e) => {
+                    setExpectedReturnRateInput(e.target.value);
+                    handleChange('expectedInvestmentReturnRate', parseFloat(e.target.value) || 0);
+                  }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
                 />
               </div>
@@ -544,10 +589,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <input
                   type="number"
                   step="0.1"
-                  value={formData.expectedInflationRate}
-                  onChange={(e) =>
-                    handleChange('expectedInflationRate', parseFloat(e.target.value) || 0)
-                  }
+                  value={expectedInflationRateInput}
+                  onChange={(e) => {
+                    setExpectedInflationRateInput(e.target.value);
+                    handleChange('expectedInflationRate', parseFloat(e.target.value) || 0);
+                  }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
                 />
               </div>
