@@ -49,6 +49,8 @@ import { CloudSyncModal } from './components/CloudSyncModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
 import { SystemSettingsModal } from './components/SystemSettingsModal';
 import { DataReconciliationModal, CloudSnapshotData, LocalSnapshotData } from './components/DataReconciliationModal';
+import { AppLoadingSplash } from './components/AppLoadingSplash';
+import { DEFAULT_CATEGORIES, DEFAULT_FIRE_CONFIG, DEFAULT_QUICK_PRESETS } from './data/initialData';
 import { applyThemeToCSSVariables } from './utils/theme';
 
 interface WidgetBridgePluginType {
@@ -68,6 +70,7 @@ export default function App() {
   const [portfolioStocks, setPortfolioStocks] = useState<PortfolioStock[]>([]);
   const [fireConfig, setFireConfig] = useState<FIREConfig>(loadFIREConfig());
   const [syncCode, setSyncCode] = useState<string>('');
+  const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
   const lastUserEditTimeRef = useRef<number>(0);
 
   // Modals state
@@ -80,91 +83,82 @@ export default function App() {
     localData: LocalSnapshotData;
   } | null>(null);
 
-  // Initialize data locally first, then sync with Supabase / Express backend if connected
+  // Pure Cloud-First Load on App Launch (Fetch single source of truth from Supabase)
   useEffect(() => {
-    const localTx = loadTransactions();
-    const localCat = loadCategories();
-    const localPresets = loadQuickPresets();
-    const localStocks = loadPortfolioStocks();
-    const loadedConfig = loadFIREConfig();
     const code = getOrCreateSyncCode();
-
-    setTransactions(localTx);
-    setCategories(localCat);
-    setQuickPresets(localPresets);
-    setPortfolioStocks(localStocks);
-    setFireConfig(loadedConfig);
     setSyncCode(code);
-    applyThemeToCSSVariables(loadedConfig.themeColor);
 
-    // Background fetch from Supabase backend & smart reconciliation check
-    fetchCloudData(code).then((cloudRes) => {
-      if (cloudRes && cloudRes.success && cloudRes.data) {
-        const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
+    fetchCloudData(code)
+      .then((cloudRes) => {
+        if (cloudRes && cloudRes.success && cloudRes.data) {
+          const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
 
-        const localCash = loadedConfig.cashSavings ?? (loadedConfig.baseCashBalance || 0);
-        const cloudCash = cCfg ? (cCfg.cashSavings ?? (cCfg.baseCashBalance ?? 0)) : 0;
-        const localStockCount = (localStocks || []).length;
-        const cloudStockCount = (cStocks || []).length;
-        const localTxCount = (localTx || []).length;
-        const cloudTxCount = (cTx || []).length;
+          setTransactions(cTx || []);
+          saveTransactionsLocalOnly(cTx || []);
 
-        const hasLocalData = localCash > 0 || localStockCount > 0 || localTxCount > 0;
-        const isDiscrepant = localCash !== cloudCash || localStockCount !== cloudStockCount || localTxCount !== cloudTxCount;
+          if (Array.isArray(cCat) && cCat.length > 0) {
+            setCategories(cCat);
+            saveCategoriesLocalOnly(cCat);
+          } else {
+            setCategories(DEFAULT_CATEGORIES);
+            saveCategoriesLocalOnly(DEFAULT_CATEGORIES);
+          }
 
-        // If local has data and differs from cloud, prompt user with DataReconciliationModal
-        if (hasLocalData && isDiscrepant) {
-          setReconciliationModalData({
-            cloudData: {
-              transactions: cTx || [],
-              categories: cCat || [],
-              fireConfig: cCfg,
-              quickPresets: cPresets || [],
-              portfolioStocks: cStocks || [],
-            },
-            localData: {
-              transactions: localTx,
-              categories: localCat,
-              fireConfig: loadedConfig,
-              quickPresets: localPresets,
-              portfolioStocks: localStocks,
-            },
-          });
-          return;
-        }
-
-        if (Array.isArray(cTx)) {
-          setTransactions(cTx);
-          saveTransactionsLocalOnly(cTx);
-        }
-        if (Array.isArray(cCat) && cCat.length > 0) {
-          setCategories(cCat);
-          saveCategoriesLocalOnly(cCat);
-        }
-        if (cCfg) {
-          setFireConfig((prev) => {
+          if (cCfg) {
             const merged = {
-              ...prev,
+              ...DEFAULT_FIRE_CONFIG,
               ...cCfg,
-              baseCashBalance: cCfg.baseCashBalance ?? (cCfg.cashSavings ?? prev.baseCashBalance),
-              cashSavings: cCfg.cashSavings ?? (cCfg.baseCashBalance ?? prev.cashSavings),
+              baseCashBalance: cCfg.baseCashBalance ?? (cCfg.cashSavings ?? 0),
+              cashSavings: cCfg.cashSavings ?? (cCfg.baseCashBalance ?? 0),
             };
+            setFireConfig(merged);
             saveFIREConfigLocalOnly(merged);
             applyThemeToCSSVariables(merged.themeColor);
-            return merged;
-          });
+          } else {
+            const zeroCfg = { ...DEFAULT_FIRE_CONFIG, currentNetWorth: 0, cashSavings: 0, baseCashBalance: 0 };
+            setFireConfig(zeroCfg);
+            saveFIREConfigLocalOnly(zeroCfg);
+            applyThemeToCSSVariables(zeroCfg.themeColor);
+          }
+
+          if (Array.isArray(cPresets) && cPresets.length > 0) {
+            setQuickPresets(cPresets);
+            saveQuickPresetsLocalOnly(cPresets);
+          } else {
+            setQuickPresets(DEFAULT_QUICK_PRESETS);
+            saveQuickPresetsLocalOnly(DEFAULT_QUICK_PRESETS);
+          }
+
+          if (Array.isArray(cStocks)) {
+            const synced = cStocks.map((s) => syncStockCalculations(s));
+            setPortfolioStocks(synced);
+            savePortfolioStocksLocalOnly(synced);
+          } else {
+            setPortfolioStocks([]);
+            savePortfolioStocksLocalOnly([]);
+          }
+        } else {
+          // Fallback to local cache if offline
+          const localTx = loadTransactions();
+          const localCat = loadCategories();
+          const localPresets = loadQuickPresets();
+          const localStocks = loadPortfolioStocks();
+          const loadedConfig = loadFIREConfig();
+          setTransactions(localTx);
+          setCategories(localCat);
+          setQuickPresets(localPresets);
+          setPortfolioStocks(localStocks);
+          setFireConfig(loadedConfig);
+          applyThemeToCSSVariables(loadedConfig.themeColor);
         }
-        if (Array.isArray(cPresets) && cPresets.length > 0) {
-          setQuickPresets(cPresets);
-          saveQuickPresetsLocalOnly(cPresets);
-        }
-        if (Array.isArray(cStocks)) {
-          const synced = cStocks.map((s) => syncStockCalculations(s));
-          setPortfolioStocks(synced);
-          savePortfolioStocksLocalOnly(synced);
-        }
-      }
-    });
+
+        setTimeout(() => {
+          setIsAppLoading(false);
+        }, 400);
+      })
+      .catch(() => {
+        setIsAppLoading(false);
+      });
   }, []);
 
   // Sync theme changes
@@ -633,6 +627,10 @@ export default function App() {
 
   // Calculate FIRE Metrics
   const fireResult = calculateFIRE(fireConfig);
+
+  if (isAppLoading) {
+    return <AppLoadingSplash themeColor={fireConfig.themeColor} statusMessage="正在連線雲端資料庫並同步資產..." />;
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-300">
