@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { registerPlugin } from '@capacitor/core';
 import {
   CategoryItem,
@@ -384,10 +384,58 @@ export default function App() {
     removeSingleTransactionFromCloud(id);
   };
 
+  const liveStockMarketValue = useMemo(() => {
+    let sum = 0;
+    if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
+      portfolioStocks.forEach((s) => {
+        const synced = syncStockCalculations(s);
+        const val = synced.shares * (synced.currentPrice || 0);
+        const rate = s.market === 'US' ? 32.5 : 1;
+        sum += val * rate;
+      });
+    }
+    return Math.round(sum);
+  }, [portfolioStocks]);
+
   const handleUpdateFIREConfig = (newConfig: FIREConfig) => {
     lastUserEditTimeRef.current = Date.now();
-    setFireConfig(newConfig);
-    saveFIREConfig(newConfig);
+
+    let stockTradeNetCash = 0;
+    if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
+      portfolioStocks.forEach((s) => {
+        const rate = s.market === 'US' ? 32.5 : 1;
+        (s.transactions || []).forEach((tx) => {
+          const tradeAmt = (tx.shares * tx.price) * rate;
+          if (tx.type === 'BUY' && !tx.isInitialHoldings) {
+            stockTradeNetCash -= tradeAmt;
+          } else if (tx.type === 'SELL') {
+            stockTradeNetCash += tradeAmt;
+          }
+        });
+      });
+    }
+
+    let ledgerNetCash = 0;
+    if (Array.isArray(transactions)) {
+      transactions.forEach((t) => {
+        if (t.type === 'income') ledgerNetCash += t.amount;
+        if (t.type === 'expense') ledgerNetCash -= t.amount;
+        if (t.type === 'tax') ledgerNetCash -= t.amount;
+      });
+    }
+
+    const targetCash = newConfig.cashSavings ?? (newConfig.baseCashBalance ?? (fireConfig.cashSavings || 650000));
+    const calculatedBase = Math.round(targetCash - (ledgerNetCash + stockTradeNetCash));
+
+    const finalConfig: FIREConfig = {
+      ...newConfig,
+      baseCashBalance: calculatedBase,
+      cashSavings: targetCash,
+      currentNetWorth: Math.round(targetCash + liveStockMarketValue),
+    };
+
+    setFireConfig(finalConfig);
+    saveFIREConfig(finalConfig);
   };
 
   const handleUpdateCategories = (newCategories: CategoryItem[]) => {
@@ -619,6 +667,7 @@ export default function App() {
         isOpen={isSystemSettingsOpen}
         onClose={() => setIsSystemSettingsOpen(false)}
         config={fireConfig}
+        stockMarketValue={liveStockMarketValue}
         onSaveConfig={handleUpdateFIREConfig}
       />
     </div>

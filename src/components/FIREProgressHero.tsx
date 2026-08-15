@@ -134,15 +134,28 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-gray-300 pt-2 border-t border-white/10">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-300 pt-2 border-t border-white/10">
                   <div className="flex items-center gap-1.5" style={{ color: currentTheme.primaryHex }}>
                     <Calendar className="w-4 h-4" />
-                    <span>預計退休日期：<strong className="text-white">{result.estimatedFIRERetirementDate}</strong></span>
+                    <span>預計達成日：<strong className="text-white">{result.estimatedFIRERetirementDate}</strong></span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-gray-400">
-                    <Target className="w-4 h-4 text-orange-400" />
-                    <span>退休年齡：<strong className="text-white">{result.ageAtFIRE} 歲</strong></span>
+                  <div className="flex items-center gap-1.5 text-gray-300">
+                    <Target className="w-4 h-4 text-cyan-400" />
+                    <span>精算退休年齡：<strong className="text-cyan-300 font-bold font-mono">{result.ageAtFIRE} 歲</strong></span>
                   </div>
+                  {config.targetRetirementAge > 0 && (
+                    <div className="flex items-center">
+                      <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ${
+                        result.ageAtFIRE <= config.targetRetirementAge
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                      }`}>
+                        {result.ageAtFIRE <= config.targetRetirementAge
+                          ? `🎉 比期望目標 ${config.targetRetirementAge} 歲提前 ${(config.targetRetirementAge - result.ageAtFIRE).toFixed(1)} 年`
+                          : `⏱️ 距期望目標 ${config.targetRetirementAge} 歲落後 ${(result.ageAtFIRE - config.targetRetirementAge).toFixed(1)} 年`}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -150,20 +163,80 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
 
           {/* Quick Stats Grid */}
           <div className="lg:col-span-5 grid grid-cols-2 gap-3.5">
-            {/* Current Net Worth */}
-            <div className="bg-[#111111] p-4 rounded-2xl border border-white/5">
-              <div className="text-xs text-gray-400 flex items-center justify-between mb-1">
-                <span>目前總資產 (Total)</span>
-                <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-              </div>
-              <div className="text-lg sm:text-xl font-bold text-white font-mono">
-                {formatCurrency(config.currentNetWorth)}
-              </div>
-              <div className="text-[10px] text-gray-400 mt-1.5 pt-1.5 border-t border-white/5 flex items-center justify-between flex-wrap gap-1">
-                <span>💵 現金: <strong className="text-emerald-400 font-mono">{sym}{formatNumber(config.cashSavings || config.baseCashBalance || 0)}</strong></span>
-                <span>📈 股票: <strong className="text-cyan-400 font-mono">{sym}{formatNumber(Math.max(0, (config.currentNetWorth || 0) - (config.cashSavings || config.baseCashBalance || 0)))}</strong></span>
-              </div>
-            </div>
+            {/* Current Net Worth with Asset Allocation Donut */}
+            {(() => {
+              const cashAmt = config.cashSavings || config.baseCashBalance || 0;
+              const stockAmt = Math.max(0, (config.currentNetWorth || 0) - cashAmt);
+              const totalAmt = cashAmt + stockAmt || 1;
+              const cashPct = Math.round((cashAmt / totalAmt) * 100);
+              const stockPct = 100 - cashPct;
+              const circumference = 2 * Math.PI * 14;
+              const cashStrokeDash = (cashPct / 100) * circumference;
+              const stockStrokeDash = circumference - cashStrokeDash;
+
+              return (
+                <div className="bg-[#111111] p-4 rounded-2xl border border-white/5 flex flex-col justify-between">
+                  <div className="text-xs text-gray-400 flex items-center justify-between mb-1">
+                    <span>目前總資產 (Total)</span>
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                  </div>
+                  <div className="flex items-center gap-3 my-1">
+                    <div className="relative w-11 h-11 flex-shrink-0" title={`資產配置：現金 ${cashPct}% / 股票 ${stockPct}%`}>
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4.5" />
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r="14"
+                          fill="none"
+                          stroke="#10b981"
+                          strokeWidth="4.5"
+                          strokeDasharray={`${cashStrokeDash} ${circumference}`}
+                          strokeDashoffset="0"
+                          strokeLinecap="round"
+                          className="transition-all duration-700"
+                        />
+                        {stockAmt > 0 && (
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="14"
+                            fill="none"
+                            stroke="#06b6d4"
+                            strokeWidth="4.5"
+                            strokeDasharray={`${stockStrokeDash} ${circumference}`}
+                            strokeDashoffset={`-${cashStrokeDash}`}
+                            strokeLinecap="round"
+                            className="transition-all duration-700"
+                          />
+                        )}
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-400 font-mono">
+                        {cashPct}%
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-lg sm:text-xl font-bold text-white font-mono leading-tight">
+                        {formatCurrency(config.currentNetWorth)}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                        現金 {cashPct}% / 股票 {stockPct}%
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-gray-400 mt-1 pt-1.5 border-t border-white/5 flex items-center justify-between flex-wrap gap-1">
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      現金: <strong className="text-emerald-400 font-mono">{sym}{formatNumber(cashAmt)}</strong>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                      股票: <strong className="text-cyan-400 font-mono">{sym}{formatNumber(stockAmt)}</strong>
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Target FIRE Capital */}
             <div className="bg-[#111111] p-4 rounded-2xl border border-white/5">

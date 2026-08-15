@@ -7,6 +7,7 @@ interface SystemSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   config: FIREConfig;
+  stockMarketValue?: number;
   onSaveConfig: (newConfig: FIREConfig) => void;
 }
 
@@ -14,6 +15,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   isOpen,
   onClose,
   config,
+  stockMarketValue = 0,
   onSaveConfig,
 }) => {
   const [formData, setFormData] = useState<FIREConfig>(config);
@@ -304,13 +306,16 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
               </div>
 
               <div>
-                <label className="text-gray-400 block mb-1">目標 FIRE 退休年齡 (歲):</label>
+                <label className="text-gray-400 block mb-1">期望退休年齡基準線 (歲):</label>
                 <input
                   type="number"
                   value={formData.targetRetirementAge}
                   onChange={(e) => handleChange('targetRetirementAge', parseInt(e.target.value) || 0)}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-bold text-white focus:border-cyan-500 focus:outline-none"
                 />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  💡 系統將根據您的儲蓄與投資複利速度，動態精算最快達成退休的實際年齡
+                </p>
               </div>
 
               <div>
@@ -322,22 +327,21 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 </div>
                 <input
                   type="number"
-                  value={formData.baseCashBalance ?? (formData.cashSavings || 0)}
+                  value={formData.cashSavings ?? (formData.baseCashBalance || 0)}
                   onChange={(e) => {
                     const val = parseFloat(e.target.value) || 0;
-                    const stockVal = Math.max(0, (formData.currentNetWorth || 0) - (formData.cashSavings || formData.baseCashBalance || 0));
                     setFormData((prev) => ({
                       ...prev,
                       baseCashBalance: val,
                       cashSavings: val,
-                      currentNetWorth: val + stockVal,
+                      currentNetWorth: Math.round(val + stockMarketValue),
                     }));
                   }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
                   placeholder="輸入活存、定存等備用金"
                 />
                 <p className="text-[11px] text-gray-400 mt-1.5">
-                  💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{formData.currencySymbol}{(formData.baseCashBalance ?? (formData.cashSavings || 0)).toLocaleString()}</span> + 股票市值 <span className="text-cyan-400 font-mono">{formData.currencySymbol}{Math.max(0, (formData.currentNetWorth || 0) - (formData.cashSavings || formData.baseCashBalance || 0)).toLocaleString()}</span> = <span className="text-white font-bold font-mono">{formData.currencySymbol}{(formData.currentNetWorth || 0).toLocaleString()}</span>
+                  💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{formData.currencySymbol}{(formData.cashSavings ?? (formData.baseCashBalance || 0)).toLocaleString()}</span> + 股票市值 <span className="text-cyan-400 font-mono">{formData.currencySymbol}{Math.round(stockMarketValue).toLocaleString()}</span> = <span className="text-white font-bold font-mono">{formData.currencySymbol}{((formData.cashSavings ?? (formData.baseCashBalance || 0)) + Math.round(stockMarketValue)).toLocaleString()}</span>
                 </p>
               </div>
 
