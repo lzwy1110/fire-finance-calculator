@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers } from 'lucide-react';
+import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock } from 'lucide-react';
 import { FIREConfig } from '../types';
 import { THEME_PRESETS, CURRENCY_OPTIONS, getThemePreset } from '../utils/theme';
 
@@ -9,6 +9,10 @@ interface SystemSettingsModalProps {
   config: FIREConfig;
   stockMarketValue?: number;
   onSaveConfig: (newConfig: FIREConfig) => void;
+  syncCode: string;
+  storageMode: 'cloud' | 'local';
+  onToggleStorageMode: (newMode: 'cloud' | 'local') => Promise<void>;
+  onOpenCloudSync: () => void;
 }
 
 export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
@@ -17,12 +21,18 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   config,
   stockMarketValue = 0,
   onSaveConfig,
+  syncCode,
+  storageMode,
+  onToggleStorageMode,
+  onOpenCloudSync,
 }) => {
   const [formData, setFormData] = useState<FIREConfig>(config);
   const [isCustomCurrency, setIsCustomCurrency] = useState(false);
   const [customCurrencyInput, setCustomCurrencyInput] = useState('');
   const [isCustomColor, setIsCustomColor] = useState(false);
   const [customColorHex, setCustomColorHex] = useState('#ff69b4');
+  const [copied, setCopied] = useState(false);
+  const [isSwitchingMode, setIsSwitchingMode] = useState(false);
 
   // Widget Category Configuration State
   const [widgetCats, setWidgetCats] = useState<string[]>(['飲食', '娛樂', '交通', '日用', '收入', '投資']);
@@ -111,6 +121,42 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
     onClose();
   };
 
+  const handleCopySyncCode = () => {
+    navigator.clipboard.writeText(syncCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleModeSwitch = async (targetMode: 'cloud' | 'local') => {
+    if (targetMode === storageMode || isSwitchingMode) return;
+
+    if (targetMode === 'cloud') {
+      const confirmed = window.confirm(
+        '☁️ 確定要切換至「雲端即時同步模式」嗎？\n\n系統將自動為您生成專屬同步碼，並將目前本機的記帳、股票庫存與財務設定安全上傳至 Supabase 雲端資料庫。'
+      );
+      if (!confirmed) return;
+
+      setIsSwitchingMode(true);
+      try {
+        await onToggleStorageMode('cloud');
+      } finally {
+        setIsSwitchingMode(false);
+      }
+    } else {
+      const confirmed = window.confirm(
+        `⚠️ 確定要切換至「純本機離線模式」嗎？\n\n切換後，系統將【清空抹除】同步碼 [${syncCode}] 在雲端資料庫的所有備份紀錄，未來所有財務與股票數據僅保存在本機裝置上，不再進行任何雲端同步。`
+      );
+      if (!confirmed) return;
+
+      setIsSwitchingMode(true);
+      try {
+        await onToggleStorageMode('local');
+      } finally {
+        setIsSwitchingMode(false);
+      }
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div
@@ -146,6 +192,129 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* SECTION 0: 數據存儲模式與雲端同步 */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-white flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-emerald-400" />
+                數據存儲與同步模式 (Data Storage Mode)
+              </label>
+              <span
+                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 ${
+                  storageMode === 'cloud'
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                    : 'bg-zinc-800 border-zinc-700 text-zinc-300'
+                }`}
+              >
+                {storageMode === 'cloud' ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    雲端多裝置即時同步中
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3 h-3 text-zinc-400" />
+                    純本機離線保存
+                  </>
+                )}
+              </span>
+            </div>
+
+            {/* Mode Switch Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Option 1: Cloud Mode */}
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('cloud')}
+                disabled={isSwitchingMode}
+                className={`p-3.5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between gap-2 relative overflow-hidden ${
+                  storageMode === 'cloud'
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-white shadow-lg'
+                    : 'bg-black/40 border-white/5 text-gray-400 hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1.5 rounded-lg ${storageMode === 'cloud' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/5 text-gray-400'}`}>
+                      <Cloud className="w-4 h-4" />
+                    </div>
+                    <span className="font-bold text-xs text-white">☁️ 雲端同步模式</span>
+                  </div>
+                  {storageMode === 'cloud' && <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />}
+                </div>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  多裝置即時同步・雲端安全備份・WebSocket 毫秒級推播
+                </p>
+              </button>
+
+              {/* Option 2: Local Mode */}
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('local')}
+                disabled={isSwitchingMode}
+                className={`p-3.5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between gap-2 relative overflow-hidden ${
+                  storageMode === 'local'
+                    ? 'bg-zinc-800/80 border-zinc-500 text-white shadow-lg'
+                    : 'bg-black/40 border-white/5 text-gray-400 hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1.5 rounded-lg ${storageMode === 'local' ? 'bg-zinc-700 text-zinc-200' : 'bg-white/5 text-gray-400'}`}>
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <span className="font-bold text-xs text-white">📱 純本機離線模式</span>
+                  </div>
+                  {storageMode === 'local' && <Check className="w-4 h-4 text-zinc-300 stroke-[3]" />}
+                </div>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  完全不聯網・極致隱私保護・數據僅保存在本機裝置上
+                </p>
+              </button>
+            </div>
+
+            {/* Sync Code & Advanced Cloud Settings (Only in Cloud Mode) */}
+            {storageMode === 'cloud' && (
+              <div className="bg-black/50 border border-emerald-500/20 p-3.5 rounded-xl space-y-2.5 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-gray-400">目前雲端專屬同步碼:</span>
+                  <span className="font-mono font-bold text-amber-300 text-xs">{syncCode}</span>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCopySyncCode}
+                    className="flex items-center gap-1 text-[11px] bg-white/5 hover:bg-white/10 text-gray-300 px-2.5 py-1 rounded-lg border border-white/10 transition cursor-pointer"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span className="text-emerald-400">已複製</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>複製同步碼</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenCloudSync();
+                    }}
+                    className="flex items-center gap-1 text-[11px] bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 px-3 py-1 rounded-lg border border-emerald-500/30 transition cursor-pointer font-bold"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>管理 Supabase 資料庫</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* SECTION 1: 主題顏色設定 */}
           <div className="bg-white/5 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">

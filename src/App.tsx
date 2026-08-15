@@ -34,6 +34,10 @@ import {
   saveQuickPresets,
   saveQuickPresetsLocalOnly,
   syncSingleTransactionToCloud,
+  getStorageMode,
+  setStorageMode,
+  switchToCloudMode,
+  switchToLocalMode,
 } from './utils/storage';
 import { fetchCloudData } from './services/api';
 import { subscribeToRealtimeSync } from './services/realtimeSync';
@@ -70,6 +74,7 @@ export default function App() {
   const [portfolioStocks, setPortfolioStocks] = useState<PortfolioStock[]>([]);
   const [fireConfig, setFireConfig] = useState<FIREConfig>(loadFIREConfig());
   const [syncCode, setSyncCode] = useState<string>('');
+  const [storageMode, setStorageModeState] = useState<'cloud' | 'local'>(getStorageMode());
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
   const lastUserEditTimeRef = useRef<number>(0);
 
@@ -83,11 +88,34 @@ export default function App() {
     localData: LocalSnapshotData;
   } | null>(null);
 
-  // Pure Cloud-First Load on App Launch (Fetch single source of truth from Supabase)
+  // Startup Load: Check Storage Mode (Local vs Cloud-First)
   useEffect(() => {
+    const currentMode = getStorageMode();
+    setStorageModeState(currentMode);
     const code = getOrCreateSyncCode();
     setSyncCode(code);
 
+    if (currentMode === 'local') {
+      const localTx = loadTransactions();
+      const localCat = loadCategories();
+      const localPresets = loadQuickPresets();
+      const localStocks = loadPortfolioStocks();
+      const loadedConfig = loadFIREConfig();
+
+      setTransactions(localTx);
+      setCategories(localCat);
+      setQuickPresets(localPresets);
+      setPortfolioStocks(localStocks);
+      setFireConfig(loadedConfig);
+      applyThemeToCSSVariables(loadedConfig.themeColor);
+
+      setTimeout(() => {
+        setIsAppLoading(false);
+      }, 200);
+      return;
+    }
+
+    // Pure Cloud-First Load on App Launch (Fetch single source of truth from Supabase)
     fetchCloudData(code)
       .then((cloudRes) => {
         if (cloudRes && cloudRes.success && cloudRes.data) {
@@ -154,12 +182,24 @@ export default function App() {
 
         setTimeout(() => {
           setIsAppLoading(false);
-        }, 400);
+        }, 350);
       })
       .catch(() => {
         setIsAppLoading(false);
       });
   }, []);
+
+  const handleToggleStorageMode = async (targetMode: 'cloud' | 'local') => {
+    if (targetMode === 'cloud') {
+      const res = await switchToCloudMode();
+      setStorageModeState('cloud');
+      setSyncCode(res.syncCode);
+      await handleRefreshAllData(true);
+    } else {
+      await switchToLocalMode();
+      setStorageModeState('local');
+    }
+  };
 
   // Sync theme changes
   useEffect(() => {
@@ -643,6 +683,7 @@ export default function App() {
         onOpenConfig={() => setIsSystemSettingsOpen(true)}
         syncCode={syncCode}
         themeColor={fireConfig.themeColor}
+        storageMode={storageMode}
       />
 
       {/* Main Content Viewport */}
@@ -705,9 +746,6 @@ export default function App() {
             onDeleteTransaction={handleDeleteTransaction}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
             onResetDefaultData={handleResetDefaultData}
-            onRefreshData={handleRefreshAllData}
-            syncCode={syncCode}
-            onOpenCloudSync={() => setIsCloudSyncOpen(true)}
           />
         )}
       </main>
@@ -717,11 +755,11 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-bold text-zinc-300">FIRE Planner</span>
-            <span>• 整合美股與台股庫存、收支細類、稅金、投資與 FIRE 退休估估算（Supabase 雲端同步版）</span>
+            <span>• 整合美股與台股庫存、收支細類、稅金、投資與 FIRE 退休估算</span>
           </div>
           <div className="flex items-center gap-4 text-zinc-400">
-            <button onClick={() => setIsCloudSyncOpen(true)} className="hover:text-amber-400 cursor-pointer">
-              Supabase 雲端備份與同步
+            <button onClick={() => setIsSystemSettingsOpen(true)} className="hover:text-amber-400 cursor-pointer">
+              系統偏好與存儲設定
             </button>
             <button onClick={() => setIsCategoryManagerOpen(true)} className="hover:text-amber-400 cursor-pointer">
               管理分類細項
@@ -765,6 +803,10 @@ export default function App() {
         config={fireConfig}
         stockMarketValue={liveStockMarketValue}
         onSaveConfig={handleUpdateFIREConfig}
+        syncCode={syncCode}
+        storageMode={storageMode}
+        onToggleStorageMode={handleToggleStorageMode}
+        onOpenCloudSync={() => setIsCloudSyncOpen(true)}
       />
 
       <DataReconciliationModal

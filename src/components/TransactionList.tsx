@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Trash2, Download, Plus, ReceiptText, RefreshCw, RotateCcw, Cloud } from 'lucide-react';
+import { Search, Trash2, Download, Plus, ReceiptText, RotateCcw } from 'lucide-react';
 import { CategoryItem, FIREConfig, Transaction } from '../types';
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
@@ -11,9 +11,6 @@ interface TransactionListProps {
   onDeleteTransaction: (id: string) => void;
   onOpenQuickAdd: () => void;
   onResetDefaultData: () => void;
-  onRefreshData?: () => void;
-  syncCode?: string;
-  onOpenCloudSync?: () => void;
 }
 
 export const TransactionList: React.FC<TransactionListProps> = ({
@@ -23,29 +20,17 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   onDeleteTransaction,
   onOpenQuickAdd,
   onResetDefaultData,
-  onRefreshData,
-  syncCode,
-  onOpenCloudSync,
 }) => {
   const currentTheme = getThemePreset(fireConfig.themeColor);
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Deletion Confirm Modal state
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; amount: number } | null>(null);
 
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    if (onRefreshData) {
-      await onRefreshData();
-    }
-    setTimeout(() => setIsRefreshing(false), 500);
-  };
 
   // Filtering
   const filtered = transactions.filter((t) => {
@@ -87,44 +72,6 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
-      {/* Cloud Sync Status Banner Bar */}
-      <div className="bg-[#0e0e0e] border border-emerald-500/20 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
-            <Cloud className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-white flex items-center gap-2 flex-wrap">
-              <span>Supabase 雲端備份與裝置同步</span>
-              <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                {syncCode ? `同步碼: ${syncCode}` : '已連線'}
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-400">跨平臺、Android 桌面小工具與所有裝置即時對齊數據</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 self-end sm:self-auto">
-          <button
-            onClick={handleRefresh}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-extrabold rounded-xl transition cursor-pointer active:scale-95 shadow-md"
-            title="手動刷新 Supabase 雲端與 Widget 最新資料"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            即時雲端同步
-          </button>
-
-          {onOpenCloudSync && (
-            <button
-              onClick={onOpenCloudSync}
-              className="px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs font-bold rounded-xl transition cursor-pointer"
-            >
-              管理同步碼
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* Top Filter Controls */}
       <div className="bg-[#0c0c0c] border border-white/5 p-5 rounded-3xl space-y-4">

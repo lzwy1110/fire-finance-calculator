@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Flame, LayoutDashboard, Calendar, ReceiptText, Cloud, Plus, Settings, TrendingUp } from 'lucide-react';
+import { Flame, LayoutDashboard, Calendar, ReceiptText, Cloud, Plus, Settings, TrendingUp, Lock } from 'lucide-react';
 import { getThemePreset } from '../utils/theme';
 import { checkBackendHealth } from '../services/api';
 
@@ -13,6 +13,7 @@ interface HeaderProps {
   setIsMobileDeviceView?: React.Dispatch<React.SetStateAction<boolean>>;
   syncCode: string;
   themeColor?: string;
+  storageMode?: 'cloud' | 'local';
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,6 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenConfig,
   syncCode,
   themeColor = 'sakura',
+  storageMode = 'cloud',
 }) => {
   const currentTheme = getThemePreset(themeColor);
   const [dbStatus, setDbStatus] = useState<'connected' | 'offline' | 'checking'>('checking');
@@ -163,23 +165,34 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden lg:inline text-gray-300">設定</span>
           </button>
 
-          {/* Cloud & Supabase Sync Status */}
-          <button
-            onClick={onOpenCloudSync}
-            className="flex items-center gap-2 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-mono text-gray-300 transition cursor-pointer"
-            title="Supabase 雲端備份與多裝置同步"
-          >
-            <div className="relative flex items-center justify-center">
-              <Cloud className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
-              <span
-                className={`absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full ${
-                  dbStatus === 'connected' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
-                }`}
-              />
-            </div>
-            <span className="hidden lg:inline text-gray-400">同步碼:</span>
-            <span className="font-bold text-white">{syncCode.slice(0, 9)}</span>
-          </button>
+          {/* Cloud & Storage Mode Badge */}
+          {storageMode === 'cloud' ? (
+            <button
+              onClick={onOpenCloudSync}
+              className="flex items-center gap-2 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-mono text-gray-300 transition cursor-pointer"
+              title="Supabase 雲端備份與多裝置同步"
+            >
+              <div className="relative flex items-center justify-center">
+                <Cloud className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
+                <span
+                  className={`absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full ${
+                    dbStatus === 'connected' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+                  }`}
+                />
+              </div>
+              <span className="hidden lg:inline text-gray-400">同步碼:</span>
+              <span className="font-bold text-white">{syncCode.slice(0, 9)}</span>
+            </button>
+          ) : (
+            <button
+              onClick={onOpenConfig}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-xl text-xs font-medium text-zinc-300 transition cursor-pointer"
+              title="純本機離線保存中 (點擊於設定中切換雲端)"
+            >
+              <Lock className="w-3.5 h-3.5 text-zinc-400" />
+              <span className="font-bold text-zinc-300">本機離線</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

@@ -10,6 +10,16 @@ const STORAGE_KEY_PRESETS = 'fire_planner_presets_v1';
 const STORAGE_KEY_PORTFOLIO = 'fire_planner_portfolio_v1';
 const STORAGE_KEY_SYNC_CODE = 'fire_planner_sync_code_v1';
 const STORAGE_KEY_CLOUD_SIMULATION = 'fire_planner_cloud_db_v1';
+const STORAGE_KEY_MODE = 'fire_planner_storage_mode_v1';
+
+export function getStorageMode(): 'cloud' | 'local' {
+  const mode = localStorage.getItem(STORAGE_KEY_MODE);
+  return mode === 'local' ? 'local' : 'cloud';
+}
+
+export function setStorageMode(mode: 'cloud' | 'local'): void {
+  localStorage.setItem(STORAGE_KEY_MODE, mode);
+}
 
 export function loadTransactions(): Transaction[] {
   try {
@@ -161,6 +171,11 @@ export function setSyncCode(code: string): void {
  * 自動同步至 Supabase 與本地模擬雲端資料庫
  */
 export function autoSyncToCloud(): void {
+  // 純本機離線模式下絕不上傳雲端
+  if (getStorageMode() === 'local') {
+    return;
+  }
+
   try {
     const code = getOrCreateSyncCode();
     const backupPayload = {
@@ -192,6 +207,38 @@ export function autoSyncToCloud(): void {
   } catch (e) {
     console.error('Cloud auto-sync error:', e);
   }
+}
+
+/**
+ * 切換至雲端模式並將目前本機資料全量推送上傳至雲端
+ */
+export async function switchToCloudMode(): Promise<{ success: boolean; syncCode: string }> {
+  const code = getOrCreateSyncCode();
+  setStorageMode('cloud');
+
+  const payload = {
+    syncCode: code,
+    transactions: loadTransactions(),
+    categories: loadCategories(),
+    fireConfig: loadFIREConfig(),
+    quickPresets: loadQuickPresets(),
+    portfolioStocks: loadPortfolioStocks(),
+  };
+
+  const res = await pushCloudData(payload);
+  broadcastDataSyncEvent(code);
+  return { success: Boolean(res), syncCode: code };
+}
+
+/**
+ * 切換至本機模式並徹底清空抹除雲端資料庫備份
+ */
+export async function switchToLocalMode(): Promise<{ success: boolean }> {
+  const code = getOrCreateSyncCode();
+  const cleared = await clearCloudData(code);
+  setStorageMode('local');
+  broadcastDataSyncEvent(code);
+  return { success: cleared };
 }
 
 /**
