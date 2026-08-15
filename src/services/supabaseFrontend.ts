@@ -140,10 +140,25 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
     let fireConfig: FIREConfig | null = null;
     if (configRes.data) {
       const cfg = configRes.data;
+      let parsedExtra: any = {};
+      if ((cfg as any).portfolio_stocks_json) {
+        try {
+          const parsed = JSON.parse((cfg as any).portfolio_stocks_json);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed._metaConfig) {
+            parsedExtra = parsed._metaConfig;
+          }
+        } catch (e) {}
+      }
+
+      const cashSavings = cfg.cash_savings != null ? Number(cfg.cash_savings) : (cfg.base_cash_balance != null ? Number(cfg.base_cash_balance) : (parsedExtra.cashSavings ?? parsedExtra.baseCashBalance));
+      const baseCashBalance = cfg.base_cash_balance != null ? Number(cfg.base_cash_balance) : (cfg.cash_savings != null ? Number(cfg.cash_savings) : (parsedExtra.baseCashBalance ?? parsedExtra.cashSavings));
+
       fireConfig = {
         currentAge: Number(cfg.current_age),
         targetRetirementAge: Number(cfg.target_retirement_age),
         currentNetWorth: Number(cfg.current_net_worth),
+        cashSavings: cashSavings != null ? Number(cashSavings) : undefined,
+        baseCashBalance: baseCashBalance != null ? Number(baseCashBalance) : undefined,
         monthlyIncome: Number(cfg.monthly_income),
         monthlyExpenses: Number(cfg.monthly_expenses),
         monthlyTax: Number(cfg.monthly_tax),
@@ -194,6 +209,8 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
         const parsedFallback = JSON.parse((configRes.data as any).portfolio_stocks_json);
         if (Array.isArray(parsedFallback)) {
           portfolioStocks = parsedFallback;
+        } else if (parsedFallback && Array.isArray(parsedFallback.stocks)) {
+          portfolioStocks = parsedFallback.stocks;
         }
       } catch (e) {}
     }
@@ -246,6 +263,8 @@ export async function pushSupabaseDataDirect(payload: {
         current_age: fireConfig.currentAge,
         target_retirement_age: fireConfig.targetRetirementAge,
         current_net_worth: fireConfig.currentNetWorth,
+        cash_savings: fireConfig.cashSavings,
+        base_cash_balance: fireConfig.baseCashBalance,
         monthly_income: fireConfig.monthlyIncome,
         monthly_expenses: fireConfig.monthlyExpenses,
         monthly_tax: fireConfig.monthlyTax,
@@ -259,10 +278,18 @@ export async function pushSupabaseDataDirect(payload: {
         updated_at: new Date().toISOString(),
       };
 
+      const metaFallback = {
+        stocks: portfolioStocks || [],
+        _metaConfig: {
+          cashSavings: fireConfig.cashSavings,
+          baseCashBalance: fireConfig.baseCashBalance,
+        },
+      };
+
       try {
         await supabase.from('fire_configs').upsert({
           ...baseConfigObj,
-          portfolio_stocks_json: JSON.stringify(portfolioStocks || []),
+          portfolio_stocks_json: JSON.stringify(metaFallback),
         });
       } catch (e) {
         try {
@@ -480,11 +507,13 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
   const supabase = getFrontendSupabaseClient();
   if (!supabase) return false;
   try {
-    await supabase.from('fire_configs').upsert({
+    const configData: any = {
       sync_code: syncCode,
       current_age: config.currentAge,
       target_retirement_age: config.targetRetirementAge,
       current_net_worth: config.currentNetWorth,
+      cash_savings: config.cashSavings,
+      base_cash_balance: config.baseCashBalance,
       monthly_income: config.monthlyIncome,
       monthly_expenses: config.monthlyExpenses,
       monthly_tax: config.monthlyTax,
@@ -496,7 +525,15 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
       currency_symbol: config.currencySymbol,
       theme_color: config.themeColor || 'cyan',
       updated_at: new Date().toISOString(),
-    });
+    };
+
+    try {
+      await supabase.from('fire_configs').upsert(configData);
+    } catch (err) {
+      delete configData.cash_savings;
+      delete configData.base_cash_balance;
+      await supabase.from('fire_configs').upsert(configData);
+    }
     return true;
   } catch (e) {
     return false;

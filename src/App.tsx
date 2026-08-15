@@ -104,9 +104,17 @@ export default function App() {
           saveCategoriesLocalOnly(cCat);
         }
         if (cCfg) {
-          setFireConfig(cCfg);
-          saveFIREConfigLocalOnly(cCfg);
-          applyThemeToCSSVariables(cCfg.themeColor);
+          setFireConfig((prev) => {
+            const merged = {
+              ...prev,
+              ...cCfg,
+              baseCashBalance: cCfg.baseCashBalance ?? (cCfg.cashSavings ?? prev.baseCashBalance),
+              cashSavings: cCfg.cashSavings ?? (cCfg.baseCashBalance ?? prev.cashSavings),
+            };
+            saveFIREConfigLocalOnly(merged);
+            applyThemeToCSSVariables(merged.themeColor);
+            return merged;
+          });
         }
         if (Array.isArray(cPresets) && cPresets.length > 0) {
           setQuickPresets(cPresets);
@@ -442,9 +450,17 @@ export default function App() {
           saveCategoriesLocalOnly(cCat);
         }
         if (cCfg) {
-          setFireConfig(cCfg);
-          saveFIREConfigLocalOnly(cCfg);
-          applyThemeToCSSVariables(cCfg.themeColor);
+          setFireConfig((prev) => {
+            const merged = {
+              ...prev,
+              ...cCfg,
+              baseCashBalance: cCfg.baseCashBalance ?? (cCfg.cashSavings ?? prev.baseCashBalance),
+              cashSavings: cCfg.cashSavings ?? (cCfg.baseCashBalance ?? prev.cashSavings),
+            };
+            saveFIREConfigLocalOnly(merged);
+            applyThemeToCSSVariables(merged.themeColor);
+            return merged;
+          });
         }
         if (Array.isArray(cPresets) && cPresets.length > 0) {
           setQuickPresets(cPresets);

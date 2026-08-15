@@ -1156,7 +1156,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
                   <div className="flex items-center justify-between pb-2 border-b border-white/10">
                     <div className="flex items-center gap-1.5 font-bold text-white text-xs">
                       <Smartphone className="w-4 h-4 text-emerald-400" />
-                      <span>TradingView 手勢操作指南</span>
+                      <span>圖表手勢操作指南</span>
                     </div>
                     <button
                       onClick={() => setShowGestureHelp(false)}
