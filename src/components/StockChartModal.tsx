@@ -473,11 +473,12 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     renderChart();
   }, [renderChart]);
 
-  // Non-passive wheel event listener on Canvas to prevent page background scrolling
+  // Non-passive native event listeners on Canvas (Wheel + Touch) to prevent background page scroll and provide smooth mobile gestures
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // --- 1. Mouse Wheel Zoom (Desktop) ---
     const handleNativeWheel = (e: WheelEvent) => {
       e.preventDefault(); // Stop whole page scrolling
       e.stopPropagation();
@@ -505,11 +506,154 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       setViewWindow({ start: newStart, end: newEnd });
     };
 
+    // --- 2. Mobile Touch Gestures (Android / iOS) ---
+    let touchMode: 'none' | 'pinch' | 'y-scale' | 'crosshair' = 'none';
+    let initialPinchDist = 0;
+    let initialPinchWindow = { start: 0, end: 100 };
+    let touchStartY = 0;
+    let touchStartYMultiplier = 1;
+    let lastTapTime = 0;
+
+    const handleNativeTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rect = canvas.getBoundingClientRect();
+      const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+      const chartW = canvas.clientWidth - padding.left - padding.right;
+
+      // Handle Double Tap to Reset
+      const now = Date.now();
+      if (now - lastTapTime < 300) {
+        setViewWindow({ start: 0, end: candles.length - 1 });
+        setYScaleMultiplier(1);
+        setHoverData(null);
+        lastTapTime = 0;
+        return;
+      }
+      lastTapTime = now;
+
+      if (e.touches.length === 2) {
+        // Two-Finger Pinch to Zoom X-Axis
+        touchMode = 'pinch';
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        initialPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        initialPinchWindow = { ...viewWindow };
+      } else if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+
+        if (x > padding.left + chartW) {
+          // Touch in Right-hand Y-axis Price Column -> Drag to Scale Price Axis
+          touchMode = 'y-scale';
+          touchStartY = touch.clientY;
+          touchStartYMultiplier = yScaleMultiplier;
+        } else {
+          // Touch in Chart Area -> Continuous Crosshair Inspection
+          touchMode = 'crosshair';
+          if (x >= padding.left && x <= padding.left + chartW && visibleCandles.length > 0) {
+            const ratio = (x - padding.left) / chartW;
+            const idx = Math.min(
+              visibleCandles.length - 1,
+              Math.max(0, Math.round(ratio * (visibleCandles.length - 1)))
+            );
+            const candle = visibleCandles[idx];
+            const getY = (val: number) => {
+              const chartH = canvas.clientHeight - padding.top - padding.bottom;
+              return padding.top + chartH - ((val - minPrice) / (maxPrice - minPrice)) * chartH;
+            };
+            setHoverData({ candle, x, y: getY(candle.close) });
+          }
+        }
+      }
+    };
+
+    const handleNativeTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rect = canvas.getBoundingClientRect();
+      const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+      const chartW = canvas.clientWidth - padding.left - padding.right;
+
+      if (e.touches.length === 2 && touchMode === 'pinch') {
+        // Two-Finger Pinch Zoom Calculation
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        if (initialPinchDist > 0 && currentDist > 0) {
+          const pinchFactor = initialPinchDist / currentDist;
+          const origLen = initialPinchWindow.end - initialPinchWindow.start;
+          const newLen = Math.max(10, Math.min(candles.length, Math.round(origLen * pinchFactor)));
+
+          const center = Math.round((initialPinchWindow.start + initialPinchWindow.end) / 2);
+          const half = Math.round(newLen / 2);
+          let newStart = center - half;
+          let newEnd = center + half;
+
+          if (newStart < 0) {
+            newStart = 0;
+            newEnd = Math.min(candles.length - 1, newLen);
+          }
+          if (newEnd >= candles.length) {
+            newEnd = candles.length - 1;
+            newStart = Math.max(0, newEnd - newLen);
+          }
+
+          setViewWindow({ start: newStart, end: newEnd });
+        }
+      } else if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left;
+
+        if (touchMode === 'y-scale') {
+          // Adjust Y-Scale on Price Column Drag
+          const deltaY = touchStartY - touch.clientY;
+          const scaleDelta = 1 + deltaY * 0.008;
+          const newMultiplier = Math.max(0.2, Math.min(8.0, touchStartYMultiplier * scaleDelta));
+          setYScaleMultiplier(newMultiplier);
+        } else if (touchMode === 'crosshair') {
+          // Continuous Touch Crosshair & Tooltip Drag
+          if (x >= padding.left && x <= padding.left + chartW && visibleCandles.length > 0) {
+            const ratio = (x - padding.left) / chartW;
+            const idx = Math.min(
+              visibleCandles.length - 1,
+              Math.max(0, Math.round(ratio * (visibleCandles.length - 1)))
+            );
+            const candle = visibleCandles[idx];
+            const getY = (val: number) => {
+              const chartH = canvas.clientHeight - padding.top - padding.bottom;
+              return padding.top + chartH - ((val - minPrice) / (maxPrice - minPrice)) * chartH;
+            };
+            setHoverData({ candle, x, y: getY(candle.close) });
+          }
+        }
+      }
+    };
+
+    const handleNativeTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 0) {
+        touchMode = 'none';
+      }
+    };
+
     canvas.addEventListener('wheel', handleNativeWheel, { passive: false });
+    canvas.addEventListener('touchstart', handleNativeTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleNativeTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleNativeTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleNativeTouchEnd, { passive: false });
+
     return () => {
       canvas.removeEventListener('wheel', handleNativeWheel);
+      canvas.removeEventListener('touchstart', handleNativeTouchStart);
+      canvas.removeEventListener('touchmove', handleNativeTouchMove);
+      canvas.removeEventListener('touchend', handleNativeTouchEnd);
+      canvas.removeEventListener('touchcancel', handleNativeTouchEnd);
     };
-  }, [candles, viewWindow]);
+  }, [candles, viewWindow, visibleCandles, yScaleMultiplier, minPrice, maxPrice]);
 
   // Mouse Down: Distinguish between X-axis drag (Pan) and Y-axis drag (Price Scale)
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
