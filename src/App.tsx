@@ -36,6 +36,7 @@ import {
   syncSingleTransactionToCloud,
 } from './utils/storage';
 import { fetchCloudData } from './services/api';
+import { subscribeToRealtimeSync } from './services/realtimeSync';
 
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -134,7 +135,20 @@ export default function App() {
     applyThemeToCSSVariables(fireConfig.themeColor);
   }, [fireConfig.themeColor]);
 
-  // Real-Time Multi-Device Auto-Sync Listener: Window Focus + 20s Polling + Tab Switch
+  // Real-Time Multi-Device WebSocket Realtime Channel Subscription
+  useEffect(() => {
+    const code = syncCode || getOrCreateSyncCode();
+    const unsubscribe = subscribeToRealtimeSync(code, () => {
+      // Received remote instant broadcast! Refresh immediately!
+      handleRefreshAllData(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [syncCode]);
+
+  // Fallback Multi-Device Auto-Sync Listener: Window Focus + 20s Polling + Tab Switch
   useEffect(() => {
     const handleFocus = () => {
       handleRefreshAllData();

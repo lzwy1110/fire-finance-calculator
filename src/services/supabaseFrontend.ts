@@ -539,3 +539,21 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
     return false;
   }
 }
+
+export async function clearCloudDataDirect(syncCode: string): Promise<boolean> {
+  const supabase = getFrontendSupabaseClient();
+  if (!supabase) return false;
+  const cleanCode = syncCode.trim().toUpperCase();
+  try {
+    await Promise.allSettled([
+      supabase.from('transactions').delete().eq('sync_code', cleanCode),
+      supabase.from('categories').delete().eq('sync_code', cleanCode),
+      supabase.from('quick_presets').delete().eq('sync_code', cleanCode),
+      supabase.from('portfolio_stocks').delete().eq('sync_code', cleanCode),
+      supabase.from('fire_configs').delete().eq('sync_code', cleanCode),
+    ]);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}

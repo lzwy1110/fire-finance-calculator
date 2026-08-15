@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Cloud, Copy, Check, Download, Upload, ShieldCheck, RefreshCw, X, Database, Server, Key, Link2, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
-import { createFullBackupJSON, restoreFromBackupJSON, syncWithCloudCodeAsync, autoSyncToCloud } from '../utils/storage';
+import { Cloud, Copy, Check, Download, Upload, ShieldCheck, RefreshCw, X, Database, Server, Key, Link2, Sparkles, ChevronDown, ChevronUp, Trash2, Radio } from 'lucide-react';
+import { createFullBackupJSON, restoreFromBackupJSON, syncWithCloudCodeAsync, autoSyncToCloud, clearLocalAndCloudData } from '../utils/storage';
 import { checkBackendHealth, HealthCheckResponse } from '../services/api';
 import { getCustomCredentials, saveCustomCredentials, testSupabaseDirectConnection } from '../services/supabaseFrontend';
 import { getThemePreset } from '../utils/theme';
@@ -108,8 +108,42 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
     setTimeout(() => {
       setIsSyncing(false);
-      setSyncStatusMsg({ text: '✅ 本地財務與 FIRE 規劃數據已成功同步至 Supabase！' });
-    }, 1200);
+      setSyncStatusMsg({ text: '✅ 本地財務與 FIRE 規劃數據已成功推送到雲端！已向全體連線裝置發送即時同步廣播。' });
+    }, 800);
+  };
+
+  const handleForcePullFromCloud = async () => {
+    setIsSyncing(true);
+    setSyncStatusMsg({ text: '⏳ 正在自雲端拉取最新全量數據...' });
+
+    const res = await syncWithCloudCodeAsync(syncCode);
+    setIsSyncing(false);
+
+    if (res) {
+      setSyncStatusMsg({ text: '✅ 已成功自雲端拉取並覆蓋本機數據！' });
+      onDataRestored();
+    } else {
+      setSyncStatusMsg({ text: '⚠️ 拉取雲端資料失敗，雲端可能尚未建立備份。', isError: true });
+    }
+  };
+
+  const handleClearCloudDatabase = async () => {
+    if (!window.confirm(`⚠️ 警告：確定要將同步碼 [${syncCode}] 的雲端所有記帳、股票與設定「全部清空清零」嗎？\n\n執行後雲端將重置為 0，方便您從本裝置建立乾淨基準重新出發。`)) {
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncStatusMsg({ text: '⏳ 正在清空雲端資料庫中...' });
+
+    const success = await clearLocalAndCloudData(syncCode);
+    setIsSyncing(false);
+
+    if (success) {
+      setSyncStatusMsg({ text: `🗑️ 雲端同步碼 [${syncCode}] 資料庫已成功清空清零！` });
+      onDataRestored();
+    } else {
+      setSyncStatusMsg({ text: '⚠️ 清空雲端資料失敗，請檢查網路連線。', isError: true });
+    }
   };
 
   const handleDownloadBackup = () => {
@@ -348,19 +382,62 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           </div>
         </form>
 
-        {/* Manual Push Button */}
-        <div className="flex justify-between items-center bg-zinc-950/60 p-3 rounded-xl border border-zinc-800">
-          <div className="text-xs">
-            <span className="font-bold text-zinc-200 block">手動強制推送到 Supabase</span>
-            <span className="text-[11px] text-zinc-400">立即將本機最新的記帳與 FIRE 數據傳送至雲端</span>
+        {/* Realtime Live Status Badge */}
+        <div className="flex items-center justify-between text-xs bg-emerald-950/30 border border-emerald-500/30 p-3 rounded-2xl text-emerald-300">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span className="font-bold flex items-center gap-1">
+              <Radio className="w-3.5 h-3.5" /> 即時推播長連線
+            </span>
           </div>
+          <span className="text-[10px] font-mono bg-emerald-500/20 px-2 py-0.5 rounded-md text-emerald-300 font-bold">
+            多裝置秒級同步中
+          </span>
+        </div>
+
+        {/* Sync Actions Panel */}
+        <div className="grid grid-cols-2 gap-2.5">
           <button
             onClick={handleManualPushToSupabase}
             disabled={isSyncing}
-            className="px-3.5 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5"
+            className="p-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-bold text-xs rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-1 text-center"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            推送到 Supabase
+            <div className="flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>⬆️ 強制推送到雲端</span>
+            </div>
+            <span className="text-[10px] text-emerald-400/80 font-normal">以本機資料覆蓋雲端並廣播</span>
+          </button>
+
+          <button
+            onClick={handleForcePullFromCloud}
+            disabled={isSyncing}
+            className="p-3 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 font-bold text-xs rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-1 text-center"
+          >
+            <div className="flex items-center gap-1">
+              <Download className="w-3.5 h-3.5" />
+              <span>⬇️ 強制自雲端拉取</span>
+            </div>
+            <span className="text-[10px] text-sky-400/80 font-normal">以雲端最新資料覆蓋本機</span>
+          </button>
+        </div>
+
+        {/* Clear Cloud Database Button */}
+        <div className="flex justify-between items-center bg-rose-950/20 p-3 rounded-xl border border-rose-500/20">
+          <div className="text-xs">
+            <span className="font-bold text-rose-300 block">清空雲端資料庫 (清零重置)</span>
+            <span className="text-[10px] text-rose-400/80">抹除此同步碼在雲端的所有舊紀錄，重新建立乾淨基準</span>
+          </div>
+          <button
+            onClick={handleClearCloudDatabase}
+            disabled={isSyncing}
+            className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5 flex-shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            清空清零
           </button>
         </div>
 

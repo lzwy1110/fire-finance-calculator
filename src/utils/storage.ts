@@ -1,6 +1,7 @@
 import { CategoryItem, CloudBackupData, FIREConfig, QuickPreset, Transaction, PortfolioStock } from '../types';
 import { DEFAULT_CATEGORIES, DEFAULT_FIRE_CONFIG, DEFAULT_QUICK_PRESETS, INITIAL_TRANSACTIONS, DEFAULT_PORTFOLIO_STOCKS } from '../data/initialData';
-import { fetchCloudData, pushCloudData, saveFIREConfigToCloud, saveTransactionToCloud, deleteTransactionFromCloud } from '../services/api';
+import { fetchCloudData, pushCloudData, saveFIREConfigToCloud, saveTransactionToCloud, deleteTransactionFromCloud, clearCloudData } from '../services/api';
+import { broadcastDataSyncEvent } from '../services/realtimeSync';
 
 const STORAGE_KEY_TRANSACTIONS = 'fire_planner_transactions_v1';
 const STORAGE_KEY_CATEGORIES = 'fire_planner_categories_v1';
@@ -172,9 +173,16 @@ export function autoSyncToCloud(): void {
     };
 
     // 1. 後端與 Supabase 同步 API
-    pushCloudData(backupPayload).catch((e) => console.warn('[Supabase Sync Warning]:', e));
+    pushCloudData(backupPayload)
+      .then(() => {
+        broadcastDataSyncEvent(code);
+      })
+      .catch((e) => console.warn('[Supabase Sync Warning]:', e));
 
-    // 2. 本地模擬跨 Tab 緩存
+    // 2. 立即發送 Realtime / BroadcastChannel 廣播
+    broadcastDataSyncEvent(code);
+
+    // 3. 本地模擬跨 Tab 緩存
     const backup: CloudBackupData = {
       version: '1.0',
       lastSyncedAt: new Date().toISOString(),
@@ -285,6 +293,14 @@ export function resetAllDataToDefault(): void {
   localStorage.removeItem(STORAGE_KEY_CONFIG);
   localStorage.removeItem(STORAGE_KEY_PRESETS);
   localStorage.removeItem(STORAGE_KEY_PORTFOLIO);
+}
+
+export async function clearLocalAndCloudData(targetCode?: string): Promise<boolean> {
+  const code = (targetCode || getOrCreateSyncCode()).trim().toUpperCase();
+  resetAllDataToDefault();
+  const success = await clearCloudData(code);
+  broadcastDataSyncEvent(code);
+  return success;
 }
 
 export function loadPortfolioStocks(): PortfolioStock[] {

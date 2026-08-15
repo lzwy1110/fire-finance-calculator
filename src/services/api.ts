@@ -7,6 +7,7 @@ import {
   saveFIREConfigDirect,
   saveTransactionDirect,
   testSupabaseDirectConnection,
+  clearCloudDataDirect,
 } from './supabaseFrontend';
 
 export interface HealthCheckResponse {
@@ -253,4 +254,43 @@ export async function saveFIREConfigToCloud(syncCode: string, config: FIREConfig
   }
 
   return await saveFIREConfigDirect(config, syncCode);
+}
+
+/**
+ * 清空雲端此同步碼的所有數據
+ */
+export async function clearCloudData(syncCode: string): Promise<boolean> {
+  const cleanCode = syncCode.trim().toUpperCase();
+
+  // 1. API route
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/data?syncCode=${encodeURIComponent(cleanCode)}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) return true;
+  } catch (err) {}
+
+  // 2. Direct Supabase
+  if (isFrontendSupabaseReady()) {
+    return await clearCloudDataDirect(cleanCode);
+  }
+
+  // 3. KVDB relay wipe
+  try {
+    const relayUrl = `https://kvdb.io/9L8xY7Z2w3V4u5T6s1R0/${encodeURIComponent(cleanCode)}`;
+    await fetch(relayUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transactions: [],
+        categories: [],
+        fireConfig: null,
+        quickPresets: [],
+        portfolioStocks: [],
+      }),
+    });
+    return true;
+  } catch (e) {}
+
+  return false;
 }
