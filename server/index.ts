@@ -232,9 +232,9 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
         updated_at: new Date().toISOString(),
       };
 
-      try {
-        await supabase.from('fire_configs').upsert(configData);
-      } catch (err) {
+      const res1 = await supabase.from('fire_configs').upsert(configData);
+      if (res1.error) {
+        console.warn('[Server /api/data/sync fire_configs error]:', res1.error.message);
         delete configData.cash_savings;
         delete configData.base_cash_balance;
         await supabase.from('fire_configs').upsert(configData);

@@ -286,15 +286,18 @@ export async function pushSupabaseDataDirect(payload: {
         },
       };
 
-      try {
-        await supabase.from('fire_configs').upsert({
-          ...baseConfigObj,
-          portfolio_stocks_json: JSON.stringify(metaFallback),
-        });
-      } catch (e) {
-        try {
-          await supabase.from('fire_configs').upsert(baseConfigObj);
-        } catch (e2) {}
+      const payloadWithAll = {
+        ...baseConfigObj,
+        portfolio_stocks_json: JSON.stringify(metaFallback),
+      };
+
+      const res1 = await supabase.from('fire_configs').upsert(payloadWithAll);
+      if (res1.error) {
+        console.warn('[Supabase fire_configs upsert error, retrying without optional columns]:', res1.error.message);
+        const fallbackObj: any = { ...payloadWithAll };
+        delete fallbackObj.cash_savings;
+        delete fallbackObj.base_cash_balance;
+        await supabase.from('fire_configs').upsert(fallbackObj);
       }
     }
 
@@ -547,9 +550,9 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
       });
     } catch (e) {}
 
-    try {
-      await supabase.from('fire_configs').upsert(configData);
-    } catch (err) {
+    const res1 = await supabase.from('fire_configs').upsert(configData);
+    if (res1.error) {
+      console.warn('[Supabase saveFIREConfigDirect error, retrying without optional columns]:', res1.error.message);
       delete configData.cash_savings;
       delete configData.base_cash_balance;
       await supabase.from('fire_configs').upsert(configData);
