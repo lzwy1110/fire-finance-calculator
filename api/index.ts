@@ -549,4 +549,62 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
   return res.json({ success: true, results: [] });
 });
 
+/**
+ * Historical Stock Chart & Candlestick Endpoint
+ */
+app.get(['/api/chart', '/chart'], async (req: Request, res: Response): Promise<any> => {
+  const symbol = (req.query.symbol as string || '').trim().toUpperCase();
+  const range = (req.query.range as string || '1y').toLowerCase();
+  const interval = (req.query.interval as string || '1d').toLowerCase();
+
+  if (!symbol) {
+    return res.status(400).json({ success: false, error: 'Symbol is required' });
+  }
+
+  try {
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}`;
+    const yRes = await fetch(yahooUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (yRes.ok) {
+      const data = await yRes.json();
+      const result = data?.chart?.result?.[0];
+      if (result) {
+        const timestamps = result.timestamp || [];
+        const quote = result.indicators?.quote?.[0] || {};
+        const opens = quote.open || [];
+        const highs = quote.high || [];
+        const lows = quote.low || [];
+        const closes = quote.close || [];
+        const volumes = quote.volume || [];
+
+        const candles = [];
+        for (let i = 0; i < timestamps.length; i++) {
+          if (
+            typeof opens[i] === 'number' &&
+            typeof highs[i] === 'number' &&
+            typeof lows[i] === 'number' &&
+            typeof closes[i] === 'number'
+          ) {
+            candles.push({
+              time: timestamps[i],
+              open: Math.round(opens[i] * 100) / 100,
+              high: Math.round(highs[i] * 100) / 100,
+              low: Math.round(lows[i] * 100) / 100,
+              close: Math.round(closes[i] * 100) / 100,
+              volume: volumes[i] || 0,
+            });
+          }
+        }
+        return res.json({ success: true, symbol, range, interval, candles });
+      }
+    }
+  } catch (e) {}
+
+  return res.status(500).json({ success: false, error: 'Failed to fetch historical chart data' });
+});
+
 export default app;

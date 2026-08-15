@@ -21,6 +21,7 @@ import {
 import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../types';
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
+import { StockChartModal } from './StockChartModal';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
@@ -68,6 +69,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
   // Transaction History Modal State
   const [activeHistoryStock, setActiveHistoryStock] = useState<PortfolioStock | null>(null);
+
+  // Stock Chart & K-Line Modal State
+  const [activeChartStock, setActiveChartStock] = useState<PortfolioStock | null>(null);
 
   // Insufficient Cash Warning Dialog State
   const [cashAlertModal, setCashAlertModal] = useState<{
@@ -622,6 +626,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               ({syncedStocks.filter((s) => s.market === 'TW').length})
             </span>
           </button>
+
+          {/* US Market 15-minute Delay Notice */}
+          {filterMarket === 'US' && (
+            <div className="hidden md:flex items-center gap-1 text-[11px] font-semibold text-amber-400/90 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20 animate-fadeIn">
+              <span>⏱️ 美股報價與走勢約延遲 15 分鐘</span>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -689,12 +700,21 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
                   <div className="flex items-center gap-1.5">
                     <button
+                      onClick={() => setActiveChartStock(stock)}
+                      className="px-2.5 py-1 text-[11px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl transition cursor-pointer flex items-center gap-1 shadow-sm"
+                      title="檢視歷史走勢與 K 線圖"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      <span>走勢</span>
+                    </button>
+
+                    <button
                       onClick={() => setActiveHistoryStock(stock)}
                       className="px-2.5 py-1 text-[11px] font-bold bg-white/5 hover:bg-white/10 text-cyan-300 border border-cyan-500/30 rounded-xl transition cursor-pointer flex items-center gap-1"
                       title="檢視此股票所有買賣交易明細"
                     >
                       <History className="w-3.5 h-3.5" />
-                      <span>交易明細 ({stock.transactions?.length || 0})</span>
+                      <span>明細 ({stock.transactions?.length || 0})</span>
                     </button>
 
                     <button
@@ -1287,6 +1307,16 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         }}
         onClose={() => setConfirmModal(null)}
       />
+
+      {/* Interactive Stock Historical Chart & Candlestick Modal */}
+      {activeChartStock && (
+        <StockChartModal
+          stock={activeChartStock}
+          usdRate={usdRate}
+          currencySymbol={activeChartStock.currency === 'USD' ? '$' : sym}
+          onClose={() => setActiveChartStock(null)}
+        />
+      )}
     </div>
   );
 };

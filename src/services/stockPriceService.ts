@@ -381,3 +381,95 @@ export async function batchFetchStockQuotes(
   await Promise.allSettled(promises);
   return results;
 }
+
+export interface CandleData {
+  time: number; // Unix timestamp in seconds
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface StockChartData {
+  symbol: string;
+  range: string;
+  interval: string;
+  candles: CandleData[];
+}
+
+/**
+ * Fetch Historical Stock Chart & Candlestick Data Dynamically
+ */
+export async function fetchStockHistoricalChart(
+  symbol: string,
+  range: string = '1y',
+  interval: string = '1d'
+): Promise<StockChartData | null> {
+  const clean = symbol.trim().toUpperCase();
+  if (!clean) return null;
+
+  const rawCode = clean.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+  let yahooSymbol = clean;
+  if (/^\d+[A-Za-z]?$/.test(clean)) {
+    yahooSymbol = `${rawCode}.TW`;
+  }
+
+  // 1. Try serverless backend proxy /api/chart (Web)
+  try {
+    const proxyUrl = `/api/chart?symbol=${encodeURIComponent(yahooSymbol)}&range=${range}&interval=${interval}`;
+    const data = await httpGetJson(proxyUrl);
+    if (data && data.success && Array.isArray(data.candles) && data.candles.length > 0) {
+      return data;
+    }
+  } catch (e) {}
+
+  // 2. Try direct / proxy endpoints with both .TW and .TWO if needed
+  const symbolsToTry = [yahooSymbol];
+  if (clean.endsWith('.TW')) symbolsToTry.push(`${rawCode}.TWO`);
+  else if (clean.endsWith('.TWO')) symbolsToTry.push(`${rawCode}.TW`);
+
+  for (const sym of symbolsToTry) {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=${range}&interval=${interval}`;
+    const data = await httpGetJson(url);
+    const result = data?.chart?.result?.[0];
+    if (result) {
+      const timestamps = result.timestamp || [];
+      const quote = result.indicators?.quote?.[0] || {};
+      const opens = quote.open || [];
+      const highs = quote.high || [];
+      const lows = quote.low || [];
+      const closes = quote.close || [];
+      const volumes = quote.volume || [];
+
+      const candles: CandleData[] = [];
+      for (let i = 0; i < timestamps.length; i++) {
+        if (
+          typeof opens[i] === 'number' &&
+          typeof highs[i] === 'number' &&
+          typeof lows[i] === 'number' &&
+          typeof closes[i] === 'number'
+        ) {
+          candles.push({
+            time: timestamps[i],
+            open: Math.round(opens[i] * 100) / 100,
+            high: Math.round(highs[i] * 100) / 100,
+            low: Math.round(lows[i] * 100) / 100,
+            close: Math.round(closes[i] * 100) / 100,
+            volume: volumes[i] || 0,
+          });
+        }
+      }
+      if (candles.length > 0) {
+        return {
+          symbol: sym,
+          range,
+          interval,
+          candles,
+        };
+      }
+    }
+  }
+
+  return null;
+}
