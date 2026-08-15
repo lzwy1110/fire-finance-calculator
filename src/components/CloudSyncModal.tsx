@@ -100,32 +100,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     }
   };
 
-  const handleManualPushToSupabase = async () => {
-    setIsSyncing(true);
-    setSyncStatusMsg({ text: '⏳ 正在將本地資料推送到 Supabase 資料庫...' });
 
-    autoSyncToCloud();
-
-    setTimeout(() => {
-      setIsSyncing(false);
-      setSyncStatusMsg({ text: '✅ 本地財務與 FIRE 規劃數據已成功推送到雲端！已向全體連線裝置發送即時同步廣播。' });
-    }, 800);
-  };
-
-  const handleForcePullFromCloud = async () => {
-    setIsSyncing(true);
-    setSyncStatusMsg({ text: '⏳ 正在自雲端拉取最新全量數據...' });
-
-    const res = await syncWithCloudCodeAsync(syncCode);
-    setIsSyncing(false);
-
-    if (res) {
-      setSyncStatusMsg({ text: '✅ 已成功自雲端拉取並覆蓋本機數據！' });
-      onDataRestored();
-    } else {
-      setSyncStatusMsg({ text: '⚠️ 拉取雲端資料失敗，雲端可能尚未建立備份。', isError: true });
-    }
-  };
 
   const handleClearCloudDatabase = async () => {
     if (!window.confirm(`⚠️ 警告：確定要將同步碼 [${syncCode}] 的雲端所有記帳、股票與設定「全部清空清零」嗎？\n\n執行後雲端將重置為 0，方便您從本裝置建立乾淨基準重新出發。`)) {
@@ -398,32 +373,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           </span>
         </div>
 
-        {/* Sync Actions Panel */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <button
-            onClick={handleManualPushToSupabase}
-            disabled={isSyncing}
-            className="p-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-bold text-xs rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-1 text-center"
-          >
-            <div className="flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>⬆️ 強制推送到雲端</span>
-            </div>
-            <span className="text-[10px] text-emerald-400/80 font-normal">以本機資料覆蓋雲端並廣播</span>
-          </button>
 
-          <button
-            onClick={handleForcePullFromCloud}
-            disabled={isSyncing}
-            className="p-3 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 font-bold text-xs rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-1 text-center"
-          >
-            <div className="flex items-center gap-1">
-              <Download className="w-3.5 h-3.5" />
-              <span>⬇️ 強制自雲端拉取</span>
-            </div>
-            <span className="text-[10px] text-sky-400/80 font-normal">以雲端最新資料覆蓋本機</span>
-          </button>
-        </div>
 
         {/* Clear Cloud Database Button */}
         <div className="flex justify-between items-center bg-rose-950/20 p-3 rounded-xl border border-rose-500/20">
