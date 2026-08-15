@@ -77,30 +77,24 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   const [selectedThemeId, setSelectedThemeId] = useState<string>('neon-purple');
   const [showColorPicker, setShowColorPicker] = useState<boolean>(false);
 
-  // Canvas ref and zoom/pan state
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // View & Transform States for 2D Panning & Scaling
   const [viewWindow, setViewWindow] = useState<{ start: number; end: number }>({ start: 0, end: 100 });
-  const [hoverData, setHoverData] = useState<{ candle: CandleData; x: number; y: number } | null>(null);
-
-  // Y-axis zoom/scale multiplier (1 = default auto-fit)
   const [yScaleMultiplier, setYScaleMultiplier] = useState<number>(1);
+  const [yPanOffset, setYPanOffset] = useState<number>(0);
+  const [hoverData, setHoverData] = useState<{ candle: CandleData; x: number; y: number } | null>(null);
+  const [isCrosshairActive, setIsCrosshairActive] = useState<boolean>(false);
 
-  // Mutable Refs for 60fps TradingView Gesture Engine (prevents listener teardown during drag)
+  // Mutable Refs for 60fps TradingView Gesture Engine
+  const canvasElementRef = useRef<HTMLCanvasElement | null>(null);
   const viewWindowRef = useRef(viewWindow);
   const yScaleRef = useRef(yScaleMultiplier);
+  const yPanOffsetRef = useRef(yPanOffset);
   const candlesRef = useRef(candles);
   const minPriceRef = useRef(0);
   const maxPriceRef = useRef(100);
+  const isCrosshairActiveRef = useRef(isCrosshairActive);
 
-  // Mouse Drag States
-  const [isMouseDraggingX, setIsMouseDraggingX] = useState<boolean>(false);
-  const [isMouseDraggingY, setIsMouseDraggingY] = useState<boolean>(false);
-  const [dragStartX, setDragStartX] = useState<number>(0);
-  const [dragStartY, setDragStartY] = useState<number>(0);
-  const [dragStartWindow, setDragStartWindow] = useState<{ start: number; end: number }>({ start: 0, end: 100 });
-  const [dragStartYMultiplier, setDragStartYMultiplier] = useState<number>(1);
-
-  // Keep Refs up to date
+  // Keep Refs in sync with React States
   useEffect(() => {
     viewWindowRef.current = viewWindow;
   }, [viewWindow]);
@@ -108,8 +102,14 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     yScaleRef.current = yScaleMultiplier;
   }, [yScaleMultiplier]);
   useEffect(() => {
+    yPanOffsetRef.current = yPanOffset;
+  }, [yPanOffset]);
+  useEffect(() => {
     candlesRef.current = candles;
   }, [candles]);
+  useEffect(() => {
+    isCrosshairActiveRef.current = isCrosshairActive;
+  }, [isCrosshairActive]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -202,7 +202,9 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       setIsLoading(true);
       setError(null);
       setHoverData(null);
+      setIsCrosshairActive(false);
       setYScaleMultiplier(1);
+      setYPanOffset(0);
 
       try {
         const res = await fetchStockHistoricalChart(stock.symbol, queryRange, queryInterval);
@@ -276,7 +278,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     }
   }, [candles, visibleCandles, chartType, periodLabel]);
 
-  // Calculate Price Range with Y-Scale Multiplier
+  // Calculate Price Range with Y-Scale Multiplier & 2D Y-Pan Offset
   const { minPrice, maxPrice } = useMemo(() => {
     if (visibleCandles.length === 0) return { minPrice: 0, maxPrice: 100 };
     let min = Infinity;
@@ -292,7 +294,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       if (cost > max) max = cost * 1.02;
     }
 
-    const mid = (max + min) / 2;
+    const mid = (max + min) / 2 + yPanOffset;
     const halfSpan = Math.max(0.5, ((max - min) / 2) * (1 / yScaleMultiplier));
     const padding = halfSpan * 0.08;
 
@@ -305,11 +307,11 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       minPrice: computedMin,
       maxPrice: computedMax,
     };
-  }, [visibleCandles, stock?.avgCost, yScaleMultiplier]);
+  }, [visibleCandles, stock?.avgCost, yScaleMultiplier, yPanOffset]);
 
   // Draw chart on Canvas
   const renderChart = useCallback(() => {
-    const canvas = canvasRef.current;
+    const canvas = canvasElementRef.current;
     if (!canvas || visibleCandles.length === 0) return;
 
     const ctx = canvas.getContext('2d');
@@ -332,7 +334,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     const chartH = height - padding.top - padding.bottom;
 
     const getY = (val: number) => {
-      const ratio = (val - minPrice) / (maxPrice - minPrice);
+      const ratio = (val - minPrice) / (maxPrice - minPrice || 1);
       return padding.top + chartH - ratio * chartH;
     };
 
@@ -342,8 +344,12 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     };
 
     // Draw Y-axis background highlight for draggable area
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
     ctx.fillRect(padding.left + chartW, padding.top, padding.right, chartH);
+
+    // Draw X-axis background highlight for draggable area
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+    ctx.fillRect(padding.left, padding.top + chartH, chartW, padding.bottom);
 
     // Draw grid lines
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
@@ -450,7 +456,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       });
     }
 
-    // Draw Crosshair on Hover / Touch
+    // Draw Crosshair on Hover / Long-press Touch
     if (hoverData) {
       ctx.save();
       ctx.setLineDash([3, 3]);
@@ -496,10 +502,13 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     renderChart();
   }, [renderChart]);
 
-  // TradingView-Grade Native Touch & Wheel Gesture Engine (Single setup on mount)
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // TradingView-Grade Touch & Mouse Controller via Callback Ref
+  const setupCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
+    if (!canvas) {
+      canvasElementRef.current = null;
+      return;
+    }
+    canvasElementRef.current = canvas;
 
     // --- 1. Mouse Wheel Zoom (Desktop) ---
     const handleNativeWheel = (e: WheelEvent) => {
@@ -531,16 +540,18 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       setViewWindow({ start: newStart, end: newEnd });
     };
 
-    // --- 2. TradingView-Style Mobile Touch Engine ---
-    let touchMode: 'none' | 'pinch' | 'y-scale' | 'x-scale' | 'chart-press' | 'pan' | 'crosshair' = 'none';
+    // --- 2. TradingView-Grade Mobile Touch Engine ---
+    let touchMode: 'none' | 'pinch' | 'y-scale' | 'x-scale' | 'chart-press' | 'pan-2d' | 'crosshair' = 'none';
     let initialPinchDist = 0;
     let initialPinchWindow = { start: 0, end: 100 };
     let startTouchX = 0;
     let startTouchY = 0;
     let startTouchWindow = { start: 0, end: 100 };
     let startTouchYMultiplier = 1;
+    let startTouchYPanOffset = 0;
     let longPressTimer: any = null;
     let lastTapTime = 0;
+    let touchMoved = false;
 
     const getTouchCoords = (touch: Touch) => {
       const rect = canvas.getBoundingClientRect();
@@ -575,7 +586,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       }
     };
 
-    const handleNativeTouchStart = (e: TouchEvent) => {
+    const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -583,22 +594,25 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       const chartW = canvas.clientWidth - padding.left - padding.right;
       const chartH = canvas.clientHeight - padding.top - padding.bottom;
 
-      // Handle Double Tap to Reset
+      // Handle Double Tap to Reset Everything
       const now = Date.now();
       if (now - lastTapTime < 300) {
         const allCandles = candlesRef.current;
         if (allCandles.length > 0) {
           setViewWindow({ start: 0, end: allCandles.length - 1 });
           setYScaleMultiplier(1);
+          setYPanOffset(0);
           setHoverData(null);
+          setIsCrosshairActive(false);
         }
         lastTapTime = 0;
         return;
       }
       lastTapTime = now;
+      touchMoved = false;
 
       if (e.touches.length === 2) {
-        // Two-Finger Pinch
+        // Two-Finger Pinch to zoom time window
         touchMode = 'pinch';
         if (longPressTimer) clearTimeout(longPressTimer);
         const t1 = e.touches[0];
@@ -612,32 +626,42 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
         startTouchY = touch.clientY;
         startTouchWindow = { ...viewWindowRef.current };
         startTouchYMultiplier = yScaleRef.current;
+        startTouchYPanOffset = yPanOffsetRef.current;
 
         if (coords.x > padding.left + chartW) {
-          // 1. Right Y-Axis (Price Column) -> Drag to scale price
+          // Zone 1: Right Y-Axis (Price Column) -> Drag to scale price
           touchMode = 'y-scale';
         } else if (coords.y > padding.top + chartH) {
-          // 2. Bottom X-Axis (Time Bar) -> Drag to scale time window
+          // Zone 2: Bottom X-Axis (Time Bar) -> Drag to scale time window
           touchMode = 'x-scale';
         } else {
-          // 3. Main Chart Area -> Hold 140ms for Crosshair inspection, or swipe to Pan
-          touchMode = 'chart-press';
-          if (longPressTimer) clearTimeout(longPressTimer);
-          longPressTimer = setTimeout(() => {
+          // Zone 3: Main Chart Area
+          if (isCrosshairActiveRef.current) {
+            // Already in Crosshair mode -> slide to inspect
             touchMode = 'crosshair';
             updateCrosshairAt(coords.x);
-          }, 140);
+          } else {
+            // Normal Free Pan mode -> Hold 140ms for Crosshair, or swipe for 2D Pan
+            touchMode = 'chart-press';
+            if (longPressTimer) clearTimeout(longPressTimer);
+            longPressTimer = setTimeout(() => {
+              touchMode = 'crosshair';
+              setIsCrosshairActive(true);
+              updateCrosshairAt(coords.x);
+            }, 140);
+          }
         }
       }
     };
 
-    const handleNativeTouchMove = (e: TouchEvent) => {
+    const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
       const allCandles = candlesRef.current;
       const padding = { top: 25, right: 70, bottom: 35, left: 15 };
       const chartW = canvas.clientWidth - padding.left - padding.right;
+      const chartH = canvas.clientHeight - padding.top - padding.bottom;
 
       if (e.touches.length === 2 && touchMode === 'pinch') {
         const t1 = e.touches[0];
@@ -670,11 +694,15 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
         const deltaX = touch.clientX - startTouchX;
         const deltaY = startTouchY - touch.clientY;
 
-        // If in chart-press mode and moved > 7px, convert to Pan!
+        if (Math.hypot(deltaX, deltaY) > 6) {
+          touchMoved = true;
+        }
+
+        // If in chart-press mode and moved before 140ms, cancel crosshair and start 2D Free Pan!
         if (touchMode === 'chart-press') {
-          if (Math.hypot(deltaX, deltaY) > 7) {
+          if (touchMoved) {
             if (longPressTimer) clearTimeout(longPressTimer);
-            touchMode = 'pan';
+            touchMode = 'pan-2d';
           }
         }
 
@@ -704,9 +732,10 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             }
             setViewWindow({ start: newStart, end: newEnd });
           }
-        } else if (touchMode === 'pan') {
-          // Chart Pan (Horizontal Left/Right Drag)
+        } else if (touchMode === 'pan-2d') {
+          // 2D Free Pan: Horizontal X shifts time window, Vertical Y shifts price pan offset!
           if (allCandles.length > 0) {
+            // 1. Horizontal Time Pan
             const visibleLen = startTouchWindow.end - startTouchWindow.start;
             const shiftIndex = Math.round((-deltaX / chartW) * visibleLen);
             let newStart = startTouchWindow.start + shiftIndex;
@@ -717,13 +746,17 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
               newStart = 0;
             }
             if (newEnd >= allCandles.length) {
-              newStart -= newEnd - (allCandles.length - 1);
               newEnd = allCandles.length - 1;
+              newStart = Math.max(0, newEnd - visibleLen);
             }
-
             newStart = Math.max(0, newStart);
             newEnd = Math.min(allCandles.length - 1, newEnd);
             setViewWindow({ start: newStart, end: newEnd });
+
+            // 2. Vertical Price Pan
+            const priceSpan = maxPriceRef.current - minPriceRef.current;
+            const priceShift = (-deltaY / chartH) * priceSpan;
+            setYPanOffset(startTouchYPanOffset + priceShift);
           }
         } else if (touchMode === 'crosshair') {
           // Continuous Crosshair Inspection
@@ -732,138 +765,151 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       }
     };
 
-    const handleNativeTouchEnd = (e: TouchEvent) => {
+    const handleTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
       if (longPressTimer) clearTimeout(longPressTimer);
+
+      // If user tapped without moving while in Crosshair mode, dismiss crosshair (TradingView behavior)
+      if (!touchMoved && isCrosshairActiveRef.current) {
+        setIsCrosshairActive(false);
+        setHoverData(null);
+      }
+
       if (e.touches.length === 0) {
         touchMode = 'none';
       }
     };
 
+    // --- 3. Desktop Mouse Controllers ---
+    let isMouseDown = false;
+    let mouseMode: 'none' | 'pan-2d' | 'y-scale' = 'none';
+    let mouseStartX = 0;
+    let mouseStartY = 0;
+    let mouseStartWindow = { start: 0, end: 100 };
+    let mouseStartYMultiplier = 1;
+    let mouseStartYPanOffset = 0;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      isMouseDown = true;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+      const chartW = canvas.clientWidth - padding.left - padding.right;
+
+      mouseStartX = e.clientX;
+      mouseStartY = e.clientY;
+      mouseStartWindow = { ...viewWindowRef.current };
+      mouseStartYMultiplier = yScaleRef.current;
+      mouseStartYPanOffset = yPanOffsetRef.current;
+
+      if (x > padding.left + chartW) {
+        mouseMode = 'y-scale';
+      } else {
+        mouseMode = 'pan-2d';
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+      const chartW = canvas.clientWidth - padding.left - padding.right;
+      const chartH = canvas.clientHeight - padding.top - padding.bottom;
+      const allCandles = candlesRef.current;
+
+      if (isMouseDown) {
+        const deltaX = e.clientX - mouseStartX;
+        const deltaY = mouseStartY - e.clientY;
+
+        if (mouseMode === 'y-scale') {
+          const scaleDelta = 1 + deltaY * 0.01;
+          const newMultiplier = Math.max(0.15, Math.min(10.0, mouseStartYMultiplier * scaleDelta));
+          setYScaleMultiplier(newMultiplier);
+        } else if (mouseMode === 'pan-2d') {
+          if (allCandles.length > 0) {
+            const visibleLen = mouseStartWindow.end - mouseStartWindow.start;
+            const shiftIndex = Math.round((-deltaX / chartW) * visibleLen);
+            let newStart = mouseStartWindow.start + shiftIndex;
+            let newEnd = mouseStartWindow.end + shiftIndex;
+
+            if (newStart < 0) {
+              newEnd -= newStart;
+              newStart = 0;
+            }
+            if (newEnd >= allCandles.length) {
+              newEnd = allCandles.length - 1;
+              newStart = Math.max(0, newEnd - visibleLen);
+            }
+            newStart = Math.max(0, newStart);
+            newEnd = Math.min(allCandles.length - 1, newEnd);
+            setViewWindow({ start: newStart, end: newEnd });
+
+            const priceSpan = maxPriceRef.current - minPriceRef.current;
+            const priceShift = (-deltaY / chartH) * priceSpan;
+            setYPanOffset(mouseStartYPanOffset + priceShift);
+          }
+        }
+      } else {
+        // Desktop Hover crosshair
+        if (x > padding.left + chartW) {
+          canvas.style.cursor = 'ns-resize';
+          setHoverData(null);
+        } else if (x >= padding.left && x <= padding.left + chartW) {
+          canvas.style.cursor = 'crosshair';
+          updateCrosshairAt(x);
+        } else {
+          canvas.style.cursor = 'default';
+          setHoverData(null);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      isMouseDown = false;
+      mouseMode = 'none';
+    };
+
+    const handleDblClick = (e: MouseEvent) => {
+      const allCandles = candlesRef.current;
+      if (allCandles.length > 0) {
+        setViewWindow({ start: 0, end: allCandles.length - 1 });
+        setYScaleMultiplier(1);
+        setYPanOffset(0);
+        setHoverData(null);
+      }
+    };
+
+    // Attach native non-passive listeners
     canvas.addEventListener('wheel', handleNativeWheel, { passive: false });
-    canvas.addEventListener('touchstart', handleNativeTouchStart, { passive: false });
-    canvas.addEventListener('touchmove', handleNativeTouchMove, { passive: false });
-    canvas.addEventListener('touchend', handleNativeTouchEnd, { passive: false });
-    canvas.addEventListener('touchcancel', handleNativeTouchEnd, { passive: false });
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    canvas.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('dblclick', handleDblClick);
 
     return () => {
-      if (longPressTimer) clearTimeout(longPressTimer);
       canvas.removeEventListener('wheel', handleNativeWheel);
-      canvas.removeEventListener('touchstart', handleNativeTouchStart);
-      canvas.removeEventListener('touchmove', handleNativeTouchMove);
-      canvas.removeEventListener('touchend', handleNativeTouchEnd);
-      canvas.removeEventListener('touchcancel', handleNativeTouchEnd);
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('touchcancel', handleTouchEnd);
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('dblclick', handleDblClick);
     };
   }, []);
-
-  // Desktop Mouse Down
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const padding = { top: 25, right: 70, bottom: 35, left: 15 };
-    const chartW = canvas.clientWidth - padding.left - padding.right;
-
-    if (x > padding.left + chartW) {
-      setIsMouseDraggingY(true);
-      setDragStartY(e.clientY);
-      setDragStartYMultiplier(yScaleMultiplier);
-    } else {
-      setIsMouseDraggingX(true);
-      setDragStartX(e.clientX);
-      setDragStartWindow({ ...viewWindow });
-    }
-  };
-
-  // Desktop Mouse Move
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas || visibleCandles.length === 0) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const padding = { top: 25, right: 70, bottom: 35, left: 15 };
-    const chartW = canvas.clientWidth - padding.left - padding.right;
-
-    if (isMouseDraggingY) {
-      const deltaY = dragStartY - e.clientY;
-      const scaleDelta = 1 + deltaY * 0.01;
-      const newMultiplier = Math.max(0.2, Math.min(10.0, dragStartYMultiplier * scaleDelta));
-      setYScaleMultiplier(newMultiplier);
-      return;
-    }
-
-    if (isMouseDraggingX) {
-      const deltaPx = e.clientX - dragStartX;
-      const visibleLen = dragStartWindow.end - dragStartWindow.start;
-      const shiftIndex = Math.round((-deltaPx / chartW) * visibleLen);
-
-      let newStart = dragStartWindow.start + shiftIndex;
-      let newEnd = dragStartWindow.end + shiftIndex;
-
-      if (newStart < 0) {
-        newEnd -= newStart;
-        newStart = 0;
-      }
-      if (newEnd >= candles.length) {
-        newStart -= newEnd - (candles.length - 1);
-        newEnd = candles.length - 1;
-      }
-
-      newStart = Math.max(0, newStart);
-      newEnd = Math.min(candles.length - 1, newEnd);
-      setViewWindow({ start: newStart, end: newEnd });
-      return;
-    }
-
-    if (x > padding.left + chartW) {
-      canvas.style.cursor = 'ns-resize';
-      setHoverData(null);
-    } else if (x >= padding.left && x <= padding.left + chartW) {
-      canvas.style.cursor = 'crosshair';
-      const ratio = (x - padding.left) / chartW;
-      const idx = Math.min(visibleCandles.length - 1, Math.max(0, Math.round(ratio * (visibleCandles.length - 1))));
-      const candle = visibleCandles[idx];
-      const getY = (val: number) => {
-        const chartH = canvas.clientHeight - padding.top - padding.bottom;
-        return padding.top + chartH - ((val - minPrice) / (maxPrice - minPrice)) * chartH;
-      };
-      setHoverData({ candle, x, y: getY(candle.close) });
-    } else {
-      canvas.style.cursor = 'default';
-      setHoverData(null);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsMouseDraggingX(false);
-    setIsMouseDraggingY(false);
-  };
-
-  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const padding = { top: 25, right: 70, bottom: 35, left: 15 };
-    const chartW = canvas.clientWidth - padding.left - padding.right;
-
-    if (x > padding.left + chartW) {
-      setYScaleMultiplier(1);
-    } else {
-      handleResetZoom();
-    }
-  };
 
   const handleResetZoom = () => {
     if (candles.length > 0) {
       setViewWindow({ start: 0, end: candles.length - 1 });
       setYScaleMultiplier(1);
+      setYPanOffset(0);
       setHoverData(null);
+      setIsCrosshairActive(false);
     }
   };
 
@@ -1179,23 +1225,15 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
                 </div>
               )}
 
-              {/* HTML5 Canvas */}
+              {/* HTML5 Canvas with Callback Ref & touch-action: none */}
               <canvas
-                ref={canvasRef}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onDoubleClick={handleDoubleClick}
-                onMouseLeave={() => {
-                  setIsMouseDraggingX(false);
-                  setIsMouseDraggingY(false);
-                  setHoverData(null);
-                }}
-                className="w-full h-[360px]"
+                ref={setupCanvas}
+                style={{ touchAction: 'none' }}
+                className="w-full h-[360px] block"
               />
 
-              <div className="text-[10px] text-gray-500 text-center pt-1">
-                💡 手機端：中間長按查價、左右滑動平移、右側價格欄上下拉伸、雙擊還原
+              <div className="text-[10px] text-gray-500 text-center pt-1.5 flex items-center justify-center gap-2">
+                <span>📱 手機端：長按查價、單指2D自由平移、右側/底部拉伸縮放、單擊關閉十字、雙擊還原</span>
               </div>
             </div>
           )}
