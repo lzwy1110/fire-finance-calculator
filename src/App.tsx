@@ -554,8 +554,8 @@ export default function App() {
   const handleRefreshAllData = async (isManual?: boolean) => {
     if (reconciliationModalData) return;
 
-    // Skip background auto-poll if user performed an edit in the last 3.5 seconds
-    if (!isManual && Date.now() - lastUserEditTimeRef.current < 3500) {
+    // Skip background refresh if user performed an edit in the last 4 seconds
+    if (Date.now() - lastUserEditTimeRef.current < 4000) {
       return;
     }
 

@@ -172,15 +172,12 @@ export function autoSyncToCloud(): void {
       portfolioStocks: loadPortfolioStocks(),
     };
 
-    // 1. 後端與 Supabase 同步 API
+    // 1. 後端與 Supabase 同步 API (完成後向其他裝置發送廣播)
     pushCloudData(backupPayload)
       .then(() => {
         broadcastDataSyncEvent(code);
       })
       .catch((e) => console.warn('[Supabase Sync Warning]:', e));
-
-    // 2. 立即發送 Realtime / BroadcastChannel 廣播
-    broadcastDataSyncEvent(code);
 
     // 3. 本地模擬跨 Tab 緩存
     const backup: CloudBackupData = {

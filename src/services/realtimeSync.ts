@@ -63,42 +63,6 @@ export function subscribeToRealtimeSync(
             onRemoteChange(payload.payload.deviceId);
           }
         })
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'transactions',
-            filter: `sync_code=eq.${cleanCode}`,
-          },
-          () => {
-            onRemoteChange('postgres_transactions');
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'portfolio_stocks',
-            filter: `sync_code=eq.${cleanCode}`,
-          },
-          () => {
-            onRemoteChange('postgres_portfolio');
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'fire_configs',
-            filter: `sync_code=eq.${cleanCode}`,
-          },
-          () => {
-            onRemoteChange('postgres_config');
-          }
-        )
         .subscribe((status: string) => {
           if (status === 'SUBSCRIBED') {
             // Realtime Connected
