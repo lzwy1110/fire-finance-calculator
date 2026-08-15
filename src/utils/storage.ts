@@ -289,15 +289,42 @@ export function restoreFromBackupJSON(jsonString: string): boolean {
 
 export function resetAllDataToDefault(): void {
   localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify([]));
-  localStorage.removeItem(STORAGE_KEY_CATEGORIES);
-  localStorage.removeItem(STORAGE_KEY_CONFIG);
-  localStorage.removeItem(STORAGE_KEY_PRESETS);
-  localStorage.removeItem(STORAGE_KEY_PORTFOLIO);
+  localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify([]));
+
+  const zeroConfig: FIREConfig = {
+    ...DEFAULT_FIRE_CONFIG,
+    currentNetWorth: 0,
+    baseCashBalance: 0,
+    cashSavings: 0,
+  };
+  localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(zeroConfig));
+  localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(DEFAULT_CATEGORIES));
+  localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(DEFAULT_QUICK_PRESETS));
 }
 
 export async function clearLocalAndCloudData(targetCode?: string): Promise<boolean> {
   const code = (targetCode || getOrCreateSyncCode()).trim().toUpperCase();
   resetAllDataToDefault();
+
+  const zeroConfig: FIREConfig = {
+    ...DEFAULT_FIRE_CONFIG,
+    currentNetWorth: 0,
+    baseCashBalance: 0,
+    cashSavings: 0,
+  };
+
+  // Push clean zero state to cloud
+  try {
+    await pushCloudData({
+      syncCode: code,
+      transactions: [],
+      categories: DEFAULT_CATEGORIES,
+      fireConfig: zeroConfig,
+      quickPresets: DEFAULT_QUICK_PRESETS,
+      portfolioStocks: [],
+    });
+  } catch (e) {}
+
   const success = await clearCloudData(code);
   broadcastDataSyncEvent(code);
   return success;

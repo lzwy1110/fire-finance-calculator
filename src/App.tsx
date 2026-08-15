@@ -242,7 +242,7 @@ export default function App() {
       });
     }
 
-    const baseCash = fireConfig.baseCashBalance ?? (fireConfig.cashSavings ?? (fireConfig.currentNetWorth ? Math.max(0, fireConfig.currentNetWorth) : 650000));
+    const baseCash = fireConfig.baseCashBalance ?? (fireConfig.cashSavings ?? (fireConfig.currentNetWorth ? Math.max(0, fireConfig.currentNetWorth) : 0));
     const computedCashSavings = Math.round(baseCash + ledgerNetCash + stockTradeNetCash);
     const totalNetWorth = Math.round(stockMarketValue + computedCashSavings);
 
