@@ -48,6 +48,7 @@ import { QuickAddModal } from './components/QuickAddModal';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
 import { SystemSettingsModal } from './components/SystemSettingsModal';
+import { DataReconciliationModal, CloudSnapshotData, LocalSnapshotData } from './components/DataReconciliationModal';
 import { applyThemeToCSSVariables } from './utils/theme';
 
 interface WidgetBridgePluginType {
@@ -74,6 +75,10 @@ export default function App() {
   const [isCloudSyncOpen, setIsCloudSyncOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [isSystemSettingsOpen, setIsSystemSettingsOpen] = useState(false);
+  const [reconciliationModalData, setReconciliationModalData] = useState<{
+    cloudData: CloudSnapshotData;
+    localData: LocalSnapshotData;
+  } | null>(null);
 
   // Initialize data locally first, then sync with Supabase / Express backend if connected
   useEffect(() => {
@@ -92,10 +97,42 @@ export default function App() {
     setSyncCode(code);
     applyThemeToCSSVariables(loadedConfig.themeColor);
 
-    // Background fetch from Supabase backend
+    // Background fetch from Supabase backend & smart reconciliation check
     fetchCloudData(code).then((cloudRes) => {
       if (cloudRes && cloudRes.success && cloudRes.data) {
         const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
+
+        const localCash = loadedConfig.cashSavings ?? (loadedConfig.baseCashBalance || 0);
+        const cloudCash = cCfg ? (cCfg.cashSavings ?? (cCfg.baseCashBalance ?? 0)) : 0;
+        const localStockCount = (localStocks || []).length;
+        const cloudStockCount = (cStocks || []).length;
+        const localTxCount = (localTx || []).length;
+        const cloudTxCount = (cTx || []).length;
+
+        const hasLocalData = localCash > 0 || localStockCount > 0 || localTxCount > 0;
+        const isDiscrepant = localCash !== cloudCash || localStockCount !== cloudStockCount || localTxCount !== cloudTxCount;
+
+        // If local has data and differs from cloud, prompt user with DataReconciliationModal
+        if (hasLocalData && isDiscrepant) {
+          setReconciliationModalData({
+            cloudData: {
+              transactions: cTx || [],
+              categories: cCat || [],
+              fireConfig: cCfg,
+              quickPresets: cPresets || [],
+              portfolioStocks: cStocks || [],
+            },
+            localData: {
+              transactions: localTx,
+              categories: localCat,
+              fireConfig: loadedConfig,
+              quickPresets: localPresets,
+              portfolioStocks: localStocks,
+            },
+          });
+          return;
+        }
+
         if (Array.isArray(cTx)) {
           setTransactions(cTx);
           saveTransactionsLocalOnly(cTx);
@@ -469,7 +506,54 @@ export default function App() {
     applyThemeToCSSVariables(loadedConfig.themeColor);
   };
 
+  const handleChooseCloudVersion = () => {
+    if (!reconciliationModalData) return;
+    const { cloudData } = reconciliationModalData;
+    setTransactions(cloudData.transactions || []);
+    saveTransactionsLocalOnly(cloudData.transactions || []);
+
+    if (cloudData.categories && cloudData.categories.length > 0) {
+      setCategories(cloudData.categories);
+      saveCategoriesLocalOnly(cloudData.categories);
+    }
+
+    if (cloudData.quickPresets && cloudData.quickPresets.length > 0) {
+      setQuickPresets(cloudData.quickPresets);
+      saveQuickPresetsLocalOnly(cloudData.quickPresets);
+    }
+
+    const syncedStocks = (cloudData.portfolioStocks || []).map((s) => syncStockCalculations(s));
+    setPortfolioStocks(syncedStocks);
+    savePortfolioStocksLocalOnly(syncedStocks);
+
+    if (cloudData.fireConfig) {
+      const merged = {
+        ...fireConfig,
+        ...cloudData.fireConfig,
+        baseCashBalance: cloudData.fireConfig.baseCashBalance ?? (cloudData.fireConfig.cashSavings ?? 0),
+        cashSavings: cloudData.fireConfig.cashSavings ?? (cloudData.fireConfig.baseCashBalance ?? 0),
+      };
+      setFireConfig(merged);
+      saveFIREConfigLocalOnly(merged);
+      applyThemeToCSSVariables(merged.themeColor);
+    } else {
+      const zeroConfig = { ...fireConfig, currentNetWorth: 0, cashSavings: 0, baseCashBalance: 0 };
+      setFireConfig(zeroConfig);
+      saveFIREConfigLocalOnly(zeroConfig);
+    }
+
+    setReconciliationModalData(null);
+  };
+
+  const handleChooseLocalVersion = () => {
+    if (!reconciliationModalData) return;
+    autoSyncToCloud();
+    setReconciliationModalData(null);
+  };
+
   const handleRefreshAllData = async (isManual?: boolean) => {
+    if (reconciliationModalData) return;
+
     // Skip background auto-poll if user performed an edit in the last 3.5 seconds
     if (!isManual && Date.now() - lastUserEditTimeRef.current < 3500) {
       return;
@@ -683,6 +767,21 @@ export default function App() {
         config={fireConfig}
         stockMarketValue={liveStockMarketValue}
         onSaveConfig={handleUpdateFIREConfig}
+      />
+
+      <DataReconciliationModal
+        isOpen={Boolean(reconciliationModalData)}
+        cloudData={reconciliationModalData?.cloudData || null}
+        localData={reconciliationModalData?.localData || {
+          transactions,
+          categories,
+          fireConfig,
+          quickPresets,
+          portfolioStocks,
+        }}
+        themeColor={fireConfig.themeColor}
+        onChooseCloud={handleChooseCloudVersion}
+        onChooseLocal={handleChooseLocalVersion}
       />
     </div>
   );
