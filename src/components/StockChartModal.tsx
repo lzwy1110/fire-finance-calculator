@@ -550,7 +550,6 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     let startTouchYMultiplier = 1;
     let startTouchYPanOffset = 0;
     let longPressTimer: any = null;
-    let lastTapTime = 0;
     let touchMoved = false;
 
     const getTouchCoords = (touch: Touch) => {
@@ -594,25 +593,10 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       const chartW = canvas.clientWidth - padding.left - padding.right;
       const chartH = canvas.clientHeight - padding.top - padding.bottom;
 
-      // Handle Double Tap to Reset Everything
-      const now = Date.now();
-      if (now - lastTapTime < 300) {
-        const allCandles = candlesRef.current;
-        if (allCandles.length > 0) {
-          setViewWindow({ start: 0, end: allCandles.length - 1 });
-          setYScaleMultiplier(1);
-          setYPanOffset(0);
-          setHoverData(null);
-          setIsCrosshairActive(false);
-        }
-        lastTapTime = 0;
-        return;
-      }
-      lastTapTime = now;
       touchMoved = false;
 
-      if (e.touches.length === 2) {
-        // Two-Finger Pinch to zoom time window
+      if (e.touches.length >= 2) {
+        // Two-Finger Pinch detected immediately on touch start
         touchMode = 'pinch';
         if (longPressTimer) clearTimeout(longPressTimer);
         const t1 = e.touches[0];
@@ -663,10 +647,20 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       const chartW = canvas.clientWidth - padding.left - padding.right;
       const chartH = canvas.clientHeight - padding.top - padding.bottom;
 
-      if (e.touches.length === 2 && touchMode === 'pinch') {
+      // Dynamic Two-Finger Pinch Upgrade (even if touches landed with slight delay)
+      if (e.touches.length >= 2) {
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+        if (touchMode !== 'pinch' || initialPinchDist === 0) {
+          touchMode = 'pinch';
+          if (longPressTimer) clearTimeout(longPressTimer);
+          initialPinchDist = currentDist;
+          initialPinchWindow = { ...viewWindowRef.current };
+          return;
+        }
+
         if (initialPinchDist > 0 && currentDist > 0 && allCandles.length > 0) {
           const pinchFactor = initialPinchDist / currentDist;
           const origLen = initialPinchWindow.end - initialPinchWindow.start;
@@ -688,13 +682,16 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
 
           setViewWindow({ start: newStart, end: newEnd });
         }
-      } else if (e.touches.length === 1) {
+        return;
+      }
+
+      if (e.touches.length === 1) {
         const touch = e.touches[0];
         const coords = getTouchCoords(touch);
         const deltaX = touch.clientX - startTouchX;
         const deltaY = startTouchY - touch.clientY;
 
-        if (Math.hypot(deltaX, deltaY) > 6) {
+        if (Math.hypot(deltaX, deltaY) > 5) {
           touchMoved = true;
         }
 
@@ -707,15 +704,15 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
         }
 
         if (touchMode === 'y-scale') {
-          // Continuous smooth Y-Axis drag scaling (TradingView Style)
+          // Continuous smooth Y-Axis drag scaling
           const scaleDelta = 1 + deltaY * 0.01;
           const newMultiplier = Math.max(0.15, Math.min(10.0, startTouchYMultiplier * scaleDelta));
           setYScaleMultiplier(newMultiplier);
         } else if (touchMode === 'x-scale') {
-          // Bottom Time Axis Drag Scaling: slide left expands, slide right compresses
+          // Bottom Time Axis: Slide LEFT (deltaX < 0) expands/zooms in, Slide RIGHT (deltaX > 0) compresses/zooms out
           if (allCandles.length > 0) {
             const origLen = startTouchWindow.end - startTouchWindow.start;
-            const factor = 1 - deltaX * 0.006;
+            const factor = 1 + deltaX * 0.007; // Corrected: slide left (<0) decreases len = zoom in; slide right (>0) increases len = zoom out
             const newLen = Math.max(10, Math.min(allCandles.length, Math.round(origLen * factor)));
             const center = Math.round((startTouchWindow.start + startTouchWindow.end) / 2);
             const half = Math.round(newLen / 2);
@@ -733,9 +730,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             setViewWindow({ start: newStart, end: newEnd });
           }
         } else if (touchMode === 'pan-2d') {
-          // 2D Free Pan: Horizontal X shifts time window, Vertical Y shifts price pan offset!
+          // 2D Free Pan: Butter-smooth Sub-Index Panning
           if (allCandles.length > 0) {
-            // 1. Horizontal Time Pan
             const visibleLen = startTouchWindow.end - startTouchWindow.start;
             const shiftIndex = Math.round((-deltaX / chartW) * visibleLen);
             let newStart = startTouchWindow.start + shiftIndex;
@@ -753,7 +749,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             newEnd = Math.min(allCandles.length - 1, newEnd);
             setViewWindow({ start: newStart, end: newEnd });
 
-            // 2. Vertical Price Pan
+            // Vertical Price Pan
             const priceSpan = maxPriceRef.current - minPriceRef.current;
             const priceShift = (-deltaY / chartH) * priceSpan;
             setYPanOffset(startTouchYPanOffset + priceShift);
@@ -777,6 +773,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
 
       if (e.touches.length === 0) {
         touchMode = 'none';
+        initialPinchDist = 0;
       }
     };
 
@@ -869,16 +866,6 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       mouseMode = 'none';
     };
 
-    const handleDblClick = (e: MouseEvent) => {
-      const allCandles = candlesRef.current;
-      if (allCandles.length > 0) {
-        setViewWindow({ start: 0, end: allCandles.length - 1 });
-        setYScaleMultiplier(1);
-        setYPanOffset(0);
-        setHoverData(null);
-      }
-    };
-
     // Attach native non-passive listeners
     canvas.addEventListener('wheel', handleNativeWheel, { passive: false });
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -888,9 +875,9 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     canvas.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('dblclick', handleDblClick);
 
     return () => {
+      if (longPressTimer) clearTimeout(longPressTimer);
       canvas.removeEventListener('wheel', handleNativeWheel);
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
@@ -899,7 +886,6 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       canvas.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
-      canvas.removeEventListener('dblclick', handleDblClick);
     };
   }, []);
 
@@ -1233,7 +1219,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
               />
 
               <div className="text-[10px] text-gray-500 text-center pt-1.5 flex items-center justify-center gap-2">
-                <span>📱 手機端：長按查價、單指2D自由平移、右側/底部拉伸縮放、單擊關閉十字、雙擊還原</span>
+                <span>📱 手機端：長按查價、單指2D自由平移、雙指捏合縮放、右側/底部拉伸縮放、單擊關閉十字</span>
               </div>
             </div>
           )}
