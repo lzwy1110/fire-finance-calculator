@@ -167,45 +167,60 @@ export function setSyncCode(code: string): void {
   localStorage.setItem(STORAGE_KEY_SYNC_CODE, code.trim().toUpperCase());
 }
 
+let syncDebounceTimer: any = null;
+
 /**
- * 自動同步至 Supabase 與本地模擬雲端資料庫
+ * 自動同步至 Supabase 與本地模擬雲端資料庫 (帶有 400ms Debounce 防抖，避免連續觸發與閃爍)
  */
-export function autoSyncToCloud(): void {
+export function autoSyncToCloud(immediate = false): void {
   // 純本機離線模式下絕不上傳雲端
   if (getStorageMode() === 'local') {
     return;
   }
 
-  try {
-    const code = getOrCreateSyncCode();
-    const backupPayload = {
-      syncCode: code,
-      transactions: loadTransactions(),
-      categories: loadCategories(),
-      fireConfig: loadFIREConfig(),
-      quickPresets: loadQuickPresets(),
-      portfolioStocks: loadPortfolioStocks(),
-    };
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = null;
+  }
 
-    // 1. 後端與 Supabase 同步 API (完成後向其他裝置發送廣播)
-    pushCloudData(backupPayload)
-      .then(() => {
-        broadcastDataSyncEvent(code);
-      })
-      .catch((e) => console.warn('[Supabase Sync Warning]:', e));
+  const executeSync = () => {
+    try {
+      const code = getOrCreateSyncCode();
+      const backupPayload = {
+        syncCode: code,
+        transactions: loadTransactions(),
+        categories: loadCategories(),
+        fireConfig: loadFIREConfig(),
+        quickPresets: loadQuickPresets(),
+        portfolioStocks: loadPortfolioStocks(),
+      };
 
-    // 3. 本地模擬跨 Tab 緩存
-    const backup: CloudBackupData = {
-      version: '1.0',
-      lastSyncedAt: new Date().toISOString(),
-      syncCode: code,
-      ...backupPayload,
-    };
-    const cloudDb = JSON.parse(localStorage.getItem(STORAGE_KEY_CLOUD_SIMULATION) || '{}');
-    cloudDb[code] = backup;
-    localStorage.setItem(STORAGE_KEY_CLOUD_SIMULATION, JSON.stringify(cloudDb));
-  } catch (e) {
-    console.error('Cloud auto-sync error:', e);
+      // 1. 後端與 Supabase 同步 API (完成後向其他裝置發送廣播)
+      pushCloudData(backupPayload)
+        .then(() => {
+          broadcastDataSyncEvent(code);
+        })
+        .catch((e) => console.warn('[Supabase Sync Warning]:', e));
+
+      // 3. 本地模擬跨 Tab 緩存
+      const backup: CloudBackupData = {
+        version: '1.0',
+        lastSyncedAt: new Date().toISOString(),
+        syncCode: code,
+        ...backupPayload,
+      };
+      const cloudDb = JSON.parse(localStorage.getItem(STORAGE_KEY_CLOUD_SIMULATION) || '{}');
+      cloudDb[code] = backup;
+      localStorage.setItem(STORAGE_KEY_CLOUD_SIMULATION, JSON.stringify(cloudDb));
+    } catch (e) {
+      console.error('Cloud auto-sync error:', e);
+    }
+  };
+
+  if (immediate) {
+    executeSync();
+  } else {
+    syncDebounceTimer = setTimeout(executeSync, 400);
   }
 }
 

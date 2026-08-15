@@ -241,10 +241,6 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    handleRefreshAllData();
-  }, [activeTab]);
-
   // Two-way Sync: Push App Transactions to Android Widget Bridge so Widget "Today Expense" is 100% identical to App Database!
   useEffect(() => {
     if (transactions) {
@@ -329,7 +325,7 @@ export default function App() {
           cashSavings: computedCashSavings,
           currentNetWorth: totalNetWorth,
         };
-        saveFIREConfig(updated);
+        saveFIREConfigLocalOnly(updated);
         return updated;
       });
     }
@@ -509,7 +505,7 @@ export default function App() {
       });
     }
 
-    const targetCash = newConfig.cashSavings ?? (newConfig.baseCashBalance ?? (fireConfig.cashSavings || 650000));
+    const targetCash = newConfig.cashSavings ?? (newConfig.baseCashBalance ?? (fireConfig.cashSavings ?? 0));
     const calculatedBase = Math.round(targetCash - (ledgerNetCash + stockTradeNetCash));
 
     const finalConfig: FIREConfig = {
