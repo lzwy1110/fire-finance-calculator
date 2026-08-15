@@ -527,6 +527,26 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
       updated_at: new Date().toISOString(),
     };
 
+    // Ensure fallback metadata is updated with latest cash savings
+    try {
+      const existing = await supabase.from('fire_configs').select('portfolio_stocks_json').eq('sync_code', syncCode).maybeSingle();
+      let existingStocks = [];
+      if (existing.data && (existing.data as any).portfolio_stocks_json) {
+        try {
+          const parsed = JSON.parse((existing.data as any).portfolio_stocks_json);
+          if (Array.isArray(parsed)) existingStocks = parsed;
+          else if (parsed && Array.isArray(parsed.stocks)) existingStocks = parsed.stocks;
+        } catch (e) {}
+      }
+      configData.portfolio_stocks_json = JSON.stringify({
+        stocks: existingStocks,
+        _metaConfig: {
+          cashSavings: config.cashSavings,
+          baseCashBalance: config.baseCashBalance,
+        },
+      });
+    } catch (e) {}
+
     try {
       await supabase.from('fire_configs').upsert(configData);
     } catch (err) {
