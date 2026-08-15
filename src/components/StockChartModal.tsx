@@ -8,7 +8,6 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
-  Sparkles,
 } from 'lucide-react';
 import { PortfolioStock } from '../types';
 import { fetchStockHistoricalChart, CandleData } from '../services/stockPriceService';
@@ -21,7 +20,7 @@ interface StockChartModalProps {
 }
 
 type ChartType = 'line' | 'candle';
-type LineRange = '5y' | '1y' | '1m' | '5d' | '1d';
+type LineRange = '1d' | '5d' | '1m' | '1y' | '5y';
 type CandleResolution = '5m' | 'd' | 'w' | 'mo';
 
 interface ColorTheme {
@@ -82,9 +81,26 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [viewWindow, setViewWindow] = useState<{ start: number; end: number }>({ start: 0, end: 100 });
   const [hoverData, setHoverData] = useState<{ candle: CandleData; x: number; y: number } | null>(null);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
+
+  // Drag states for X-Axis (Pan) and Y-Axis (Scale)
+  const [isDraggingX, setIsDraggingX] = useState<boolean>(false);
+  const [isDraggingY, setIsDraggingY] = useState<boolean>(false);
   const [dragStartX, setDragStartX] = useState<number>(0);
+  const [dragStartY, setDragStartY] = useState<number>(0);
   const [dragStartWindow, setDragStartWindow] = useState<{ start: number; end: number }>({ start: 0, end: 100 });
+
+  // Y-axis zoom/scale multiplier (1 = default auto-fit)
+  const [yScaleMultiplier, setYScaleMultiplier] = useState<number>(1);
+  const [dragStartYMultiplier, setDragStartYMultiplier] = useState<number>(1);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, []);
 
   // Load color preference from localStorage
   useEffect(() => {
@@ -168,6 +184,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       setIsLoading(true);
       setError(null);
       setHoverData(null);
+      setYScaleMultiplier(1);
 
       try {
         const res = await fetchStockHistoricalChart(stock.symbol, queryRange, queryInterval);
@@ -206,23 +223,42 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     return candles.slice(s, e + 1);
   }, [candles, viewWindow]);
 
-  // Calculate Period Return (Period Start vs Period End)
-  const periodReturn = useMemo(() => {
-    if (visibleCandles.length === 0) return { diff: 0, percent: 0, isPositive: true };
-    const first = visibleCandles[0];
-    const last = visibleCandles[visibleCandles.length - 1];
-    const startPrice = first.open || first.close;
-    const endPrice = last.close;
-    const diff = endPrice - startPrice;
-    const percent = startPrice > 0 ? (diff / startPrice) * 100 : 0;
-    return {
-      diff,
-      percent,
-      isPositive: diff >= 0,
-    };
-  }, [visibleCandles]);
+  // Top header return indicator calculation
+  const headerReturn = useMemo(() => {
+    if (candles.length === 0) return { diff: 0, percent: 0, isPositive: true, label: '今日' };
 
-  // Min, Max, and Avg Cost
+    if (chartType === 'candle') {
+      // In K-Line mode: uniformly display Daily Change (今日日漲跌)
+      const last = candles[candles.length - 1];
+      const prev = candles.length >= 2 ? candles[candles.length - 2] : null;
+      const prevClose = prev ? prev.close : last.open;
+      const diff = last.close - prevClose;
+      const percent = prevClose > 0 ? (diff / prevClose) * 100 : 0;
+      return {
+        diff,
+        percent,
+        isPositive: diff >= 0,
+        label: '今日',
+      };
+    } else {
+      // In Line Chart mode: display Period Return over selected timeframe
+      if (visibleCandles.length === 0) return { diff: 0, percent: 0, isPositive: true, label: periodLabel };
+      const first = visibleCandles[0];
+      const last = visibleCandles[visibleCandles.length - 1];
+      const startPrice = first.open || first.close;
+      const endPrice = last.close;
+      const diff = endPrice - startPrice;
+      const percent = startPrice > 0 ? (diff / startPrice) * 100 : 0;
+      return {
+        diff,
+        percent,
+        isPositive: diff >= 0,
+        label: periodLabel,
+      };
+    }
+  }, [candles, visibleCandles, chartType, periodLabel]);
+
+  // Calculate Price Range with Y-Scale Multiplier
   const { minPrice, maxPrice } = useMemo(() => {
     if (visibleCandles.length === 0) return { minPrice: 0, maxPrice: 100 };
     let min = Infinity;
@@ -238,12 +274,15 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       if (cost > max) max = cost * 1.02;
     }
 
-    const padding = (max - min) * 0.08 || 1;
+    const mid = (max + min) / 2;
+    const halfSpan = Math.max(0.5, ((max - min) / 2) * (1 / yScaleMultiplier));
+    const padding = halfSpan * 0.08;
+
     return {
-      minPrice: min - padding,
-      maxPrice: max + padding,
+      minPrice: mid - halfSpan - padding,
+      maxPrice: mid + halfSpan + padding,
     };
-  }, [visibleCandles, stock?.avgCost]);
+  }, [visibleCandles, stock?.avgCost, yScaleMultiplier]);
 
   // Draw chart on Canvas
   const renderChart = useCallback(() => {
@@ -265,7 +304,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
-    const padding = { top: 25, right: 65, bottom: 35, left: 15 };
+    const padding = { top: 25, right: 70, bottom: 35, left: 15 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
@@ -278,6 +317,10 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       if (visibleCandles.length <= 1) return padding.left + chartW / 2;
       return padding.left + (idx / (visibleCandles.length - 1)) * chartW;
     };
+
+    // Draw Y-axis background highlight for draggable area
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+    ctx.fillRect(padding.left + chartW, padding.top, padding.right, chartH);
 
     // Draw grid lines
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
@@ -313,13 +356,13 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
 
         // Avg Cost Badge
         ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
-        ctx.fillRect(padding.left + chartW + 5, costY - 10, 58, 18);
+        ctx.fillRect(padding.left + chartW + 4, costY - 9, 62, 18);
         ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
-        ctx.strokeRect(padding.left + chartW + 5, costY - 10, 58, 18);
+        ctx.strokeRect(padding.left + chartW + 4, costY - 9, 62, 18);
         ctx.fillStyle = '#fbbf24';
         ctx.font = 'bold 9px Inter, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(`成本 ${stock.avgCost.toFixed(1)}`, padding.left + chartW + 8, costY + 2);
+        ctx.fillText(`成本 ${stock.avgCost.toFixed(1)}`, padding.left + chartW + 7, costY + 3);
         ctx.restore();
       }
     }
@@ -430,38 +473,68 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     renderChart();
   }, [renderChart]);
 
-  // Handle Mouse / Touch Zoom & Pan
-  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    if (candles.length < 5) return;
+  // Non-passive wheel event listener on Canvas to prevent page background scrolling
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const zoomFactor = e.deltaY < 0 ? 0.85 : 1.15;
-    const currentLen = viewWindow.end - viewWindow.start;
-    const newLen = Math.max(10, Math.min(candles.length, Math.round(currentLen * zoomFactor)));
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault(); // Stop whole page scrolling
+      e.stopPropagation();
 
-    const center = Math.round((viewWindow.start + viewWindow.end) / 2);
-    const half = Math.round(newLen / 2);
-    let newStart = center - half;
-    let newEnd = center + half;
+      if (candles.length < 5) return;
 
-    if (newStart < 0) {
-      newStart = 0;
-      newEnd = Math.min(candles.length - 1, newLen);
-    }
-    if (newEnd >= candles.length) {
-      newEnd = candles.length - 1;
-      newStart = Math.max(0, newEnd - newLen);
-    }
+      const zoomFactor = e.deltaY < 0 ? 0.85 : 1.15;
+      const currentLen = viewWindow.end - viewWindow.start;
+      const newLen = Math.max(10, Math.min(candles.length, Math.round(currentLen * zoomFactor)));
 
-    setViewWindow({ start: newStart, end: newEnd });
-  };
+      const center = Math.round((viewWindow.start + viewWindow.end) / 2);
+      const half = Math.round(newLen / 2);
+      let newStart = center - half;
+      let newEnd = center + half;
 
+      if (newStart < 0) {
+        newStart = 0;
+        newEnd = Math.min(candles.length - 1, newLen);
+      }
+      if (newEnd >= candles.length) {
+        newEnd = candles.length - 1;
+        newStart = Math.max(0, newEnd - newLen);
+      }
+
+      setViewWindow({ start: newStart, end: newEnd });
+    };
+
+    canvas.addEventListener('wheel', handleNativeWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener('wheel', handleNativeWheel);
+    };
+  }, [candles, viewWindow]);
+
+  // Mouse Down: Distinguish between X-axis drag (Pan) and Y-axis drag (Price Scale)
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDragging(true);
-    setDragStartX(e.clientX);
-    setDragStartWindow({ ...viewWindow });
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+    const chartW = canvas.clientWidth - padding.left - padding.right;
+
+    if (x > padding.left + chartW) {
+      // Y-axis area clicked -> start Y-scale dragging
+      setIsDraggingY(true);
+      setDragStartY(e.clientY);
+      setDragStartYMultiplier(yScaleMultiplier);
+    } else {
+      // Chart area clicked -> start X-pan dragging
+      setIsDraggingX(true);
+      setDragStartX(e.clientX);
+      setDragStartWindow({ ...viewWindow });
+    }
   };
 
+  // Mouse Move: Handle Tooltips, Pan, and Y-Scale Drag
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas || visibleCandles.length === 0) return;
@@ -470,11 +543,20 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const padding = { top: 25, right: 65, bottom: 35, left: 15 };
+    const padding = { top: 25, right: 70, bottom: 35, left: 15 };
     const chartW = canvas.clientWidth - padding.left - padding.right;
 
-    // Pan handling
-    if (isDragging) {
+    // 1. Handle Y-axis Price Scale Dragging
+    if (isDraggingY) {
+      const deltaY = dragStartY - e.clientY; // drag up to expand, drag down to compress
+      const scaleDelta = 1 + deltaY * 0.008;
+      const newMultiplier = Math.max(0.2, Math.min(8.0, dragStartYMultiplier * scaleDelta));
+      setYScaleMultiplier(newMultiplier);
+      return;
+    }
+
+    // 2. Handle X-axis Time Pan Dragging
+    if (isDraggingX) {
       const deltaPx = e.clientX - dragStartX;
       const visibleLen = dragStartWindow.end - dragStartWindow.start;
       const shiftIndex = Math.round((-deltaPx / chartW) * visibleLen);
@@ -497,8 +579,14 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       return;
     }
 
-    // Hover tooltip handling
-    if (x >= padding.left && x <= padding.left + chartW) {
+    // 3. Hover Cursor and Tooltip
+    if (x > padding.left + chartW) {
+      // Hovering over Y-axis
+      canvas.style.cursor = 'ns-resize';
+      setHoverData(null);
+    } else if (x >= padding.left && x <= padding.left + chartW) {
+      // Hovering over chart area
+      canvas.style.cursor = 'crosshair';
       const ratio = (x - padding.left) / chartW;
       const idx = Math.min(visibleCandles.length - 1, Math.max(0, Math.round(ratio * (visibleCandles.length - 1))));
       const candle = visibleCandles[idx];
@@ -508,17 +596,36 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       };
       setHoverData({ candle, x, y: getY(candle.close) });
     } else {
+      canvas.style.cursor = 'default';
       setHoverData(null);
     }
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
+    setIsDraggingX(false);
+    setIsDraggingY(false);
+  };
+
+  // Double click on Canvas: Reset Y-scale or X-window
+  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+    const chartW = canvas.clientWidth - padding.left - padding.right;
+
+    if (x > padding.left + chartW) {
+      setYScaleMultiplier(1);
+    } else {
+      handleResetZoom();
+    }
   };
 
   const handleResetZoom = () => {
     if (candles.length > 0) {
       setViewWindow({ start: 0, end: candles.length - 1 });
+      setYScaleMultiplier(1);
       setHoverData(null);
     }
   };
@@ -561,16 +668,16 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
                 {currencySymbol} {priceDisplay}
               </span>
 
-              {/* Period Return: Period Start vs Period End */}
+              {/* Dynamic Header Return: Daily in K-Line vs Period Return in Line */}
               <span
                 className={`flex items-center text-xs md:text-sm font-bold ${
-                  periodReturn.isPositive ? 'text-emerald-400' : 'text-rose-400'
+                  headerReturn.isPositive ? 'text-emerald-400' : 'text-rose-400'
                 }`}
               >
-                {periodReturn.isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                {periodReturn.isPositive ? '+' : ''}
-                {currencySymbol} {periodReturn.diff.toFixed(2)} ({periodReturn.percent > 0 ? '+' : ''}
-                {periodReturn.percent.toFixed(2)}% {periodLabel})
+                {headerReturn.isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                {headerReturn.isPositive ? '+' : ''}
+                {currencySymbol} {headerReturn.diff.toFixed(2)} ({headerReturn.percent > 0 ? '+' : ''}
+                {headerReturn.percent.toFixed(2)}% {headerReturn.label})
               </span>
             </div>
           </div>
@@ -588,8 +695,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
           {/* Smart Dynamic Timeframe Switcher */}
           <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5">
             {chartType === 'line' ? (
-              // Line Chart Mode: Time Ranges (5Y, 1Y, 1M, 5D, 1D)
-              (['5y', '1y', '1m', '5d', '1d'] as LineRange[]).map((t) => (
+              // Line Chart Mode: 1D, 5D, 1M, 1Y, 5Y (From short to long)
+              (['1d', '5d', '1m', '1y', '5y'] as LineRange[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setLineRange(t)}
@@ -603,7 +710,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
                 </button>
               ))
             ) : (
-              // K-Line Mode: Candle Resolutions (5分, 天, 週, 月)
+              // K-Line Mode: 5分, 天, 週, 月
               ([
                 { id: '5m', label: '5分' },
                 { id: 'd', label: '天' },
@@ -759,7 +866,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             <button
               onClick={handleResetZoom}
               className="p-1.5 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 text-gray-400 hover:text-white transition-all cursor-pointer"
-              title="重置縮放"
+              title="重置縮放與價格軸"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -785,45 +892,73 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             </div>
           ) : (
             <div className="w-full relative select-none">
-              {/* Hover Tooltip Card */}
+              {/* Refactored Hover Tooltip Card (Open/Close on left, High/Low on right, No Cost Gap) */}
               {hoverData && (
                 <div
-                  className="absolute top-2 left-4 bg-black/80 backdrop-blur-md border border-white/15 rounded-xl p-2.5 text-[11px] text-gray-200 pointer-events-none shadow-xl z-20 space-y-1"
+                  className="absolute top-2 left-4 bg-[#141419]/90 backdrop-blur-md border border-white/20 rounded-2xl p-3 text-[11px] text-gray-200 pointer-events-none shadow-2xl z-20 space-y-1.5"
                 >
-                  <div className="text-gray-400 font-semibold border-b border-white/10 pb-1">
-                    📅 {new Date(hoverData.candle.time * 1000).toLocaleDateString('zh-TW')}
+                  <div className="text-gray-400 font-semibold border-b border-white/10 pb-1 flex items-center gap-1.5">
+                    <span>📅</span>
+                    <span>
+                      {(() => {
+                        const d = new Date(hoverData.candle.time * 1000);
+                        if (queryInterval === '5m' || queryInterval === '15m') {
+                          return `${d.toLocaleDateString('zh-TW')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                        }
+                        return d.toLocaleDateString('zh-TW');
+                      })()}
+                    </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 font-mono">
-                    <span>開盤: <strong className="text-white">{hoverData.candle.open}</strong></span>
-                    <span>最高: <strong className="text-emerald-400">{hoverData.candle.high}</strong></span>
-                    <span>最低: <strong className="text-rose-400">{hoverData.candle.low}</strong></span>
-                    <span>收盤: <strong className="text-white">{hoverData.candle.close}</strong></span>
-                  </div>
-                  {stock.avgCost > 0 && (
-                    <div className="pt-1 border-t border-white/10 text-[10px] text-amber-300 font-bold">
-                      距成本: {(hoverData.candle.close - stock.avgCost > 0 ? '+' : '') + (hoverData.candle.close - stock.avgCost).toFixed(2)} (
-                      {(((hoverData.candle.close - stock.avgCost) / stock.avgCost) * 100).toFixed(2)}%)
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 font-mono">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-gray-400">開盤:</span>
+                        <strong className="text-white">{hoverData.candle.open.toFixed(2)}</strong>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-gray-400">收盤:</span>
+                        <strong
+                          className={
+                            hoverData.candle.close >= hoverData.candle.open
+                              ? 'text-emerald-400'
+                              : 'text-rose-400'
+                          }
+                        >
+                          {hoverData.candle.close.toFixed(2)}
+                        </strong>
+                      </div>
                     </div>
-                  )}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-gray-400">最高:</span>
+                        <strong className="text-emerald-400">{hoverData.candle.high.toFixed(2)}</strong>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-gray-400">最低:</span>
+                        <strong className="text-rose-400">{hoverData.candle.low.toFixed(2)}</strong>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* HTML5 Canvas */}
               <canvas
                 ref={canvasRef}
-                onWheel={handleWheel}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
+                onDoubleClick={handleDoubleClick}
                 onMouseLeave={() => {
-                  setIsDragging(false);
+                  setIsDraggingX(false);
+                  setIsDraggingY(false);
                   setHoverData(null);
                 }}
-                className="w-full h-[360px] cursor-crosshair"
+                className="w-full h-[360px]"
               />
 
               <div className="text-[10px] text-gray-500 text-center pt-1">
-                💡 滾輪/雙指可放大縮小，按住滑鼠可左右平移時間軸
+                💡 滾輪縮放時間軸，拖曳右側價格表可上下拉伸價格軸，雙擊還原
               </div>
             </div>
           )}
