@@ -55,15 +55,47 @@ app.get('/api/health', async (req: Request, res: Response) => {
   });
 });
 
+import fs from 'fs';
+
+const CLOUD_STORE_FILE = path.join(__dirname, 'cloud_store.json');
+
+function loadLocalCloudStore(): Record<string, any> {
+  try {
+    if (fs.existsSync(CLOUD_STORE_FILE)) {
+      return JSON.parse(fs.readFileSync(CLOUD_STORE_FILE, 'utf-8'));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveLocalCloudStore(store: Record<string, any>): void {
+  try {
+    fs.writeFileSync(CLOUD_STORE_FILE, JSON.stringify(store, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('Failed to write cloud_store.json:', e);
+  }
+}
+
 app.get('/api/data', async (req: Request, res: Response) => {
-  const syncCode = (req.query.syncCode as string) || 'FIRE-DEFAULT-2026';
+  const syncCode = ((req.query.syncCode as string) || 'FIRE-DEFAULT-2026').trim().toUpperCase();
   const supabase = getSupabaseClient();
 
   if (!supabase) {
+    const store = loadLocalCloudStore();
+    const existing = store[syncCode] || null;
     return res.json({
-      success: false,
-      mode: 'offline',
-      message: 'Supabase 未連線，使用本地 LocalStorage 數據',
+      success: true,
+      mode: 'server_cloud',
+      syncCode,
+      data: existing
+        ? {
+            transactions: existing.transactions || [],
+            categories: existing.categories || null,
+            fireConfig: existing.fireConfig || null,
+            quickPresets: existing.quickPresets || null,
+            portfolioStocks: existing.portfolioStocks || [],
+          }
+        : null,
     });
   }
 
@@ -192,14 +224,28 @@ app.get('/api/data', async (req: Request, res: Response) => {
 
 app.post('/api/data/sync', async (req: Request, res: Response) => {
   const { syncCode, transactions, categories, fireConfig, quickPresets, portfolioStocks } = req.body;
-  const targetSyncCode = syncCode || 'FIRE-DEFAULT-2026';
-  const supabase = getSupabaseClient();
+  const targetSyncCode = ((syncCode as string) || 'FIRE-DEFAULT-2026').trim().toUpperCase();
 
+  // Always write to server persistent JSON database
+  const store = loadLocalCloudStore();
+  store[targetSyncCode] = {
+    syncCode: targetSyncCode,
+    transactions: transactions || [],
+    categories: categories || [],
+    fireConfig: fireConfig || null,
+    quickPresets: quickPresets || [],
+    portfolioStocks: portfolioStocks || [],
+    updatedAt: new Date().toISOString(),
+  };
+  saveLocalCloudStore(store);
+
+  const supabase = getSupabaseClient();
   if (!supabase) {
     return res.json({
-      success: false,
-      mode: 'offline',
-      message: 'Supabase 未連線，數據已保持於本地儲存',
+      success: true,
+      mode: 'server_cloud',
+      lastSyncedAt: new Date().toISOString(),
+      message: '全量數據已成功備份至伺服器雲端庫！',
     });
   }
 
@@ -325,6 +371,107 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
     console.error('[API /api/data/sync Error]:', err);
     return res.status(500).json({ success: false, error: err.message || err });
   }
+});
+
+app.post('/api/config', async (req: Request, res: Response) => {
+  const { syncCode, config } = req.body;
+  const targetSyncCode = ((syncCode as string) || 'FIRE-DEFAULT-2026').trim().toUpperCase();
+
+  const store = loadLocalCloudStore();
+  const existing = store[targetSyncCode] || { syncCode: targetSyncCode, transactions: [], categories: [], fireConfig: null, quickPresets: [], portfolioStocks: [] };
+  existing.fireConfig = config;
+  existing.updatedAt = new Date().toISOString();
+  store[targetSyncCode] = existing;
+  saveLocalCloudStore(store);
+
+  const supabase = getSupabaseClient();
+  if (supabase && config) {
+    try {
+      const configData: any = {
+        sync_code: targetSyncCode,
+        current_age: config.currentAge,
+        target_retirement_age: config.targetRetirementAge,
+        current_net_worth: config.currentNetWorth,
+        cash_savings: config.cashSavings,
+        base_cash_balance: config.baseCashBalance,
+        monthly_income: config.monthlyIncome,
+        monthly_expenses: config.monthlyExpenses,
+        monthly_tax: config.monthlyTax,
+        monthly_investment: config.monthlyInvestment,
+        target_annual_expense_post_retirement: config.targetAnnualExpensePostRetirement,
+        expected_investment_return_rate: config.expectedInvestmentReturnRate,
+        expected_inflation_rate: config.expectedInflationRate,
+        safe_withdrawal_rate: config.safeWithdrawalRate,
+        currency_symbol: config.currencySymbol,
+        theme_color: config.themeColor || 'cyan',
+        updated_at: new Date().toISOString(),
+      };
+      await supabase.from('fire_configs').upsert(configData);
+    } catch (e) {}
+  }
+
+  return res.json({ success: true });
+});
+
+app.post('/api/transactions', async (req: Request, res: Response) => {
+  const { syncCode, transaction } = req.body;
+  const targetSyncCode = ((syncCode as string) || 'FIRE-DEFAULT-2026').trim().toUpperCase();
+
+  const store = loadLocalCloudStore();
+  const existing = store[targetSyncCode] || { syncCode: targetSyncCode, transactions: [], categories: [], fireConfig: null, quickPresets: [], portfolioStocks: [] };
+  const txList = existing.transactions || [];
+  const idx = txList.findIndex((t: any) => t.id === transaction.id);
+  if (idx >= 0) {
+    txList[idx] = transaction;
+  } else {
+    txList.unshift(transaction);
+  }
+  existing.transactions = txList;
+  existing.updatedAt = new Date().toISOString();
+  store[targetSyncCode] = existing;
+  saveLocalCloudStore(store);
+
+  const supabase = getSupabaseClient();
+  if (supabase && transaction) {
+    try {
+      await supabase.from('transactions').upsert({
+        id: transaction.id,
+        sync_code: targetSyncCode,
+        type: transaction.type,
+        amount: transaction.amount,
+        main_category: transaction.mainCategory,
+        sub_category: transaction.subCategory || '',
+        date: transaction.date,
+        note: transaction.note || '',
+        tags: transaction.tags || [],
+        is_quick_preset: Boolean(transaction.isQuickPreset),
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {}
+  }
+
+  return res.json({ success: true });
+});
+
+app.delete('/api/transactions/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const syncCode = ((req.query.syncCode as string) || 'FIRE-DEFAULT-2026').trim().toUpperCase();
+
+  const store = loadLocalCloudStore();
+  if (store[syncCode]) {
+    store[syncCode].transactions = (store[syncCode].transactions || []).filter((t: any) => t.id !== id);
+    store[syncCode].updatedAt = new Date().toISOString();
+    saveLocalCloudStore(store);
+  }
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await supabase.from('transactions').delete().eq('id', id).eq('sync_code', syncCode);
+    } catch (e) {}
+  }
+
+  return res.json({ success: true });
 });
 
 /**

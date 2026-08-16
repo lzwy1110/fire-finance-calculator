@@ -273,63 +273,42 @@ export default function App() {
     }
   }, [categories]);
 
-  // Double-Entry Accounting: Auto-Sync Total FIRE Net Worth in Real Time
-  // Total Net Worth = Live Stock Market Value + Cash Savings (Base Cash + Income - Expense - Tax - Stock Purchases + Stock Sales)
-  useEffect(() => {
-    let stockMarketValue = 0;
-    let stockTradeNetCash = 0;
-
+  const liveStockMarketValue = useMemo(() => {
+    let sum = 0;
     if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
       portfolioStocks.forEach((s) => {
         const synced = syncStockCalculations(s);
         const val = synced.shares * (synced.currentPrice || 0);
         const rate = s.market === 'US' ? 32.5 : 1;
-        stockMarketValue += val * rate;
-
-        (synced.transactions || []).forEach((tx) => {
-          const tradeAmt = (tx.shares * tx.price) * rate;
-          if (tx.type === 'BUY') {
-            if (!tx.isInitialHoldings) {
-              stockTradeNetCash -= tradeAmt; // Only deduct cash for NEW cash purchases, skip for pre-existing holdings
-            }
-          } else if (tx.type === 'SELL') {
-            stockTradeNetCash += tradeAmt; // Selling stock generates cash!
-          }
-        });
+        sum += val * rate;
       });
     }
+    return Math.round(sum);
+  }, [portfolioStocks]);
 
-    // Ledger Net Cash Savings (Income - Expense - Tax)
-    let ledgerNetCash = 0;
-    if (Array.isArray(transactions)) {
-      transactions.forEach((t) => {
-        if (t.type === 'income') ledgerNetCash += t.amount;
-        if (t.type === 'expense') ledgerNetCash -= t.amount;
-        if (t.type === 'tax') ledgerNetCash -= t.amount;
-      });
-    }
-
-    const baseCash = fireConfig.baseCashBalance ?? (fireConfig.cashSavings ?? (fireConfig.currentNetWorth ? Math.max(0, fireConfig.currentNetWorth) : 0));
-    const computedCashSavings = Math.round(baseCash + ledgerNetCash + stockTradeNetCash);
-    const totalNetWorth = Math.round(stockMarketValue + computedCashSavings);
+  // Double-Entry Accounting: Auto-Sync Total FIRE Net Worth in Real Time
+  // Total Net Worth = Live Stock Market Value + Cash Savings
+  useEffect(() => {
+    const cash = fireConfig.cashSavings ?? (fireConfig.baseCashBalance ?? 0);
+    const totalNetWorth = Math.round(liveStockMarketValue + cash);
 
     if (
       (fireConfig.currentNetWorth || 0) !== totalNetWorth ||
-      (fireConfig.cashSavings || 0) !== computedCashSavings ||
-      fireConfig.baseCashBalance === undefined
+      fireConfig.baseCashBalance === undefined ||
+      fireConfig.cashSavings === undefined
     ) {
       setFireConfig((prev) => {
         const updated = {
           ...prev,
-          baseCashBalance: prev.baseCashBalance ?? baseCash,
-          cashSavings: computedCashSavings,
+          baseCashBalance: prev.baseCashBalance ?? cash,
+          cashSavings: prev.cashSavings ?? cash,
           currentNetWorth: totalNetWorth,
         };
         saveFIREConfigLocalOnly(updated);
         return updated;
       });
     }
-  }, [portfolioStocks, transactions, fireConfig.baseCashBalance]);
+  }, [liveStockMarketValue, fireConfig.cashSavings]);
 
   // Update Portfolio Stocks
   const handleUpdatePortfolioStocks = (newStocks: PortfolioStock[]) => {
@@ -465,52 +444,13 @@ export default function App() {
     removeSingleTransactionFromCloud(id);
   };
 
-  const liveStockMarketValue = useMemo(() => {
-    let sum = 0;
-    if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
-      portfolioStocks.forEach((s) => {
-        const synced = syncStockCalculations(s);
-        const val = synced.shares * (synced.currentPrice || 0);
-        const rate = s.market === 'US' ? 32.5 : 1;
-        sum += val * rate;
-      });
-    }
-    return Math.round(sum);
-  }, [portfolioStocks]);
-
   const handleUpdateFIREConfig = (newConfig: FIREConfig) => {
     lastUserEditTimeRef.current = Date.now();
-
-    let stockTradeNetCash = 0;
-    if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
-      portfolioStocks.forEach((s) => {
-        const rate = s.market === 'US' ? 32.5 : 1;
-        (s.transactions || []).forEach((tx) => {
-          const tradeAmt = (tx.shares * tx.price) * rate;
-          if (tx.type === 'BUY' && !tx.isInitialHoldings) {
-            stockTradeNetCash -= tradeAmt;
-          } else if (tx.type === 'SELL') {
-            stockTradeNetCash += tradeAmt;
-          }
-        });
-      });
-    }
-
-    let ledgerNetCash = 0;
-    if (Array.isArray(transactions)) {
-      transactions.forEach((t) => {
-        if (t.type === 'income') ledgerNetCash += t.amount;
-        if (t.type === 'expense') ledgerNetCash -= t.amount;
-        if (t.type === 'tax') ledgerNetCash -= t.amount;
-      });
-    }
-
     const targetCash = newConfig.cashSavings ?? (newConfig.baseCashBalance ?? (fireConfig.cashSavings ?? 0));
-    const calculatedBase = Math.round(targetCash - (ledgerNetCash + stockTradeNetCash));
 
     const finalConfig: FIREConfig = {
       ...newConfig,
-      baseCashBalance: calculatedBase,
+      baseCashBalance: targetCash,
       cashSavings: targetCash,
       currentNetWorth: Math.round(targetCash + liveStockMarketValue),
     };
