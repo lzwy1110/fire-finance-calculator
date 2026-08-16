@@ -170,31 +170,33 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
 
           {/* Quick Stats Grid */}
           <div className="lg:col-span-5 grid grid-cols-2 gap-3.5">
-            {/* Current Net Worth with Asset Allocation Donut */}
+            {/* Current Net Worth with Full Width & Asset Breakdown */}
             {(() => {
               const cashAmt = config.cashSavings ?? (config.baseCashBalance ?? 0);
               const stockAmt = stockMarketValue;
               const totalAmt = cashAmt + stockAmt || 1;
               const cashPct = Math.round((cashAmt / totalAmt) * 100);
               const stockPct = 100 - cashPct;
-              const circumference = 2 * Math.PI * 14;
-              const cashStrokeDash = (cashPct / 100) * circumference;
-              const stockStrokeDash = circumference - cashStrokeDash;
 
               return (
-                <div className="bg-[#111111] p-4 rounded-2xl border border-white/5 flex flex-col justify-between">
+                <div className="col-span-2 bg-[#111111] p-4 sm:p-5 rounded-2xl border border-white/5 flex flex-col justify-between">
                   <div className="text-xs text-gray-400 flex items-center justify-between mb-1">
-                    <span className="font-bold">目前總資產 (Total)</span>
-                    <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="font-bold text-xs uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                      目前總淨資產 (Total Net Worth)
+                    </span>
+                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-bold">
+                      現金 + 股票
+                    </span>
                   </div>
 
-                  <div className="my-1">
-                    <div className="text-xl sm:text-2xl font-black text-white font-mono leading-tight tracking-tight truncate">
+                  <div className="my-1.5">
+                    <div className="text-2xl sm:text-3xl font-black text-white font-mono leading-tight tracking-tight whitespace-nowrap overflow-x-auto scrollbar-none">
                       {formatCurrency(config.currentNetWorth)}
                     </div>
                     
                     {/* Sleek Horizontal Proportional Asset Allocation Bar */}
-                    <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden flex my-2">
+                    <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden flex my-2.5">
                       <div
                         className="bg-emerald-400 h-full transition-all duration-700"
                         style={{ width: `${cashPct}%` }}
@@ -210,18 +212,18 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-[11px] text-gray-400 pt-1.5 border-t border-white/5 flex items-center justify-between flex-wrap gap-x-2 gap-y-1">
-                    <span className="flex items-center gap-1 font-mono">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                      <span>現金:</span>
-                      <strong className="text-emerald-400 font-bold">{sym}{formatNumber(cashAmt)}</strong>
-                      <span className="text-[10px] text-gray-500">({cashPct}%)</span>
+                  <div className="text-xs text-gray-400 pt-2 border-t border-white/5 flex items-center justify-between flex-wrap gap-x-4 gap-y-1.5">
+                    <span className="flex items-center gap-1.5 font-mono whitespace-nowrap">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                      <span className="text-gray-300">現金儲備:</span>
+                      <strong className="text-emerald-400 font-bold text-xs sm:text-sm">{sym} {formatNumber(cashAmt)}</strong>
+                      <span className="text-[11px] text-gray-500 font-semibold">({cashPct}%)</span>
                     </span>
-                    <span className="flex items-center gap-1 font-mono">
-                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0"></span>
-                      <span>股票:</span>
-                      <strong className="text-cyan-400 font-bold">{sym}{formatNumber(stockAmt)}</strong>
-                      <span className="text-[10px] text-gray-500">({stockPct}%)</span>
+                    <span className="flex items-center gap-1.5 font-mono whitespace-nowrap">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
+                      <span className="text-gray-300">股票市值:</span>
+                      <strong className="text-cyan-400 font-bold text-xs sm:text-sm">{sym} {formatNumber(stockAmt)}</strong>
+                      <span className="text-[11px] text-gray-500 font-semibold">({stockPct}%)</span>
                     </span>
                   </div>
                 </div>
@@ -229,44 +231,50 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
             })()}
 
             {/* Target FIRE Capital */}
-            <div className="bg-[#111111] p-4 rounded-2xl border border-white/5">
+            <div className="col-span-2 bg-[#111111] p-4 sm:p-5 rounded-2xl border border-white/5 flex flex-col justify-between">
               <div className="text-xs text-gray-400 flex items-center justify-between mb-1">
-                <span>FIRE 目標資產</span>
-                <Target className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
+                <span className="font-bold text-xs uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
+                  FIRE 目標退休資產 (Target)
+                </span>
+                <span className="text-[10px] text-gray-400 font-mono font-bold">
+                  進度 {result.currentProgressPercent}%
+                </span>
               </div>
-              <div className="text-lg sm:text-xl font-bold font-mono" style={{ color: currentTheme.primaryHex }}>
+              <div className="text-2xl sm:text-3xl font-black font-mono leading-tight tracking-tight whitespace-nowrap overflow-x-auto scrollbar-none my-1" style={{ color: currentTheme.primaryHex }}>
                 {sym} {formatNumber(result.targetFIREAmount)}
               </div>
-              <div className="text-[11px] text-gray-400 mt-1">
-                以 4% 安全提領率計算
+              <div className="text-xs text-gray-400 pt-1.5 border-t border-white/5 flex items-center justify-between">
+                <span>以 4% 安全提領率計算 (退休年支出 × 25)</span>
+                <span className="text-gray-400 font-mono">尚需 {sym} {formatNumber(Math.max(0, result.targetFIREAmount - config.currentNetWorth))}</span>
               </div>
             </div>
 
             {/* Monthly Net Savings */}
-            <div className="bg-[#111111] p-4 rounded-2xl border border-white/5">
+            <div className="col-span-1 bg-[#111111] p-3.5 sm:p-4 rounded-2xl border border-white/5 flex flex-col justify-between">
               <div className="text-xs text-gray-400 flex items-center justify-between mb-1">
-                <span>估算月淨儲蓄</span>
+                <span className="font-bold">估算月淨儲蓄</span>
                 <ShieldCheck className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
               </div>
-              <div className="text-lg sm:text-xl font-bold font-mono" style={{ color: currentTheme.primaryHex }}>
+              <div className="text-base sm:text-xl font-bold font-mono whitespace-nowrap overflow-x-auto scrollbar-none my-1" style={{ color: currentTheme.primaryHex }}>
                 {sym} {formatNumber(result.netMonthlySavings)}
               </div>
-              <div className="text-[11px] mt-1 font-semibold" style={{ color: currentTheme.primaryHex }}>
-                淨儲蓄率 {result.monthlySavingsRate}%
+              <div className="text-[11px] font-semibold text-gray-400" style={{ color: currentTheme.primaryHex }}>
+                儲蓄率 {result.monthlySavingsRate}%
               </div>
             </div>
 
             {/* Post Retirement Monthly Income */}
-            <div className="bg-[#111111] p-4 rounded-2xl border border-white/5">
+            <div className="col-span-1 bg-[#111111] p-3.5 sm:p-4 rounded-2xl border border-white/5 flex flex-col justify-between">
               <div className="text-xs text-gray-400 flex items-center justify-between mb-1">
-                <span>退休後月被動收入</span>
+                <span className="font-bold">退休後月被動提領</span>
                 <TrendingUp className="w-3.5 h-3.5 text-orange-400" />
               </div>
-              <div className="text-lg sm:text-xl font-bold text-orange-300 font-mono">
+              <div className="text-base sm:text-xl font-bold text-orange-300 font-mono whitespace-nowrap overflow-x-auto scrollbar-none my-1">
                 {sym} {formatNumber(result.monthlyInterestIncomeAtRetirement)}
               </div>
-              <div className="text-[11px] text-gray-400 mt-1">
-                每月自投資組合提領
+              <div className="text-[11px] text-gray-400">
+                4% 組合每月提領
               </div>
             </div>
           </div>
