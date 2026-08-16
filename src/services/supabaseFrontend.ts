@@ -362,6 +362,14 @@ export async function pushSupabaseDataDirect(payload: {
       }));
       try {
         await supabase.from('categories').upsert(catRows);
+        const currentCatIds = categories.map((c) => c.id);
+        if (currentCatIds.length > 0) {
+          await supabase
+            .from('categories')
+            .delete()
+            .eq('sync_code', targetSyncCode)
+            .not('id', 'in', `(${currentCatIds.join(',')})`);
+        }
       } catch (e) {}
     }
 
