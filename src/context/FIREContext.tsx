@@ -178,16 +178,25 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
           saveCategoriesLocalOnly(cCat);
         }
         if (cCfg) {
-          const cashVal = cCfg.cashSavings ?? (cCfg.baseCashBalance ?? 0);
-          const merged: FIREConfig = {
-            ...DEFAULT_FIRE_CONFIG,
-            ...cCfg,
-            cashSavings: cashVal,
-            baseCashBalance: cashVal,
-            currentNetWorth: Math.round(cashVal + liveStockMarketValue),
-          };
-          setFireConfig(merged);
-          saveFIREConfigLocalOnly(merged);
+          const cashVal = cCfg.cashSavings != null 
+            ? cCfg.cashSavings 
+            : (cCfg.baseCashBalance != null 
+                ? cCfg.baseCashBalance 
+                : (cCfg.currentNetWorth != null && cCfg.currentNetWorth > 0 
+                    ? Math.max(0, cCfg.currentNetWorth - liveStockMarketValue) 
+                    : undefined));
+
+          if (cashVal !== undefined) {
+            const merged: FIREConfig = {
+              ...DEFAULT_FIRE_CONFIG,
+              ...cCfg,
+              cashSavings: cashVal,
+              baseCashBalance: cashVal,
+              currentNetWorth: Math.round(cashVal + liveStockMarketValue),
+            };
+            setFireConfig(merged);
+            saveFIREConfigLocalOnly(merged);
+          }
         }
         if (Array.isArray(cPresets) && cPresets.length > 0) {
           setQuickPresets(cPresets);

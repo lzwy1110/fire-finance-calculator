@@ -141,24 +141,53 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
     if (configRes.data) {
       const cfg = configRes.data;
       let parsedExtra: any = {};
-      if ((cfg as any).portfolio_stocks_json) {
+      let resolvedThemeColor = cfg.theme_color || 'sakura';
+
+      // 1. Decode theme_color metadata fallback (Guaranteed column in schema)
+      if (cfg.theme_color && typeof cfg.theme_color === 'string' && cfg.theme_color.startsWith('{')) {
         try {
-          const parsed = JSON.parse((cfg as any).portfolio_stocks_json);
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed._metaConfig) {
-            parsedExtra = parsed._metaConfig;
+          const parsedTheme = JSON.parse(cfg.theme_color);
+          if (parsedTheme && typeof parsedTheme === 'object') {
+            resolvedThemeColor = parsedTheme.theme || 'sakura';
+            parsedExtra = { ...parsedExtra, ...parsedTheme };
           }
         } catch (e) {}
       }
 
-      const cashSavings = cfg.cash_savings != null ? Number(cfg.cash_savings) : (cfg.base_cash_balance != null ? Number(cfg.base_cash_balance) : (parsedExtra.cashSavings ?? parsedExtra.baseCashBalance));
-      const baseCashBalance = cfg.base_cash_balance != null ? Number(cfg.base_cash_balance) : (cfg.cash_savings != null ? Number(cfg.cash_savings) : (parsedExtra.baseCashBalance ?? parsedExtra.cashSavings));
+      // 2. Decode portfolio_stocks_json metadata fallback
+      if ((cfg as any).portfolio_stocks_json) {
+        try {
+          const parsed = JSON.parse((cfg as any).portfolio_stocks_json);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed._metaConfig) {
+            parsedExtra = { ...parsedExtra, ...parsed._metaConfig };
+          }
+        } catch (e) {}
+      }
+
+      const cashSavings = cfg.cash_savings != null 
+        ? Number(cfg.cash_savings) 
+        : (cfg.base_cash_balance != null 
+            ? Number(cfg.base_cash_balance) 
+            : (parsedExtra.cashSavings != null 
+                ? Number(parsedExtra.cashSavings) 
+                : (parsedExtra.baseCashBalance != null 
+                    ? Number(parsedExtra.baseCashBalance) 
+                    : Number(cfg.current_net_worth || 0))));
+
+      const baseCashBalance = cfg.base_cash_balance != null 
+        ? Number(cfg.base_cash_balance) 
+        : (cfg.cash_savings != null 
+            ? Number(cfg.cash_savings) 
+            : (parsedExtra.baseCashBalance != null 
+                ? Number(parsedExtra.baseCashBalance) 
+                : cashSavings));
 
       fireConfig = {
         currentAge: Number(cfg.current_age),
         targetRetirementAge: Number(cfg.target_retirement_age),
         currentNetWorth: Number(cfg.current_net_worth),
-        cashSavings: cashSavings != null ? Number(cashSavings) : undefined,
-        baseCashBalance: baseCashBalance != null ? Number(baseCashBalance) : undefined,
+        cashSavings: cashSavings != null ? Number(cashSavings) : 0,
+        baseCashBalance: baseCashBalance != null ? Number(baseCashBalance) : 0,
         monthlyIncome: Number(cfg.monthly_income),
         monthlyExpenses: Number(cfg.monthly_expenses),
         monthlyTax: Number(cfg.monthly_tax),
@@ -168,7 +197,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
         expectedInflationRate: Number(cfg.expected_inflation_rate),
         safeWithdrawalRate: Number(cfg.safe_withdrawal_rate),
         currencySymbol: cfg.currency_symbol,
-        themeColor: cfg.theme_color,
+        themeColor: resolvedThemeColor,
       };
     }
 
@@ -257,7 +286,12 @@ export async function pushSupabaseDataDirect(payload: {
 
   try {
     // 1. Safely Upsert FIRE Config (handling missing columns without throwing)
-    if (fireConfig) {
+      const themeWithMeta = JSON.stringify({
+        theme: fireConfig.themeColor || 'sakura',
+        cashSavings: fireConfig.cashSavings != null ? fireConfig.cashSavings : 0,
+        baseCashBalance: fireConfig.baseCashBalance != null ? fireConfig.baseCashBalance : 0,
+      });
+
       const baseConfigObj = {
         sync_code: targetSyncCode,
         current_age: fireConfig.currentAge,
@@ -274,7 +308,7 @@ export async function pushSupabaseDataDirect(payload: {
         expected_inflation_rate: fireConfig.expectedInflationRate,
         safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
         currency_symbol: fireConfig.currencySymbol,
-        theme_color: fireConfig.themeColor || 'cyan',
+        theme_color: themeWithMeta,
         updated_at: new Date().toISOString(),
       };
 
@@ -293,13 +327,26 @@ export async function pushSupabaseDataDirect(payload: {
 
       const res1 = await supabase.from('fire_configs').upsert(payloadWithAll);
       if (res1.error) {
-        console.warn('[Supabase fire_configs upsert error, retrying without optional columns]:', res1.error.message);
-        const fallbackObj: any = { ...payloadWithAll };
-        delete fallbackObj.cash_savings;
-        delete fallbackObj.base_cash_balance;
-        await supabase.from('fire_configs').upsert(fallbackObj);
+        console.warn('[Supabase fire_configs upsert error, retrying with core standard columns]:', res1.error.message);
+        const coreFallback = {
+          sync_code: targetSyncCode,
+          current_age: fireConfig.currentAge,
+          target_retirement_age: fireConfig.targetRetirementAge,
+          current_net_worth: fireConfig.currentNetWorth,
+          monthly_income: fireConfig.monthlyIncome,
+          monthly_expenses: fireConfig.monthlyExpenses,
+          monthly_tax: fireConfig.monthlyTax,
+          monthly_investment: fireConfig.monthlyInvestment,
+          target_annual_expense_post_retirement: fireConfig.targetAnnualExpensePostRetirement,
+          expected_investment_return_rate: fireConfig.expectedInvestmentReturnRate,
+          expected_inflation_rate: fireConfig.expectedInflationRate,
+          safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
+          currency_symbol: fireConfig.currencySymbol,
+          theme_color: themeWithMeta,
+          updated_at: new Date().toISOString(),
+        };
+        await supabase.from('fire_configs').upsert(coreFallback);
       }
-    }
 
     // 2. Safely Upsert Categories
     if (Array.isArray(categories) && categories.length > 0) {
@@ -510,6 +557,12 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
   const supabase = getFrontendSupabaseClient();
   if (!supabase) return false;
   try {
+    const themeWithMeta = JSON.stringify({
+      theme: config.themeColor || 'sakura',
+      cashSavings: config.cashSavings != null ? config.cashSavings : 0,
+      baseCashBalance: config.baseCashBalance != null ? config.baseCashBalance : 0,
+    });
+
     const configData: any = {
       sync_code: syncCode,
       current_age: config.currentAge,
@@ -526,7 +579,7 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
       expected_inflation_rate: config.expectedInflationRate,
       safe_withdrawal_rate: config.safeWithdrawalRate,
       currency_symbol: config.currencySymbol,
-      theme_color: config.themeColor || 'cyan',
+      theme_color: themeWithMeta,
       updated_at: new Date().toISOString(),
     };
 
@@ -552,10 +605,25 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
 
     const res1 = await supabase.from('fire_configs').upsert(configData);
     if (res1.error) {
-      console.warn('[Supabase saveFIREConfigDirect error, retrying without optional columns]:', res1.error.message);
-      delete configData.cash_savings;
-      delete configData.base_cash_balance;
-      await supabase.from('fire_configs').upsert(configData);
+      console.warn('[Supabase saveFIREConfigDirect error, retrying with core schema columns]:', res1.error.message);
+      const coreData = {
+        sync_code: syncCode,
+        current_age: config.currentAge,
+        target_retirement_age: config.targetRetirementAge,
+        current_net_worth: config.currentNetWorth,
+        monthly_income: config.monthlyIncome,
+        monthly_expenses: config.monthlyExpenses,
+        monthly_tax: config.monthlyTax,
+        monthly_investment: config.monthlyInvestment,
+        target_annual_expense_post_retirement: config.targetAnnualExpensePostRetirement,
+        expected_investment_return_rate: config.expectedInvestmentReturnRate,
+        expected_inflation_rate: config.expectedInflationRate,
+        safe_withdrawal_rate: config.safeWithdrawalRate,
+        currency_symbol: config.currencySymbol,
+        theme_color: themeWithMeta,
+        updated_at: new Date().toISOString(),
+      };
+      await supabase.from('fire_configs').upsert(coreData);
     }
     return true;
   } catch (e) {
