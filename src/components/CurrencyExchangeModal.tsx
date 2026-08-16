@@ -37,6 +37,12 @@ export const CurrencyExchangeModal: React.FC<CurrencyExchangeModalProps> = ({
   const [feeInput, setFeeInput] = useState<string>('0');
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  useEffect(() => {
+    if (systemUsdRate && !isCustomRate) {
+      setRate(systemUsdRate);
+    }
+  }, [systemUsdRate, isCustomRate]);
+
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
 
   const fromCurrency = direction === 'TWD_TO_USD' ? 'TWD' : 'USD';
