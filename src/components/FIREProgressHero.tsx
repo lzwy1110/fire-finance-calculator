@@ -6,12 +6,14 @@ import { getThemePreset } from '../utils/theme';
 interface FIREProgressHeroProps {
   config: FIREConfig;
   result: FIREResult;
+  stockMarketValue?: number;
   onUpdateConfig: (newConfig: FIREConfig) => void;
 }
 
 export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
   config,
   result,
+  stockMarketValue = 0,
   onUpdateConfig,
 }) => {
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
@@ -170,8 +172,8 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
           <div className="lg:col-span-5 grid grid-cols-2 gap-3.5">
             {/* Current Net Worth with Asset Allocation Donut */}
             {(() => {
-              const cashAmt = config.cashSavings || config.baseCashBalance || 0;
-              const stockAmt = Math.max(0, (config.currentNetWorth || 0) - cashAmt);
+              const cashAmt = config.cashSavings ?? (config.baseCashBalance ?? 0);
+              const stockAmt = stockMarketValue;
               const totalAmt = cashAmt + stockAmt || 1;
               const cashPct = Math.round((cashAmt / totalAmt) * 100);
               const stockPct = 100 - cashPct;
@@ -394,8 +396,8 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                   </span>
                 </div>
                 {(() => {
-                  const liveStockVal = Math.max(0, (config.currentNetWorth || 0) - (config.cashSavings || config.baseCashBalance || 0));
-                  const currentCashVal = tempConfig.cashSavings ?? (tempConfig.baseCashBalance || 0);
+                  const liveStockVal = stockMarketValue;
+                  const currentCashVal = tempConfig.cashSavings ?? (tempConfig.baseCashBalance ?? 0);
 
                   return (
                     <>

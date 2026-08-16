@@ -10,6 +10,7 @@ interface DashboardOverviewProps {
   quickPresets: QuickPreset[];
   fireConfig: FIREConfig;
   fireResult: FIREResult;
+  stockMarketValue?: number;
   onUpdateFIREConfig: (newConfig: FIREConfig) => void;
   onAddTransaction: (t: Omit<Transaction, 'id'>) => void;
   onOpenQuickAdd: () => void;
@@ -25,6 +26,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   quickPresets,
   fireConfig,
   fireResult,
+  stockMarketValue = 0,
   onUpdateFIREConfig,
   onAddTransaction,
   onOpenQuickAdd,
@@ -78,6 +80,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       <FIREProgressHero
         config={fireConfig}
         result={fireResult}
+        stockMarketValue={stockMarketValue}
         onUpdateConfig={onUpdateFIREConfig}
       />
 

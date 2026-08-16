@@ -1,47 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { registerPlugin } from '@capacitor/core';
-import {
-  CategoryItem,
-  FIREConfig,
-  QuickPreset,
-  Transaction,
-  PortfolioStock,
-} from './types';
-import { calculateFIRE } from './utils/fireCalculator';
-import {
-  calculateStockMetrics,
-  mergeStockPortfolios,
-  syncStockCalculations,
-} from './utils/portfolioMath';
-import {
-  autoSyncToCloud,
-  getOrCreateSyncCode,
-  loadCategories,
-  loadFIREConfig,
-  loadQuickPresets,
-  loadTransactions,
-  loadPortfolioStocks,
-  savePortfolioStocks,
-  savePortfolioStocksLocalOnly,
-  removeSingleTransactionFromCloud,
-  resetAllDataToDefault,
-  saveCategories,
-  saveCategoriesLocalOnly,
-  saveFIREConfig,
-  saveFIREConfigLocalOnly,
-  saveTransactions,
-  saveTransactionsLocalOnly,
-  saveQuickPresets,
-  saveQuickPresetsLocalOnly,
-  syncSingleTransactionToCloud,
-  getStorageMode,
-  setStorageMode,
-  switchToCloudMode,
-  switchToLocalMode,
-} from './utils/storage';
-import { fetchCloudData } from './services/api';
-import { subscribeToRealtimeSync } from './services/realtimeSync';
-
+import React, { useState, useEffect } from 'react';
+import { FIREProvider, useFIRE } from './context/FIREContext';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { MonthlyYearlySummary } from './components/MonthlyYearlySummary';
@@ -52,196 +10,42 @@ import { QuickAddModal } from './components/QuickAddModal';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
 import { SystemSettingsModal } from './components/SystemSettingsModal';
-import { DataReconciliationModal, CloudSnapshotData, LocalSnapshotData } from './components/DataReconciliationModal';
 import { AppLoadingSplash } from './components/AppLoadingSplash';
-import { DEFAULT_CATEGORIES, DEFAULT_FIRE_CONFIG, DEFAULT_QUICK_PRESETS } from './data/initialData';
-import { applyThemeToCSSVariables } from './utils/theme';
+import { WidgetBridge } from './services/widgetBridge';
+import { resetAllDataToDefault } from './utils/storage';
 
-interface WidgetBridgePluginType {
-  getPendingWidgetTransactions: () => Promise<{ pending_txs: string }>;
-  loadWidgetAppData: () => Promise<{ app_transactions_json: string }>;
-  saveWidgetAppData: (options: { transactions: any[]; todayExpense: number }) => Promise<void>;
-  saveWidgetCustomConfig: (options: { cats?: string; subs?: string }) => Promise<void>;
-}
-
-const WidgetBridge = registerPlugin<WidgetBridgePluginType>('WidgetBridge');
-
-export default function App() {
+function FIREAppContent() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'monthly' | 'yearly' | 'ledger' | 'analytics' | 'portfolio'>('dashboard');
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [quickPresets, setQuickPresets] = useState<QuickPreset[]>([]);
-  const [portfolioStocks, setPortfolioStocks] = useState<PortfolioStock[]>([]);
-  const [fireConfig, setFireConfig] = useState<FIREConfig>(loadFIREConfig());
-  const [syncCode, setSyncCode] = useState<string>('');
-  const [storageMode, setStorageModeState] = useState<'cloud' | 'local'>(getStorageMode());
-  const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
-  const lastUserEditTimeRef = useRef<number>(0);
 
-  // Modals state
+  // Modal states
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isCloudSyncOpen, setIsCloudSyncOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [isSystemSettingsOpen, setIsSystemSettingsOpen] = useState(false);
-  const [reconciliationModalData, setReconciliationModalData] = useState<{
-    cloudData: CloudSnapshotData;
-    localData: LocalSnapshotData;
-  } | null>(null);
 
-  // Startup Load: Check Storage Mode (Local vs Cloud-First)
-  useEffect(() => {
-    const currentMode = getStorageMode();
-    setStorageModeState(currentMode);
-    const code = getOrCreateSyncCode();
-    setSyncCode(code);
+  // Consume from centralized single-source-of-truth FIREContext
+  const {
+    transactions,
+    categories,
+    quickPresets,
+    portfolioStocks,
+    fireConfig,
+    liveStockMarketValue,
+    totalNetWorth,
+    fireResult,
+    storageMode,
+    syncCode,
+    isAppLoading,
+    updateFIREConfig,
+    addTransaction,
+    deleteTransaction,
+    updateCategories,
+    updatePortfolioStocks,
+    toggleStorageMode,
+    restoreAllData,
+  } = useFIRE();
 
-    if (currentMode === 'local') {
-      const localTx = loadTransactions();
-      const localCat = loadCategories();
-      const localPresets = loadQuickPresets();
-      const localStocks = loadPortfolioStocks();
-      const loadedConfig = loadFIREConfig();
-
-      setTransactions(localTx);
-      setCategories(localCat);
-      setQuickPresets(localPresets);
-      setPortfolioStocks(localStocks);
-      setFireConfig(loadedConfig);
-      applyThemeToCSSVariables(loadedConfig.themeColor);
-
-      setTimeout(() => {
-        setIsAppLoading(false);
-      }, 200);
-      return;
-    }
-
-    // Pure Cloud-First Load on App Launch (Fetch single source of truth from Supabase)
-    fetchCloudData(code)
-      .then((cloudRes) => {
-        if (cloudRes && cloudRes.success && cloudRes.data) {
-          const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
-
-          setTransactions(cTx || []);
-          saveTransactionsLocalOnly(cTx || []);
-
-          if (Array.isArray(cCat) && cCat.length > 0) {
-            setCategories(cCat);
-            saveCategoriesLocalOnly(cCat);
-          } else {
-            setCategories(DEFAULT_CATEGORIES);
-            saveCategoriesLocalOnly(DEFAULT_CATEGORIES);
-          }
-
-          if (cCfg) {
-            const merged = {
-              ...DEFAULT_FIRE_CONFIG,
-              ...cCfg,
-              baseCashBalance: cCfg.baseCashBalance ?? (cCfg.cashSavings ?? 0),
-              cashSavings: cCfg.cashSavings ?? (cCfg.baseCashBalance ?? 0),
-            };
-            setFireConfig(merged);
-            saveFIREConfigLocalOnly(merged);
-            applyThemeToCSSVariables(merged.themeColor);
-          } else {
-            const zeroCfg = { ...DEFAULT_FIRE_CONFIG, currentNetWorth: 0, cashSavings: 0, baseCashBalance: 0 };
-            setFireConfig(zeroCfg);
-            saveFIREConfigLocalOnly(zeroCfg);
-            applyThemeToCSSVariables(zeroCfg.themeColor);
-          }
-
-          if (Array.isArray(cPresets) && cPresets.length > 0) {
-            setQuickPresets(cPresets);
-            saveQuickPresetsLocalOnly(cPresets);
-          } else {
-            setQuickPresets(DEFAULT_QUICK_PRESETS);
-            saveQuickPresetsLocalOnly(DEFAULT_QUICK_PRESETS);
-          }
-
-          if (Array.isArray(cStocks)) {
-            const synced = cStocks.map((s) => syncStockCalculations(s));
-            setPortfolioStocks(synced);
-            savePortfolioStocksLocalOnly(synced);
-          } else {
-            setPortfolioStocks([]);
-            savePortfolioStocksLocalOnly([]);
-          }
-        } else {
-          // Fallback to local cache if offline
-          const localTx = loadTransactions();
-          const localCat = loadCategories();
-          const localPresets = loadQuickPresets();
-          const localStocks = loadPortfolioStocks();
-          const loadedConfig = loadFIREConfig();
-          setTransactions(localTx);
-          setCategories(localCat);
-          setQuickPresets(localPresets);
-          setPortfolioStocks(localStocks);
-          setFireConfig(loadedConfig);
-          applyThemeToCSSVariables(loadedConfig.themeColor);
-        }
-
-        setTimeout(() => {
-          setIsAppLoading(false);
-        }, 350);
-      })
-      .catch(() => {
-        setIsAppLoading(false);
-      });
-  }, []);
-
-  const handleToggleStorageMode = async (targetMode: 'cloud' | 'local') => {
-    if (targetMode === 'cloud') {
-      const res = await switchToCloudMode();
-      setStorageModeState('cloud');
-      setSyncCode(res.syncCode);
-      await handleRefreshAllData(true);
-    } else {
-      await switchToLocalMode();
-      setStorageModeState('local');
-    }
-  };
-
-  // Sync theme changes
-  useEffect(() => {
-    applyThemeToCSSVariables(fireConfig.themeColor);
-  }, [fireConfig.themeColor]);
-
-  // Real-Time Multi-Device WebSocket Realtime Channel Subscription
-  useEffect(() => {
-    const code = syncCode || getOrCreateSyncCode();
-    const unsubscribe = subscribeToRealtimeSync(code, () => {
-      // Received remote instant broadcast! Refresh immediately!
-      handleRefreshAllData(true);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [syncCode]);
-
-  // Fallback Multi-Device Auto-Sync Listener: Window Focus + 20s Polling + Tab Switch
-  useEffect(() => {
-    const handleFocus = () => {
-      handleRefreshAllData();
-    };
-    window.addEventListener('focus', handleFocus);
-    const handleVis = () => {
-      if (document.visibilityState === 'visible') handleFocus();
-    };
-    document.addEventListener('visibilitychange', handleVis);
-
-    const pollInterval = setInterval(() => {
-      handleRefreshAllData();
-    }, 20000);
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVis);
-      clearInterval(pollInterval);
-    };
-  }, []);
-
-  // Two-way Sync: Push App Transactions to Android Widget Bridge so Widget "Today Expense" is 100% identical to App Database!
+  // 1. Android Widget Bridge: Push live today's expense & transactions to Native Widget
   useEffect(() => {
     if (transactions) {
       const todayStr = new Date().toISOString().slice(0, 10);
@@ -256,7 +60,7 @@ export default function App() {
     }
   }, [transactions]);
 
-  // Sync Categories & Sub-Categories to Android Widget Bridge whenever categories change
+  // 2. Android Widget Bridge: Sync Categories to Native Widget
   useEffect(() => {
     if (categories.length > 0) {
       try {
@@ -273,104 +77,8 @@ export default function App() {
     }
   }, [categories]);
 
-  const liveStockMarketValue = useMemo(() => {
-    let sum = 0;
-    if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
-      portfolioStocks.forEach((s) => {
-        const synced = syncStockCalculations(s);
-        const val = synced.shares * (synced.currentPrice || 0);
-        const rate = s.market === 'US' ? 32.5 : 1;
-        sum += val * rate;
-      });
-    }
-    return Math.round(sum);
-  }, [portfolioStocks]);
-
-  // Double-Entry Accounting: Auto-Sync Total FIRE Net Worth in Real Time
-  // Total Net Worth = Live Stock Market Value + Cash Savings
+  // 3. Android Widget Intent & Quick Add Launch Handling
   useEffect(() => {
-    const cash = fireConfig.cashSavings ?? (fireConfig.baseCashBalance ?? 0);
-    const totalNetWorth = Math.round(liveStockMarketValue + cash);
-
-    if (
-      (fireConfig.currentNetWorth || 0) !== totalNetWorth ||
-      fireConfig.baseCashBalance === undefined ||
-      fireConfig.cashSavings === undefined
-    ) {
-      setFireConfig((prev) => {
-        const updated = {
-          ...prev,
-          baseCashBalance: prev.baseCashBalance ?? cash,
-          cashSavings: prev.cashSavings ?? cash,
-          currentNetWorth: totalNetWorth,
-        };
-        saveFIREConfigLocalOnly(updated);
-        return updated;
-      });
-    }
-  }, [liveStockMarketValue, fireConfig.cashSavings]);
-
-  // Update Portfolio Stocks
-  const handleUpdatePortfolioStocks = (newStocks: PortfolioStock[]) => {
-    lastUserEditTimeRef.current = Date.now();
-    const synced = newStocks.map((s) => syncStockCalculations(s));
-    setPortfolioStocks(synced);
-    savePortfolioStocks(synced);
-  };
-
-  // Sync Total Portfolio Value to FIRE Model Net Worth
-  const handleSyncNetWorthToFIRE = (totalMarketValueTWD: number) => {
-    lastUserEditTimeRef.current = Date.now();
-    const cash = fireConfig.cashSavings ?? (fireConfig.baseCashBalance || 0);
-    const totalNetWorth = Math.round(cash + totalMarketValueTWD);
-    const newConfig = {
-      ...fireConfig,
-      currentNetWorth: totalNetWorth,
-    };
-    setFireConfig(newConfig);
-    saveFIREConfig(newConfig);
-  };
-
-  // Add Transaction
-  const handleAddTransaction = (t: Omit<Transaction, 'id'>) => {
-    lastUserEditTimeRef.current = Date.now();
-    const newRecord: Transaction = {
-      ...t,
-      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    };
-    setTransactions((prev) => {
-      const updated = [newRecord, ...prev];
-      saveTransactions(updated);
-      return updated;
-    });
-    syncSingleTransactionToCloud(newRecord);
-  };
-
-  // Handle App Launch & Resume: Ingest Widget Recorded Transactions
-  useEffect(() => {
-    const ingestWidgetTransactions = () => {
-      WidgetBridge.loadWidgetAppData().then((res) => {
-        if (res && res.app_transactions_json) {
-          try {
-            const parsed = JSON.parse(res.app_transactions_json);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setTransactions((prev) => {
-                const existingIds = new Set(prev.map((t) => t.id));
-                const newItems = parsed.filter((t: any) => !existingIds.has(t.id));
-                if (newItems.length > 0) {
-                  const merged = [...newItems, ...prev];
-                  saveTransactionsLocalOnly(merged);
-                  newItems.forEach((item) => syncSingleTransactionToCloud(item));
-                  return merged;
-                }
-                return prev;
-              });
-            }
-          } catch (e) {}
-        }
-      }).catch(() => {});
-    };
-
     const handleWidgetUrl = (url: string) => {
       try {
         const urlStr = url.toString();
@@ -382,7 +90,7 @@ export default function App() {
           const subCategory = urlObj.searchParams.get('subCategory');
 
           if (amount && mainCategory && type) {
-            handleAddTransaction({
+            addTransaction({
               type,
               amount: parseFloat(amount),
               mainCategory,
@@ -399,7 +107,7 @@ export default function App() {
               (p) => p.mainCategory === mainCategory && p.subCategory === subCategory
             );
             if (preset) {
-              handleAddTransaction({
+              addTransaction({
                 type: 'expense',
                 amount: preset.amount,
                 mainCategory: preset.mainCategory,
@@ -420,185 +128,21 @@ export default function App() {
       }
     };
 
-    ingestWidgetTransactions();
     handleWidgetUrl(window.location.href);
 
     import('@capacitor/app').then(({ App: CapApp }) => {
       CapApp.addListener('appUrlOpen', (data) => {
         handleWidgetUrl(data.url);
-        ingestWidgetTransactions();
-      });
-      CapApp.addListener('appStateChange', (state) => {
-        if (state.isActive) {
-          ingestWidgetTransactions();
-        }
       });
     }).catch(() => {});
-  }, []);
-
-  const handleDeleteTransaction = (id: string) => {
-    lastUserEditTimeRef.current = Date.now();
-    const updated = transactions.filter((t) => t.id !== id);
-    setTransactions(updated);
-    saveTransactions(updated);
-    removeSingleTransactionFromCloud(id);
-  };
-
-  const handleUpdateFIREConfig = (newConfig: FIREConfig) => {
-    lastUserEditTimeRef.current = Date.now();
-    const targetCash = newConfig.cashSavings ?? (newConfig.baseCashBalance ?? (fireConfig.cashSavings ?? 0));
-
-    const finalConfig: FIREConfig = {
-      ...newConfig,
-      baseCashBalance: targetCash,
-      cashSavings: targetCash,
-      currentNetWorth: Math.round(targetCash + liveStockMarketValue),
-    };
-
-    setFireConfig(finalConfig);
-    saveFIREConfig(finalConfig);
-  };
-
-  const handleUpdateCategories = (newCategories: CategoryItem[]) => {
-    lastUserEditTimeRef.current = Date.now();
-    setCategories(newCategories);
-    saveCategories(newCategories);
-  };
-
-  const handleDataRestored = () => {
-    setTransactions(loadTransactions());
-    setCategories(loadCategories());
-    setQuickPresets(loadQuickPresets());
-    setPortfolioStocks(loadPortfolioStocks());
-    const loadedConfig = loadFIREConfig();
-    setFireConfig(loadedConfig);
-    setSyncCode(getOrCreateSyncCode());
-    applyThemeToCSSVariables(loadedConfig.themeColor);
-  };
-
-  const handleChooseCloudVersion = () => {
-    if (!reconciliationModalData) return;
-    const { cloudData } = reconciliationModalData;
-    setTransactions(cloudData.transactions || []);
-    saveTransactionsLocalOnly(cloudData.transactions || []);
-
-    if (cloudData.categories && cloudData.categories.length > 0) {
-      setCategories(cloudData.categories);
-      saveCategoriesLocalOnly(cloudData.categories);
-    }
-
-    if (cloudData.quickPresets && cloudData.quickPresets.length > 0) {
-      setQuickPresets(cloudData.quickPresets);
-      saveQuickPresetsLocalOnly(cloudData.quickPresets);
-    }
-
-    const syncedStocks = (cloudData.portfolioStocks || []).map((s) => syncStockCalculations(s));
-    setPortfolioStocks(syncedStocks);
-    savePortfolioStocksLocalOnly(syncedStocks);
-
-    if (cloudData.fireConfig) {
-      const merged = {
-        ...fireConfig,
-        ...cloudData.fireConfig,
-        baseCashBalance: cloudData.fireConfig.baseCashBalance ?? (cloudData.fireConfig.cashSavings ?? 0),
-        cashSavings: cloudData.fireConfig.cashSavings ?? (cloudData.fireConfig.baseCashBalance ?? 0),
-      };
-      setFireConfig(merged);
-      saveFIREConfigLocalOnly(merged);
-      applyThemeToCSSVariables(merged.themeColor);
-    } else {
-      const zeroConfig = { ...fireConfig, currentNetWorth: 0, cashSavings: 0, baseCashBalance: 0 };
-      setFireConfig(zeroConfig);
-      saveFIREConfigLocalOnly(zeroConfig);
-    }
-
-    setReconciliationModalData(null);
-  };
-
-  const handleChooseLocalVersion = () => {
-    if (!reconciliationModalData) return;
-    autoSyncToCloud();
-    setReconciliationModalData(null);
-  };
-
-  const handleRefreshAllData = async (isManual?: boolean) => {
-    if (reconciliationModalData) return;
-
-    // Skip background refresh if user performed an edit in the last 4 seconds
-    if (Date.now() - lastUserEditTimeRef.current < 4000) {
-      return;
-    }
-
-    const code = syncCode || getOrCreateSyncCode();
-
-    // 1. Ingest any pending transactions from Android Widget Bridge
-    try {
-      const res = await WidgetBridge.loadWidgetAppData();
-      if (res && res.app_transactions_json) {
-        const parsed = JSON.parse(res.app_transactions_json);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setTransactions((prev) => {
-            const existingIds = new Set(prev.map((t) => t.id));
-            const newItems = parsed.filter((t: any) => !existingIds.has(t.id));
-            if (newItems.length > 0) {
-              const merged = [...newItems, ...prev];
-              saveTransactionsLocalOnly(merged);
-              newItems.forEach((item) => syncSingleTransactionToCloud(item));
-              return merged;
-            }
-            return prev;
-          });
-        }
-      }
-    } catch (e) {}
-
-    // 2. Actively fetch latest cloud records from Supabase REST API
-    try {
-      const cloudRes = await fetchCloudData(code);
-      if (cloudRes && cloudRes.success && cloudRes.data) {
-        const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
-        if (Array.isArray(cTx)) {
-          setTransactions(cTx);
-          saveTransactionsLocalOnly(cTx);
-        }
-        if (Array.isArray(cCat) && cCat.length > 0) {
-          setCategories(cCat);
-          saveCategoriesLocalOnly(cCat);
-        }
-        if (cCfg) {
-          const merged = {
-            ...DEFAULT_FIRE_CONFIG,
-            ...cCfg,
-            baseCashBalance: cCfg.baseCashBalance ?? (cCfg.cashSavings ?? 0),
-            cashSavings: cCfg.cashSavings ?? (cCfg.baseCashBalance ?? 0),
-          };
-          setFireConfig(merged);
-          saveFIREConfigLocalOnly(merged);
-          applyThemeToCSSVariables(merged.themeColor);
-        }
-        if (Array.isArray(cPresets) && cPresets.length > 0) {
-          setQuickPresets(cPresets);
-          saveQuickPresetsLocalOnly(cPresets);
-        }
-        if (Array.isArray(cStocks)) {
-          const synced = cStocks.map((s) => syncStockCalculations(s));
-          setPortfolioStocks(synced);
-          savePortfolioStocksLocalOnly(synced);
-        }
-      }
-    } catch (e) {}
-  };
+  }, [quickPresets, addTransaction]);
 
   const handleResetDefaultData = () => {
     if (window.confirm('確定要將財務資料重設為預設範例資料嗎？')) {
       resetAllDataToDefault();
-      handleDataRestored();
-      autoSyncToCloud();
+      restoreAllData();
     }
   };
-
-  // Calculate FIRE Metrics
-  const fireResult = calculateFIRE(fireConfig);
 
   if (isAppLoading) {
     return <AppLoadingSplash themeColor={fireConfig.themeColor} statusMessage="正在連線雲端資料庫並同步資產..." />;
@@ -626,10 +170,14 @@ export default function App() {
             transactions={transactions}
             categories={categories}
             quickPresets={quickPresets}
-            fireConfig={fireConfig}
+            fireConfig={{
+              ...fireConfig,
+              currentNetWorth: totalNetWorth,
+            }}
             fireResult={fireResult}
-            onUpdateFIREConfig={handleUpdateFIREConfig}
-            onAddTransaction={handleAddTransaction}
+            stockMarketValue={liveStockMarketValue}
+            onUpdateFIREConfig={updateFIREConfig}
+            onAddTransaction={addTransaction}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
             onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
             onOpenCloudSync={() => setIsCloudSyncOpen(true)}
@@ -642,9 +190,12 @@ export default function App() {
           <div className="space-y-8 animate-fadeIn">
             <PortfolioView
               stocks={portfolioStocks}
-              fireConfig={fireConfig}
-              onUpdateStocks={handleUpdatePortfolioStocks}
-              onSyncNetWorthToFIRE={handleSyncNetWorthToFIRE}
+              fireConfig={{
+                ...fireConfig,
+                currentNetWorth: totalNetWorth,
+              }}
+              onUpdateStocks={updatePortfolioStocks}
+              onSyncNetWorthToFIRE={() => {}}
             />
 
             {/* Integrated Investment Analytics & Category Distribution Section */}
@@ -654,7 +205,10 @@ export default function App() {
               </h2>
               <AnalyticsCharts
                 transactions={transactions}
-                fireConfig={fireConfig}
+                fireConfig={{
+                  ...fireConfig,
+                  currentNetWorth: totalNetWorth,
+                }}
               />
             </div>
           </div>
@@ -664,18 +218,24 @@ export default function App() {
         {(activeTab === 'monthly' || activeTab === 'yearly') && (
           <MonthlyYearlySummary
             transactions={transactions}
-            fireConfig={fireConfig}
+            fireConfig={{
+              ...fireConfig,
+              currentNetWorth: totalNetWorth,
+            }}
             initialMode={activeTab === 'yearly' ? 'yearly' : 'monthly'}
           />
         )}
 
-        {/* Tab 5: Ledger Transactions */}
+        {/* Tab 4: Ledger Transactions */}
         {activeTab === 'ledger' && (
           <TransactionList
             transactions={transactions}
             categories={categories}
-            fireConfig={fireConfig}
-            onDeleteTransaction={handleDeleteTransaction}
+            fireConfig={{
+              ...fireConfig,
+              currentNetWorth: totalNetWorth,
+            }}
+            onDeleteTransaction={deleteTransaction}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
             onResetDefaultData={handleResetDefaultData}
           />
@@ -706,7 +266,7 @@ export default function App() {
         onClose={() => setIsQuickAddOpen(false)}
         categories={categories}
         themeColor={fireConfig.themeColor}
-        onAddTransaction={handleAddTransaction}
+        onAddTransaction={addTransaction}
         onOpenCategoryManager={() => {
           setIsQuickAddOpen(false);
           setIsCategoryManagerOpen(true);
@@ -718,7 +278,7 @@ export default function App() {
         onClose={() => setIsCloudSyncOpen(false)}
         syncCode={syncCode}
         themeColor={fireConfig.themeColor}
-        onDataRestored={handleDataRestored}
+        onDataRestored={restoreAllData}
       />
 
       <CategoryManagerModal
@@ -726,7 +286,7 @@ export default function App() {
         onClose={() => setIsCategoryManagerOpen(false)}
         categories={categories}
         themeColor={fireConfig.themeColor}
-        onUpdateCategories={handleUpdateCategories}
+        onUpdateCategories={updateCategories}
       />
 
       <SystemSettingsModal
@@ -734,27 +294,20 @@ export default function App() {
         onClose={() => setIsSystemSettingsOpen(false)}
         config={fireConfig}
         stockMarketValue={liveStockMarketValue}
-        onSaveConfig={handleUpdateFIREConfig}
+        onSaveConfig={updateFIREConfig}
         syncCode={syncCode}
         storageMode={storageMode}
-        onToggleStorageMode={handleToggleStorageMode}
+        onToggleStorageMode={toggleStorageMode}
         onOpenCloudSync={() => setIsCloudSyncOpen(true)}
       />
-
-      <DataReconciliationModal
-        isOpen={Boolean(reconciliationModalData)}
-        cloudData={reconciliationModalData?.cloudData || null}
-        localData={reconciliationModalData?.localData || {
-          transactions,
-          categories,
-          fireConfig,
-          quickPresets,
-          portfolioStocks,
-        }}
-        themeColor={fireConfig.themeColor}
-        onChooseCloud={handleChooseCloudVersion}
-        onChooseLocal={handleChooseLocalVersion}
-      />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <FIREProvider>
+      <FIREAppContent />
+    </FIREProvider>
   );
 }
