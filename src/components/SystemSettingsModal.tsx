@@ -40,6 +40,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
 
   // Dedicated string states for numeric inputs to avoid premature 0 resets during typing
   const [cashInput, setCashInput] = useState<string>('');
+  const [cashUSDInput, setCashUSDInput] = useState<string>('');
   const [currentAgeInput, setCurrentAgeInput] = useState<string>('');
   const [targetRetirementAgeInput, setTargetRetirementAgeInput] = useState<string>('');
   const [targetAnnualExpenseInput, setTargetAnnualExpenseInput] = useState<string>('');
@@ -53,8 +54,10 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
     if (!isOpen) return;
 
     setFormData(config);
-    const initialCash = config.cashSavings ?? (config.baseCashBalance || 0);
-    setCashInput(String(initialCash));
+    const initialCashTWD = config.cashSavingsTWD ?? (config.cashSavings ?? (config.baseCashBalance || 0));
+    const initialCashUSD = config.cashSavingsUSD ?? 0;
+    setCashInput(String(initialCashTWD));
+    setCashUSDInput(String(initialCashUSD));
     setCurrentAgeInput(String(config.currentAge || 30));
     setTargetRetirementAgeInput(String(config.targetRetirementAge || 50));
     setTargetAnnualExpenseInput(String(config.targetAnnualExpensePostRetirement || 600000));
@@ -128,8 +131,13 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
       ? customCurrencyInput.trim() || 'NT$'
       : formData.currencySymbol;
 
-    const parsedCash = parseFloat(cashInput);
-    const finalCash = isNaN(parsedCash) ? 0 : parsedCash;
+    const parsedCashTWD = parseFloat(cashInput);
+    const finalCashTWD = isNaN(parsedCashTWD) ? 0 : parsedCashTWD;
+    const parsedCashUSD = parseFloat(cashUSDInput);
+    const finalCashUSD = isNaN(parsedCashUSD) ? 0 : parsedCashUSD;
+    const rate = formData.usdRate || 32.0;
+    const totalCashTWD = Math.round(finalCashTWD + finalCashUSD * rate);
+
     const finalAge = parseInt(currentAgeInput) || 30;
     const finalRetirementAge = parseInt(targetRetirementAgeInput) || 50;
     const finalExpense = parseFloat(targetAnnualExpenseInput) || 0;
@@ -140,9 +148,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
       ...formData,
       currencySymbol: finalCurrency,
       themeColor: isCustomColor ? customColorHex : formData.themeColor || 'sakura',
-      cashSavings: finalCash,
-      baseCashBalance: finalCash,
-      currentNetWorth: Math.round(finalCash + stockMarketValue),
+      cashSavings: finalCashTWD,
+      cashSavingsTWD: finalCashTWD,
+      cashSavingsUSD: finalCashUSD,
+      baseCashBalance: finalCashTWD,
+      currentNetWorth: Math.round(totalCashTWD + stockMarketValue),
       currentAge: finalAge,
       targetRetirementAge: finalRetirementAge,
       targetAnnualExpensePostRetirement: finalExpense,
@@ -531,11 +541,12 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 </p>
               </div>
 
+              {/* TWD Cash Input */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-gray-300 font-medium block">現金儲蓄與其他非投資資產 ({formData.currencySymbol}):</label>
+                  <label className="text-gray-300 font-medium block">🇹🇼 台幣現金儲備 (NT$):</label>
                   <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                    獨立現金儲備
+                    台幣活存/備用金
                   </span>
                 </div>
                 <input
@@ -544,20 +555,53 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   onChange={(e) => {
                     const rawStr = e.target.value;
                     setCashInput(rawStr);
-                    const parsed = parseFloat(rawStr);
-                    const val = isNaN(parsed) ? 0 : parsed;
+                    const parsedTWD = parseFloat(rawStr) || 0;
+                    const parsedUSD = parseFloat(cashUSDInput) || 0;
+                    const rate = formData.usdRate || 32.0;
+                    const totalCash = Math.round(parsedTWD + parsedUSD * rate);
                     setFormData((prev) => ({
                       ...prev,
-                      baseCashBalance: val,
-                      cashSavings: val,
-                      currentNetWorth: Math.round(val + stockMarketValue),
+                      cashSavingsTWD: parsedTWD,
+                      baseCashBalance: parsedTWD,
+                      cashSavings: parsedTWD,
+                      currentNetWorth: Math.round(totalCash + stockMarketValue),
                     }));
                   }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
-                  placeholder="輸入活存、定存等備用金"
+                  placeholder="輸入台幣活存、定存等備用金"
+                />
+              </div>
+
+              {/* USD Cash Input */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-gray-300 font-medium block">🇺🇸 美元現金儲備 (USD $):</label>
+                  <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">
+                    美元帳戶/券商餘額
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  step="any"
+                  value={cashUSDInput}
+                  onChange={(e) => {
+                    const rawStr = e.target.value;
+                    setCashUSDInput(rawStr);
+                    const parsedUSD = parseFloat(rawStr) || 0;
+                    const parsedTWD = parseFloat(cashInput) || 0;
+                    const rate = formData.usdRate || 32.0;
+                    const totalCash = Math.round(parsedTWD + parsedUSD * rate);
+                    setFormData((prev) => ({
+                      ...prev,
+                      cashSavingsUSD: parsedUSD,
+                      currentNetWorth: Math.round(totalCash + stockMarketValue),
+                    }));
+                  }}
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
+                  placeholder="輸入美元帳戶現金 (USD)"
                 />
                 <p className="text-[11px] text-gray-400 mt-1.5">
-                  💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{formData.currencySymbol}{(parseFloat(cashInput) || 0).toLocaleString()}</span> + 股票市值 <span className="text-cyan-400 font-mono">{formData.currencySymbol}{Math.round(stockMarketValue).toLocaleString()}</span> = <span className="text-white font-bold font-mono">{formData.currencySymbol}{((parseFloat(cashInput) || 0) + Math.round(stockMarketValue)).toLocaleString()}</span>
+                  💡 總現金折合：<span className="text-emerald-400 font-mono font-bold">NT$ {((parseFloat(cashInput) || 0) + (parseFloat(cashUSDInput) || 0) * (formData.usdRate || 32.0)).toLocaleString()}</span>（美元匯率: 1 USD = {(formData.usdRate || 32.0).toFixed(2)} TWD）
                 </p>
               </div>
 

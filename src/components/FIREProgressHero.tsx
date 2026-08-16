@@ -89,11 +89,14 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
 
           <button
             onClick={() => {
-              const currentLiveCash = config.cashSavings ?? (config.baseCashBalance || 0);
+              const currentTWD = config.cashSavingsTWD ?? (config.cashSavings ?? (config.baseCashBalance || 0));
+              const currentUSD = config.cashSavingsUSD ?? 0;
               setTempConfig({
                 ...config,
-                cashSavings: currentLiveCash,
-                baseCashBalance: currentLiveCash,
+                cashSavings: currentTWD,
+                cashSavingsTWD: currentTWD,
+                cashSavingsUSD: currentUSD,
+                baseCashBalance: currentTWD,
               });
               setIsSimulatorOpen(true);
             }}
@@ -172,10 +175,13 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
           <div className="lg:col-span-5 grid grid-cols-2 gap-3.5">
             {/* Current Net Worth with Full Width & Asset Breakdown */}
             {(() => {
-              const cashAmt = config.cashSavings ?? (config.baseCashBalance ?? 0);
+              const twdCash = config.cashSavingsTWD ?? (config.cashSavings ?? (config.baseCashBalance ?? 0));
+              const usdCash = config.cashSavingsUSD ?? 0;
+              const rate = config.usdRate || 32.0;
+              const totalCashTWD = Math.round(twdCash + usdCash * rate);
               const stockAmt = stockMarketValue;
-              const totalAmt = cashAmt + stockAmt || 1;
-              const cashPct = Math.round((cashAmt / totalAmt) * 100);
+              const totalAmt = totalCashTWD + stockAmt || 1;
+              const cashPct = Math.round((totalCashTWD / totalAmt) * 100);
               const stockPct = 100 - cashPct;
 
               return (
@@ -215,8 +221,11 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                   <div className="text-xs text-gray-400 pt-2 border-t border-white/5 flex items-center justify-between flex-wrap gap-x-4 gap-y-1.5">
                     <span className="flex items-center gap-1.5 font-mono whitespace-nowrap">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-                      <span className="text-gray-300">現金儲備:</span>
-                      <strong className="text-emerald-400 font-bold text-xs sm:text-sm">{sym} {formatNumber(cashAmt)}</strong>
+                      <span className="text-gray-300">現金:</span>
+                      <strong className="text-emerald-400 font-bold text-xs sm:text-sm">
+                        NT$ {formatNumber(twdCash)}
+                        {usdCash > 0 && <span className="text-xs text-emerald-300 ml-1.5 font-normal">($ {formatNumber(usdCash)} USD)</span>}
+                      </strong>
                       <span className="text-[11px] text-gray-500 font-semibold">({cashPct}%)</span>
                     </span>
                     <span className="flex items-center gap-1.5 font-mono whitespace-nowrap">
@@ -381,36 +390,65 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-gray-300 font-medium">現金儲蓄與其他非投資資產 ({sym})</label>
+                  <label className="block text-gray-300 font-medium">🇹🇼 台幣現金儲備 (NT$)</label>
                   <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                    獨立現金儲備
+                    台幣活存/定存
                   </span>
                 </div>
                 {(() => {
                   const liveStockVal = stockMarketValue;
-                  const currentCashVal = tempConfig.cashSavings ?? (tempConfig.baseCashBalance ?? 0);
+                  const currentTWD = tempConfig.cashSavingsTWD ?? (tempConfig.cashSavings ?? (tempConfig.baseCashBalance ?? 0));
+                  const currentUSD = tempConfig.cashSavingsUSD ?? 0;
+                  const rate = tempConfig.usdRate || 32.0;
+                  const totalCashVal = Math.round(currentTWD + currentUSD * rate);
 
                   return (
-                    <>
+                    <div className="space-y-2">
                       <input
                         type="number"
-                        value={currentCashVal}
+                        value={currentTWD}
                         onChange={(e) => {
                           const val = Number(e.target.value);
+                          const total = Math.round(val + currentUSD * rate);
                           setTempConfig({
                             ...tempConfig,
                             baseCashBalance: val,
                             cashSavings: val,
-                            currentNetWorth: Math.round(val + liveStockVal),
+                            cashSavingsTWD: val,
+                            currentNetWorth: Math.round(total + liveStockVal),
                           });
                         }}
                         className="w-full bg-[#111111] border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none font-mono"
-                        placeholder="輸入您的活存、定存等備用金"
+                        placeholder="輸入台幣備用金"
                       />
-                      <p className="text-[11px] text-gray-400 mt-1.5">
-                        💡 總資產試算：現金儲備 <span className="text-emerald-400 font-mono">{sym}{formatNumber(currentCashVal)}</span> + 股票市值 <span className="text-cyan-400 font-mono">{sym}{formatNumber(liveStockVal)}</span> = <span className="text-white font-bold font-mono">{sym}{formatNumber(currentCashVal + liveStockVal)}</span>
+
+                      <div className="flex items-center justify-between mb-1 pt-1">
+                        <label className="block text-gray-300 font-medium">🇺🇸 美元現金儲備 (USD $)</label>
+                        <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">
+                          美元活存/券商餘額
+                        </span>
+                      </div>
+                      <input
+                        type="number"
+                        step="any"
+                        value={currentUSD}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          const total = Math.round(currentTWD + val * rate);
+                          setTempConfig({
+                            ...tempConfig,
+                            cashSavingsUSD: val,
+                            currentNetWorth: Math.round(total + liveStockVal),
+                          });
+                        }}
+                        className="w-full bg-[#111111] border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none font-mono"
+                        placeholder="輸入美元帳戶現金 (USD)"
+                      />
+
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        💡 總資產試算：總現金 <span className="text-emerald-400 font-mono">NT$ {formatNumber(totalCashVal)}</span> + 股票市值 <span className="text-cyan-400 font-mono">NT$ {formatNumber(liveStockVal)}</span> = <span className="text-white font-bold font-mono">NT$ {formatNumber(totalCashVal + liveStockVal)}</span>
                       </p>
-                    </>
+                    </div>
                   );
                 })()}
               </div>

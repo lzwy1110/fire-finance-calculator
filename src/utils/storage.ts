@@ -94,11 +94,20 @@ export function loadFIREConfig(): FIREConfig {
     if (!raw) return DEFAULT_FIRE_CONFIG;
     const parsed = JSON.parse(raw);
     const merged = { ...DEFAULT_FIRE_CONFIG, ...parsed };
+    if (merged.cashSavingsTWD === undefined) {
+      merged.cashSavingsTWD = merged.cashSavings ?? (merged.baseCashBalance ?? 650000);
+    }
+    if (merged.cashSavingsUSD === undefined) {
+      merged.cashSavingsUSD = 0;
+    }
+    if (merged.usdRate === undefined || merged.usdRate <= 0) {
+      merged.usdRate = 32.0;
+    }
     if (merged.baseCashBalance === undefined) {
-      merged.baseCashBalance = merged.cashSavings ?? (merged.currentNetWorth ? Math.max(0, merged.currentNetWorth) : 0);
+      merged.baseCashBalance = merged.cashSavingsTWD;
     }
     if (merged.cashSavings === undefined) {
-      merged.cashSavings = merged.baseCashBalance;
+      merged.cashSavings = merged.cashSavingsTWD;
     }
     return merged;
   } catch (e) {

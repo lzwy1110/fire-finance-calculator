@@ -17,6 +17,7 @@ import {
   DollarSign,
   PlusCircle,
   AlertTriangle,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -38,21 +39,31 @@ import {
 interface PortfolioViewProps {
   stocks: PortfolioStock[];
   fireConfig: FIREConfig;
+  cashSavingsTWD?: number;
+  cashSavingsUSD?: number;
+  usdRate?: number;
   onUpdateStocks: (newStocks: PortfolioStock[]) => void;
   onSyncNetWorthToFIRE: (totalMarketValueTWD: number) => void;
-  onAdjustCashSavings?: (delta: number) => void;
+  onAdjustCashSavings?: (delta: number, currency?: 'TWD' | 'USD') => void;
+  onOpenCurrencyExchange?: () => void;
 }
 
 export const PortfolioView: React.FC<PortfolioViewProps> = ({
   stocks,
   fireConfig,
+  cashSavingsTWD,
+  cashSavingsUSD,
+  usdRate: propUsdRate,
   onUpdateStocks,
   onSyncNetWorthToFIRE,
   onAdjustCashSavings,
+  onOpenCurrencyExchange,
 }) => {
   const currentTheme = getThemePreset(fireConfig.themeColor);
   const [filterMarket, setFilterMarket] = useState<'ALL' | 'US' | 'TW'>('ALL');
-  const [usdRate, setUsdRate] = useState<number>(32.5); // USD to TWD exchange rate
+  const usdRate = propUsdRate || fireConfig.usdRate || 32.0;
+  const currentTWD = cashSavingsTWD ?? (fireConfig.cashSavingsTWD ?? (fireConfig.cashSavings ?? 0));
+  const currentUSD = cashSavingsUSD ?? (fireConfig.cashSavingsUSD ?? 0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState<string | null>(null);
 
@@ -79,9 +90,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const [cashAlertModal, setCashAlertModal] = useState<{
     isOpen: boolean;
     stockName: string;
-    totalCostTWD: number;
-    currentCashTWD: number;
-    shortageTWD: number;
+    isUS: boolean;
+    tradeCost: number;
+    currentCash: number;
+    shortage: number;
     onConfirmInitialHoldings: () => void;
     onConfirmForceDeduct: () => void;
   } | null>(null);
@@ -297,17 +309,18 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     // Validate cash balance for BUY trade if deducting cash
     if (tradeType === 'BUY' && !useInitialHoldings && typeof overrideInitialHoldings === 'undefined') {
       const isUS = marketInput === 'US';
-      const totalCostTWD = parsedShares * parsedCost * (isUS ? usdRate : 1);
-      const currentCashTWD = fireConfig.cashSavings || 0;
+      const tradeCost = parsedShares * parsedCost;
+      const availableCash = isUS ? currentUSD : currentTWD;
 
-      if (currentCashTWD < totalCostTWD) {
-        const shortageTWD = totalCostTWD - currentCashTWD;
+      if (availableCash < tradeCost) {
+        const shortage = tradeCost - availableCash;
         setCashAlertModal({
           isOpen: true,
           stockName: nameInput.trim() || cleanSym,
-          totalCostTWD,
-          currentCashTWD,
-          shortageTWD,
+          isUS,
+          tradeCost,
+          currentCash: availableCash,
+          shortage,
           onConfirmInitialHoldings: () => {
             setCashAlertModal(null);
             handleSaveTransaction(undefined, true);
@@ -391,20 +404,20 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       updatedStocksList = [syncStockCalculations(newStockObj), ...syncedStocks];
     }
 
-    // Adjust cash savings according to the stock trade
+    // Adjust cash savings according to the stock trade and currency
     let cashDelta = 0;
     const isUS = marketInput === 'US';
-    const tradeValueTWD = parsedShares * parsedCost * (isUS ? usdRate : 1);
+    const tradeValue = parsedShares * parsedCost;
     if (tradeType === 'BUY') {
       if (!useInitialHoldings) {
-        cashDelta = -tradeValueTWD;
+        cashDelta = -tradeValue;
       }
     } else if (tradeType === 'SELL') {
-      cashDelta = +tradeValueTWD;
+      cashDelta = +tradeValue;
     }
 
     if (cashDelta !== 0 && onAdjustCashSavings) {
-      onAdjustCashSavings(cashDelta);
+      onAdjustCashSavings(cashDelta, isUS ? 'USD' : 'TWD');
     }
 
     onUpdateStocks(updatedStocksList);
@@ -466,14 +479,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           transactions: remainingTx,
         });
 
-        // Refund/revert cash if deleting trade
+        // Refund/revert cash if deleting trade in matching currency
         if (targetTx && onAdjustCashSavings) {
           const isUS = targetStock.market === 'US';
-          const amtTWD = (targetTx.shares || 0) * (targetTx.price || 0) * (isUS ? usdRate : 1);
+          const tradeAmt = (targetTx.shares || 0) * (targetTx.price || 0);
           if (targetTx.type === 'BUY' && !targetTx.isInitialHoldings) {
-            onAdjustCashSavings(+amtTWD); // Refund buying cost
+            onAdjustCashSavings(+tradeAmt, isUS ? 'USD' : 'TWD'); // Refund buying cost
           } else if (targetTx.type === 'SELL') {
-            onAdjustCashSavings(-amtTWD); // Deduct sell proceeds
+            onAdjustCashSavings(-tradeAmt, isUS ? 'USD' : 'TWD'); // Deduct sell proceeds
           }
         }
 
@@ -538,27 +551,35 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* USD Exchange Rate Setting */}
-            <div className="flex items-center gap-2 bg-black/60 border border-white/10 rounded-2xl px-3 py-1.5 text-xs text-gray-300">
+            {/* USD Exchange Rate Badge */}
+            <div className="flex items-center gap-1.5 bg-black/60 border border-white/10 rounded-2xl px-3 py-1.5 text-xs text-gray-300">
               <Coins className="w-3.5 h-3.5 text-amber-400" />
-              <span>美元匯率 USD/TWD:</span>
-              <input
-                type="number"
-                step="0.1"
-                value={usdRate}
-                onChange={(e) => setUsdRate(parseFloat(e.target.value) || 32.5)}
-                className="w-14 bg-white/10 border border-white/10 rounded-lg px-1.5 py-0.5 text-center font-mono font-bold text-amber-400 focus:outline-none"
-              />
+              <span>匯率: <strong className="font-mono text-amber-300">1 USD = {usdRate.toFixed(2)} TWD</strong></span>
             </div>
 
-            {/* Available Cash Savings Balance */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-bold rounded-2xl">
+            {/* Currency Exchange Button */}
+            {onOpenCurrencyExchange && (
+              <button
+                type="button"
+                onClick={onOpenCurrencyExchange}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold rounded-2xl transition cursor-pointer shadow-sm active:scale-95"
+                title="開啟雙幣現金池換匯轉帳"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>💱 雙幣換匯</span>
+              </button>
+            )}
+
+            {/* Available Cash Savings Balance (Dual Currency) */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-bold rounded-2xl">
               <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-              <span>現金儲備: <strong className="font-mono">{sym} {formatNum(fireConfig.cashSavings ?? (fireConfig.baseCashBalance || 0))}</strong></span>
+              <span>🇹🇼 NT$ <strong className="font-mono">{formatNum(currentTWD)}</strong></span>
+              <span className="text-emerald-500/40">|</span>
+              <span>🇺🇸 $<strong className="font-mono">{formatNum(currentUSD)}</strong> USD</span>
             </div>
 
             {/* Auto-sync Indicator */}
-            <div className="flex items-center gap-1.5 px-3.5 py-1.5 bg-pink-500/15 text-pink-300 border border-pink-500/30 text-xs font-bold rounded-2xl shadow-sm">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-500/15 text-pink-300 border border-pink-500/30 text-xs font-bold rounded-2xl shadow-sm">
               <Flame className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
               <span>✨ 股票市值已連動 FIRE 總資產</span>
             </div>
@@ -1296,11 +1317,15 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             <div className="bg-amber-950/30 border border-amber-500/20 rounded-2xl p-4 space-y-3 text-sm text-gray-200 relative z-10">
               <p className="leading-relaxed font-medium">
                 您預計買入 <span className="text-white font-bold">{cashAlertModal.stockName}</span> 總金額為{' '}
-                <span className="text-amber-300 font-bold">{sym} {formatNum(cashAlertModal.totalCostTWD)}</span>，但當前現金儲蓄僅有{' '}
-                <span className="text-gray-300 font-bold">{sym} {formatNum(cashAlertModal.currentCashTWD)}</span>（尚缺 {sym} {formatNum(cashAlertModal.shortageTWD)}）。
+                <span className="text-amber-300 font-bold">
+                  {cashAlertModal.isUS ? '$' : 'NT$'} {formatNum(cashAlertModal.tradeCost)} {cashAlertModal.isUS ? 'USD' : ''}
+                </span>，但當前{cashAlertModal.isUS ? '美金' : '台幣'}現金儲備僅有{' '}
+                <span className="text-gray-300 font-bold">
+                  {cashAlertModal.isUS ? '$' : 'NT$'} {formatNum(cashAlertModal.currentCash)} {cashAlertModal.isUS ? 'USD' : ''}
+                </span>（尚缺 {cashAlertModal.isUS ? '$' : 'NT$'} {formatNum(cashAlertModal.shortage)}）。
               </p>
               <p className="text-xs text-amber-400 font-medium pt-2 border-t border-amber-500/15 leading-relaxed">
-                💡 若這是加入 FIRE 計算器之前已持有的股票，建議選擇「轉為歷史已有倉位」而不扣除現金。
+                💡 若這是加入 FIRE 計算器之前已持有的股票，建議選擇「轉為歷史已有倉位」而不扣除現金；若手上有台幣可先透過「💱 雙幣換匯」轉入美金。
               </p>
             </div>
 

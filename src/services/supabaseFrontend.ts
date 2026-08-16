@@ -164,15 +164,20 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
         } catch (e) {}
       }
 
-      const cashSavings = cfg.cash_savings != null 
-        ? Number(cfg.cash_savings) 
-        : (cfg.base_cash_balance != null 
-            ? Number(cfg.base_cash_balance) 
-            : (parsedExtra.cashSavings != null 
-                ? Number(parsedExtra.cashSavings) 
-                : (parsedExtra.baseCashBalance != null 
-                    ? Number(parsedExtra.baseCashBalance) 
-                    : Number(cfg.current_net_worth || 0))));
+      const cashSavingsTWD = parsedExtra.cashSavingsTWD != null
+        ? Number(parsedExtra.cashSavingsTWD)
+        : (cfg.cash_savings != null 
+            ? Number(cfg.cash_savings) 
+            : (cfg.base_cash_balance != null 
+                ? Number(cfg.base_cash_balance) 
+                : (parsedExtra.cashSavings != null 
+                    ? Number(parsedExtra.cashSavings) 
+                    : (parsedExtra.baseCashBalance != null 
+                        ? Number(parsedExtra.baseCashBalance) 
+                        : Number(cfg.current_net_worth || 0)))));
+
+      const cashSavingsUSD = parsedExtra.cashSavingsUSD != null ? Number(parsedExtra.cashSavingsUSD) : 0;
+      const usdRate = parsedExtra.usdRate != null ? Number(parsedExtra.usdRate) : 32.0;
 
       const baseCashBalance = cfg.base_cash_balance != null 
         ? Number(cfg.base_cash_balance) 
@@ -180,13 +185,16 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
             ? Number(cfg.cash_savings) 
             : (parsedExtra.baseCashBalance != null 
                 ? Number(parsedExtra.baseCashBalance) 
-                : cashSavings));
+                : cashSavingsTWD));
 
       fireConfig = {
         currentAge: Number(cfg.current_age),
         targetRetirementAge: Number(cfg.target_retirement_age),
         currentNetWorth: Number(cfg.current_net_worth),
-        cashSavings: cashSavings != null ? Number(cashSavings) : 0,
+        cashSavings: cashSavingsTWD,
+        cashSavingsTWD: cashSavingsTWD,
+        cashSavingsUSD: cashSavingsUSD,
+        usdRate: usdRate,
         baseCashBalance: baseCashBalance != null ? Number(baseCashBalance) : 0,
         monthlyIncome: Number(cfg.monthly_income),
         monthlyExpenses: Number(cfg.monthly_expenses),
@@ -289,6 +297,9 @@ export async function pushSupabaseDataDirect(payload: {
       const themeWithMeta = JSON.stringify({
         theme: fireConfig.themeColor || 'sakura',
         cashSavings: fireConfig.cashSavings != null ? fireConfig.cashSavings : 0,
+        cashSavingsTWD: fireConfig.cashSavingsTWD != null ? fireConfig.cashSavingsTWD : (fireConfig.cashSavings || 0),
+        cashSavingsUSD: fireConfig.cashSavingsUSD != null ? fireConfig.cashSavingsUSD : 0,
+        usdRate: fireConfig.usdRate || 32.0,
         baseCashBalance: fireConfig.baseCashBalance != null ? fireConfig.baseCashBalance : 0,
       });
 
@@ -297,7 +308,7 @@ export async function pushSupabaseDataDirect(payload: {
         current_age: fireConfig.currentAge,
         target_retirement_age: fireConfig.targetRetirementAge,
         current_net_worth: fireConfig.currentNetWorth,
-        cash_savings: fireConfig.cashSavings,
+        cash_savings: fireConfig.cashSavingsTWD != null ? fireConfig.cashSavingsTWD : fireConfig.cashSavings,
         base_cash_balance: fireConfig.baseCashBalance,
         monthly_income: fireConfig.monthlyIncome,
         monthly_expenses: fireConfig.monthlyExpenses,
@@ -316,6 +327,9 @@ export async function pushSupabaseDataDirect(payload: {
         stocks: portfolioStocks || [],
         _metaConfig: {
           cashSavings: fireConfig.cashSavings,
+          cashSavingsTWD: fireConfig.cashSavingsTWD,
+          cashSavingsUSD: fireConfig.cashSavingsUSD,
+          usdRate: fireConfig.usdRate,
           baseCashBalance: fireConfig.baseCashBalance,
         },
       };

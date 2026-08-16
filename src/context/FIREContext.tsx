@@ -45,6 +45,7 @@ import { syncStockCalculations } from '../utils/portfolioMath';
 import { calculateFIRE } from '../utils/fireCalculator';
 import { applyThemeToCSSVariables } from '../utils/theme';
 import { WidgetBridge } from '../services/widgetBridge';
+import { fetchLiveUsdRate } from '../services/exchangeRateService';
 
 interface FIREContextType {
   // State
@@ -53,6 +54,11 @@ interface FIREContextType {
   quickPresets: QuickPreset[];
   portfolioStocks: PortfolioStock[];
   fireConfig: FIREConfig;
+  usdRate: number;
+  cashSavingsTWD: number;
+  cashSavingsUSD: number;
+  liveTWStockMarketValue: number;
+  liveUSStockMarketValue: number;
   liveStockMarketValue: number;
   totalNetWorth: number;
   fireResult: FIREResult;
@@ -62,8 +68,15 @@ interface FIREContextType {
   isSyncing: boolean;
 
   // Actions
-  updateCashSavings: (amount: number) => void;
-  adjustCashSavings: (delta: number) => void;
+  updateCashSavings: (twdAmount: number, usdAmount?: number) => void;
+  adjustCashSavings: (delta: number, currency?: 'TWD' | 'USD') => void;
+  exchangeCurrency: (params: {
+    fromCurrency: 'TWD' | 'USD';
+    toCurrency: 'TWD' | 'USD';
+    fromAmount: number;
+    toAmount: number;
+    feeTWD?: number;
+  }) => void;
   updateFIREConfig: (config: FIREConfig) => void;
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
   deleteTransaction: (id: string) => void;
@@ -94,41 +107,80 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return raw.map((s) => syncStockCalculations(s));
   });
   const [fireConfig, setFireConfig] = useState<FIREConfig>(() => loadFIREConfig());
+  const [usdRate, setUsdRate] = useState<number>(() => fireConfig.usdRate || 32.0);
 
   // Prevent refresh storms immediately after user edit
   const lastUserEditTimeRef = useRef<number>(0);
 
-  // 1. Calculate Real-Time Stock Market Value
-  const liveStockMarketValue = useMemo(() => {
+  // 0. Fetch Live Exchange Rate on startup (Once)
+  useEffect(() => {
+    fetchLiveUsdRate().then((rate) => {
+      if (rate && rate > 20 && rate < 50) {
+        setUsdRate(rate);
+        setFireConfig((prev) => {
+          if (prev.usdRate !== rate) {
+            const updated = { ...prev, usdRate: rate };
+            saveFIREConfigLocalOnly(updated);
+            return updated;
+          }
+          return prev;
+        });
+      }
+    });
+  }, []);
+
+  // 1. Calculate Real-Time Stock Market Values (Separated by TW and US)
+  const liveTWStockMarketValue = useMemo(() => {
     let sum = 0;
-    if (Array.isArray(portfolioStocks) && portfolioStocks.length > 0) {
-      portfolioStocks.forEach((s) => {
-        const synced = syncStockCalculations(s);
-        const val = (synced.shares || 0) * (synced.currentPrice || 0);
-        const rate = s.market === 'US' ? 32.5 : 1;
-        sum += val * rate;
-      });
-    }
+    (portfolioStocks || []).filter((s) => s.market === 'TW').forEach((s) => {
+      const synced = syncStockCalculations(s);
+      sum += (synced.shares || 0) * (synced.currentPrice || 0);
+    });
     return Math.round(sum);
   }, [portfolioStocks]);
 
-  // 2. Authoritative Cash Reserves & Total Net Worth
-  const cashSavings = useMemo(() => {
-    return fireConfig.cashSavings ?? (fireConfig.baseCashBalance ?? 0);
-  }, [fireConfig.cashSavings, fireConfig.baseCashBalance]);
+  const liveUSStockMarketValue = useMemo(() => {
+    let sum = 0;
+    (portfolioStocks || []).filter((s) => s.market === 'US').forEach((s) => {
+      const synced = syncStockCalculations(s);
+      sum += (synced.shares || 0) * (synced.currentPrice || 0);
+    });
+    return Number(sum.toFixed(2));
+  }, [portfolioStocks]);
+
+  const liveStockMarketValue = useMemo(() => {
+    const currentRate = usdRate || fireConfig.usdRate || 32.0;
+    return Math.round(liveTWStockMarketValue + liveUSStockMarketValue * currentRate);
+  }, [liveTWStockMarketValue, liveUSStockMarketValue, usdRate, fireConfig.usdRate]);
+
+  // 2. Dual-Currency Cash Reserves & Total Net Worth
+  const cashSavingsTWD = useMemo(() => {
+    return fireConfig.cashSavingsTWD ?? (fireConfig.cashSavings ?? (fireConfig.baseCashBalance ?? 0));
+  }, [fireConfig.cashSavingsTWD, fireConfig.cashSavings, fireConfig.baseCashBalance]);
+
+  const cashSavingsUSD = useMemo(() => {
+    return fireConfig.cashSavingsUSD ?? 0;
+  }, [fireConfig.cashSavingsUSD]);
+
+  const totalCashSavingsTWD = useMemo(() => {
+    const currentRate = usdRate || fireConfig.usdRate || 32.0;
+    return Math.round(cashSavingsTWD + cashSavingsUSD * currentRate);
+  }, [cashSavingsTWD, cashSavingsUSD, usdRate, fireConfig.usdRate]);
 
   const totalNetWorth = useMemo(() => {
-    return Math.round(cashSavings + liveStockMarketValue);
-  }, [cashSavings, liveStockMarketValue]);
+    return Math.round(totalCashSavingsTWD + liveStockMarketValue);
+  }, [totalCashSavingsTWD, liveStockMarketValue]);
 
   // 3. Computed FIRE Results
   const fireResult = useMemo(() => {
     return calculateFIRE({
       ...fireConfig,
-      cashSavings,
+      cashSavings: totalCashSavingsTWD,
+      cashSavingsTWD,
+      cashSavingsUSD,
       currentNetWorth: totalNetWorth,
     });
-  }, [fireConfig, cashSavings, totalNetWorth]);
+  }, [fireConfig, totalCashSavingsTWD, cashSavingsTWD, cashSavingsUSD, totalNetWorth]);
 
   // Keep CSS Theme updated
   useEffect(() => {
@@ -181,19 +233,28 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
           saveCategoriesLocalOnly(cCat);
         }
         if (cCfg) {
-          const cashVal = cCfg.cashSavings != null 
-            ? cCfg.cashSavings 
-            : (cCfg.baseCashBalance != null 
-                ? cCfg.baseCashBalance 
-                : (cCfg.currentNetWorth != null && cCfg.currentNetWorth > 0 
-                    ? cCfg.currentNetWorth 
+          const cashTWD = cCfg.cashSavingsTWD != null 
+            ? cCfg.cashSavingsTWD 
+            : (cCfg.cashSavings != null 
+                ? cCfg.cashSavings 
+                : (cCfg.baseCashBalance != null 
+                    ? cCfg.baseCashBalance 
                     : 0));
+          const cashUSD = cCfg.cashSavingsUSD != null ? cCfg.cashSavingsUSD : 0;
+          const rate = cCfg.usdRate != null && cCfg.usdRate > 0 ? cCfg.usdRate : usdRate;
+
+          if (cCfg.usdRate) {
+            setUsdRate(cCfg.usdRate);
+          }
 
           const merged: FIREConfig = {
             ...DEFAULT_FIRE_CONFIG,
             ...cCfg,
-            cashSavings: cashVal,
-            baseCashBalance: cashVal,
+            cashSavings: cashTWD,
+            cashSavingsTWD: cashTWD,
+            cashSavingsUSD: cashUSD,
+            usdRate: rate,
+            baseCashBalance: cashTWD,
           };
           setFireConfig(merged);
           saveFIREConfigLocalOnly(merged);
@@ -215,7 +276,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSyncing(false);
     }
     return false;
-  }, [storageModeState, syncCodeState]);
+  }, [storageModeState, syncCodeState, usdRate]);
 
   const restoreAllData = useCallback(() => {
     const tx = loadTransactions();
@@ -229,6 +290,9 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setQuickPresets(presets);
     setPortfolioStocks(stocks);
     setFireConfig(cfg);
+    if (cfg.usdRate) {
+      setUsdRate(cfg.usdRate);
+    }
   }, []);
 
   // 5. Initial App Load (Runs strictly once on mount)
@@ -287,53 +351,118 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ================= MUTATION ACTIONS ================= //
 
-  const updateCashSavings = useCallback((amount: number) => {
+  const updateCashSavings = useCallback((twdAmount: number, usdAmount?: number) => {
     lastUserEditTimeRef.current = Date.now();
-    const finalCash = Math.max(0, Math.round(amount));
+    const finalTWD = Math.max(0, Math.round(twdAmount));
 
     setFireConfig((prev) => {
+      const finalUSD = usdAmount !== undefined ? Math.max(0, Number(usdAmount.toFixed(2))) : (prev.cashSavingsUSD ?? 0);
+      const totalCashInTWD = Math.round(finalTWD + finalUSD * (prev.usdRate || usdRate));
       const updated: FIREConfig = {
         ...prev,
-        cashSavings: finalCash,
-        baseCashBalance: finalCash,
-        currentNetWorth: Math.round(finalCash + liveStockMarketValue),
+        cashSavings: finalTWD,
+        cashSavingsTWD: finalTWD,
+        cashSavingsUSD: finalUSD,
+        baseCashBalance: finalTWD,
+        currentNetWorth: Math.round(totalCashInTWD + liveStockMarketValue),
       };
       saveFIREConfig(updated);
       return updated;
     });
-  }, [liveStockMarketValue]);
+  }, [liveStockMarketValue, usdRate]);
 
   const updateFIREConfig = useCallback((newConfig: FIREConfig) => {
     lastUserEditTimeRef.current = Date.now();
-    const finalCash = newConfig.cashSavings ?? (newConfig.baseCashBalance ?? (fireConfig.cashSavings ?? 0));
+    const finalTWD = newConfig.cashSavingsTWD ?? (newConfig.cashSavings ?? (newConfig.baseCashBalance ?? (fireConfig.cashSavingsTWD ?? 0)));
+    const finalUSD = newConfig.cashSavingsUSD ?? (fireConfig.cashSavingsUSD ?? 0);
+    const rate = newConfig.usdRate || usdRate;
+    const totalCashInTWD = Math.round(finalTWD + finalUSD * rate);
 
     const updated: FIREConfig = {
       ...newConfig,
-      cashSavings: finalCash,
-      baseCashBalance: finalCash,
-      currentNetWorth: Math.round(finalCash + liveStockMarketValue),
+      cashSavings: finalTWD,
+      cashSavingsTWD: finalTWD,
+      cashSavingsUSD: finalUSD,
+      usdRate: rate,
+      baseCashBalance: finalTWD,
+      currentNetWorth: Math.round(totalCashInTWD + liveStockMarketValue),
     };
+
+    if (newConfig.usdRate && newConfig.usdRate !== usdRate) {
+      setUsdRate(newConfig.usdRate);
+    }
 
     setFireConfig(updated);
     saveFIREConfig(updated);
-  }, [fireConfig.cashSavings, liveStockMarketValue]);
+  }, [fireConfig.cashSavingsTWD, fireConfig.cashSavingsUSD, liveStockMarketValue, usdRate]);
 
-  const adjustCashSavings = useCallback((delta: number) => {
+  const adjustCashSavings = useCallback((delta: number, currency: 'TWD' | 'USD' = 'TWD') => {
     if (!delta || delta === 0) return;
     lastUserEditTimeRef.current = Date.now();
+
     setFireConfig((prev) => {
-      const currentCash = prev.cashSavings ?? (prev.baseCashBalance ?? 0);
-      const newCash = Math.max(0, Math.round(currentCash + delta));
+      const currentTWD = prev.cashSavingsTWD ?? (prev.cashSavings ?? (prev.baseCashBalance ?? 0));
+      const currentUSD = prev.cashSavingsUSD ?? 0;
+      let newTWD = currentTWD;
+      let newUSD = currentUSD;
+
+      if (currency === 'USD') {
+        newUSD = Math.max(0, Number((currentUSD + delta).toFixed(2)));
+      } else {
+        newTWD = Math.max(0, Math.round(currentTWD + delta));
+      }
+
+      const totalCashInTWD = Math.round(newTWD + newUSD * (prev.usdRate || usdRate));
       const updated: FIREConfig = {
         ...prev,
-        cashSavings: newCash,
-        baseCashBalance: newCash,
-        currentNetWorth: Math.round(newCash + liveStockMarketValue),
+        cashSavings: newTWD,
+        cashSavingsTWD: newTWD,
+        cashSavingsUSD: newUSD,
+        baseCashBalance: newTWD,
+        currentNetWorth: Math.round(totalCashInTWD + liveStockMarketValue),
       };
       saveFIREConfig(updated);
       return updated;
     });
-  }, [liveStockMarketValue]);
+  }, [liveStockMarketValue, usdRate]);
+
+  const exchangeCurrency = useCallback((params: {
+    fromCurrency: 'TWD' | 'USD';
+    toCurrency: 'TWD' | 'USD';
+    fromAmount: number;
+    toAmount: number;
+    feeTWD?: number;
+  }) => {
+    const { fromCurrency, toCurrency, fromAmount, toAmount, feeTWD = 0 } = params;
+    lastUserEditTimeRef.current = Date.now();
+
+    setFireConfig((prev) => {
+      const currentTWD = prev.cashSavingsTWD ?? (prev.cashSavings ?? (prev.baseCashBalance ?? 0));
+      const currentUSD = prev.cashSavingsUSD ?? 0;
+      let newTWD = currentTWD;
+      let newUSD = currentUSD;
+
+      if (fromCurrency === 'TWD' && toCurrency === 'USD') {
+        newTWD = Math.max(0, Math.round(currentTWD - fromAmount - feeTWD));
+        newUSD = Number((currentUSD + toAmount).toFixed(2));
+      } else if (fromCurrency === 'USD' && toCurrency === 'TWD') {
+        newUSD = Math.max(0, Number((currentUSD - fromAmount).toFixed(2)));
+        newTWD = Math.max(0, Math.round(currentTWD + toAmount - feeTWD));
+      }
+
+      const totalCashInTWD = Math.round(newTWD + newUSD * (prev.usdRate || usdRate));
+      const updated: FIREConfig = {
+        ...prev,
+        cashSavings: newTWD,
+        cashSavingsTWD: newTWD,
+        cashSavingsUSD: newUSD,
+        baseCashBalance: newTWD,
+        currentNetWorth: Math.round(totalCashInTWD + liveStockMarketValue),
+      };
+      saveFIREConfig(updated);
+      return updated;
+    });
+  }, [liveStockMarketValue, usdRate]);
 
   const addTransaction = useCallback((t: Omit<Transaction, 'id'>) => {
     lastUserEditTimeRef.current = Date.now();
@@ -356,7 +485,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (cashDelta !== 0) {
-      adjustCashSavings(cashDelta);
+      adjustCashSavings(cashDelta, 'TWD');
     }
   }, [adjustCashSavings]);
 
@@ -379,7 +508,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (cashDelta !== 0) {
-      adjustCashSavings(cashDelta);
+      adjustCashSavings(cashDelta, 'TWD');
     }
   }, [adjustCashSavings]);
 
@@ -425,6 +554,9 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       currentNetWorth: 0,
       baseCashBalance: 0,
       cashSavings: 0,
+      cashSavingsTWD: 0,
+      cashSavingsUSD: 0,
+      usdRate: usdRate,
     };
 
     setTransactions(emptyTx);
@@ -440,7 +572,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (options?.syncCleanToCloud) {
       autoSyncToCloud(true);
     }
-  }, []);
+  }, [usdRate]);
 
   const loadDemoSampleData = useCallback(() => {
     lastUserEditTimeRef.current = Date.now();
@@ -463,6 +595,11 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     quickPresets,
     portfolioStocks,
     fireConfig,
+    usdRate,
+    cashSavingsTWD,
+    cashSavingsUSD,
+    liveTWStockMarketValue,
+    liveUSStockMarketValue,
     liveStockMarketValue,
     totalNetWorth,
     fireResult,
@@ -472,6 +609,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isSyncing,
     updateCashSavings,
     adjustCashSavings,
+    exchangeCurrency,
     updateFIREConfig,
     addTransaction,
     deleteTransaction,
@@ -489,6 +627,11 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     quickPresets,
     portfolioStocks,
     fireConfig,
+    usdRate,
+    cashSavingsTWD,
+    cashSavingsUSD,
+    liveTWStockMarketValue,
+    liveUSStockMarketValue,
     liveStockMarketValue,
     totalNetWorth,
     fireResult,
@@ -498,6 +641,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isSyncing,
     updateCashSavings,
     adjustCashSavings,
+    exchangeCurrency,
     updateFIREConfig,
     addTransaction,
     deleteTransaction,

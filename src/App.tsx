@@ -10,6 +10,7 @@ import { QuickAddModal } from './components/QuickAddModal';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
 import { SystemSettingsModal } from './components/SystemSettingsModal';
+import { CurrencyExchangeModal } from './components/CurrencyExchangeModal';
 import { AppLoadingSplash } from './components/AppLoadingSplash';
 import { WidgetBridge } from './services/widgetBridge';
 import { resetAllDataToDefault } from './utils/storage';
@@ -22,6 +23,7 @@ function FIREAppContent() {
   const [isCloudSyncOpen, setIsCloudSyncOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [isSystemSettingsOpen, setIsSystemSettingsOpen] = useState(false);
+  const [isCurrencyExchangeOpen, setIsCurrencyExchangeOpen] = useState(false);
 
   // Consume from centralized single-source-of-truth FIREContext
   const {
@@ -30,6 +32,9 @@ function FIREAppContent() {
     quickPresets,
     portfolioStocks,
     fireConfig,
+    usdRate,
+    cashSavingsTWD,
+    cashSavingsUSD,
     liveStockMarketValue,
     totalNetWorth,
     fireResult,
@@ -38,6 +43,7 @@ function FIREAppContent() {
     isAppLoading,
     updateFIREConfig,
     adjustCashSavings,
+    exchangeCurrency,
     addTransaction,
     deleteTransaction,
     updateCategories,
@@ -197,9 +203,13 @@ function FIREAppContent() {
                 ...fireConfig,
                 currentNetWorth: totalNetWorth,
               }}
+              cashSavingsTWD={cashSavingsTWD}
+              cashSavingsUSD={cashSavingsUSD}
+              usdRate={usdRate}
               onUpdateStocks={updatePortfolioStocks}
               onSyncNetWorthToFIRE={() => {}}
               onAdjustCashSavings={adjustCashSavings}
+              onOpenCurrencyExchange={() => setIsCurrencyExchangeOpen(true)}
             />
 
             {/* Integrated Investment Analytics & Category Distribution Section */}
@@ -306,6 +316,16 @@ function FIREAppContent() {
         onOpenCloudSync={() => setIsCloudSyncOpen(true)}
         onClearAllLocalData={() => clearAllLocalData({ syncCleanToCloud: storageMode === 'cloud' })}
         onLoadDemoData={loadDemoSampleData}
+      />
+
+      <CurrencyExchangeModal
+        isOpen={isCurrencyExchangeOpen}
+        onClose={() => setIsCurrencyExchangeOpen(false)}
+        cashSavingsTWD={cashSavingsTWD}
+        cashSavingsUSD={cashSavingsUSD}
+        systemUsdRate={usdRate}
+        themeColor={fireConfig.themeColor}
+        onExchange={exchangeCurrency}
       />
     </div>
   );
