@@ -72,6 +72,8 @@ interface FIREContextType {
   refreshCloudData: (isManual?: boolean) => Promise<boolean>;
   toggleStorageMode: (mode: 'cloud' | 'local') => Promise<void>;
   restoreAllData: () => void;
+  clearAllLocalData: (options?: { syncCleanToCloud?: boolean }) => void;
+  loadDemoSampleData: () => void;
 }
 
 const FIREContext = createContext<FIREContextType | undefined>(undefined);
@@ -370,6 +372,48 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [refreshCloudData]);
 
+  const clearAllLocalData = useCallback((options?: { syncCleanToCloud?: boolean }) => {
+    lastUserEditTimeRef.current = Date.now();
+    const emptyTx: Transaction[] = [];
+    const emptyStocks: PortfolioStock[] = [];
+    const emptyPresets: QuickPreset[] = [];
+    const zeroConfig: FIREConfig = {
+      ...DEFAULT_FIRE_CONFIG,
+      currentNetWorth: 0,
+      baseCashBalance: 0,
+      cashSavings: 0,
+    };
+
+    setTransactions(emptyTx);
+    setPortfolioStocks(emptyStocks);
+    setQuickPresets(emptyPresets);
+    setFireConfig(zeroConfig);
+
+    saveTransactionsLocalOnly(emptyTx);
+    savePortfolioStocksLocalOnly(emptyStocks);
+    saveQuickPresetsLocalOnly(emptyPresets);
+    saveFIREConfigLocalOnly(zeroConfig);
+
+    if (options?.syncCleanToCloud) {
+      autoSyncToCloud(true);
+    }
+  }, []);
+
+  const loadDemoSampleData = useCallback(() => {
+    lastUserEditTimeRef.current = Date.now();
+    setTransactions(INITIAL_TRANSACTIONS);
+    setCategories(DEFAULT_CATEGORIES);
+    setQuickPresets(DEFAULT_QUICK_PRESETS);
+    setPortfolioStocks(DEFAULT_PORTFOLIO_STOCKS.map((s) => syncStockCalculations(s)));
+    setFireConfig(DEFAULT_FIRE_CONFIG);
+
+    saveTransactions(INITIAL_TRANSACTIONS);
+    saveCategories(DEFAULT_CATEGORIES);
+    saveQuickPresets(DEFAULT_QUICK_PRESETS);
+    savePortfolioStocks(DEFAULT_PORTFOLIO_STOCKS);
+    saveFIREConfig(DEFAULT_FIRE_CONFIG);
+  }, []);
+
   const value = useMemo(() => ({
     transactions,
     categories,
@@ -393,6 +437,8 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshCloudData,
     toggleStorageMode,
     restoreAllData,
+    clearAllLocalData,
+    loadDemoSampleData,
   }), [
     transactions,
     categories,
@@ -416,6 +462,8 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshCloudData,
     toggleStorageMode,
     restoreAllData,
+    clearAllLocalData,
+    loadDemoSampleData,
   ]);
 
   return <FIREContext.Provider value={value}>{children}</FIREContext.Provider>;

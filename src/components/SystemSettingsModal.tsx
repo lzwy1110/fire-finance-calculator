@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock } from 'lucide-react';
+import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock, Trash2, RefreshCw } from 'lucide-react';
 import { FIREConfig } from '../types';
 import { THEME_PRESETS, CURRENCY_OPTIONS, getThemePreset } from '../utils/theme';
 
@@ -13,6 +13,8 @@ interface SystemSettingsModalProps {
   storageMode: 'cloud' | 'local';
   onToggleStorageMode: (newMode: 'cloud' | 'local') => Promise<void>;
   onOpenCloudSync: () => void;
+  onClearAllLocalData?: () => void;
+  onLoadDemoData?: () => void;
 }
 
 export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
@@ -25,6 +27,8 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   storageMode,
   onToggleStorageMode,
   onOpenCloudSync,
+  onClearAllLocalData,
+  onLoadDemoData,
 }) => {
   const [formData, setFormData] = useState<FIREConfig>(config);
   const [isCustomCurrency, setIsCustomCurrency] = useState(false);
@@ -597,6 +601,51 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* SECTION 5: 資料庫維護與重設 */}
+          <div className="bg-red-500/5 border border-red-500/15 rounded-2xl p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-red-400 flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-red-400" />
+                設定 5: 資料庫維護與重設 (Data Management)
+              </label>
+              <span className="text-[11px] text-gray-500">本機與範例資料維護</span>
+            </div>
+
+            <p className="text-xs text-gray-400 leading-relaxed">
+              若您想從頭開始記帳與記錄庫存，可一鍵清空所有本機資料；或隨時載入預設範例數據進行功能體驗。
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('⚠️ 確定要清空所有本機資料嗎？\n此操作將清空所有記帳交易明細、持股庫存與現金儲備，回歸全新空白起點。')) {
+                    onClearAllLocalData?.();
+                    onClose();
+                  }
+                }}
+                className="p-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-red-400" />
+                <span>🗑️ 清空所有本機資料 (全新空白)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('確定要載入預設範例資料（包含美股/台股範例庫存與記帳範例）嗎？')) {
+                    onLoadDemoData?.();
+                    onClose();
+                  }
+                }}
+                className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4 text-cyan-400" />
+                <span>🔄 載入預設範例資料</span>
+              </button>
             </div>
           </div>
 

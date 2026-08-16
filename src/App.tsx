@@ -43,6 +43,8 @@ function FIREAppContent() {
     updatePortfolioStocks,
     toggleStorageMode,
     restoreAllData,
+    clearAllLocalData,
+    loadDemoSampleData,
   } = useFIRE();
 
   // 1. Android Widget Bridge: Push live today's expense & transactions to Native Widget
@@ -237,7 +239,8 @@ function FIREAppContent() {
             }}
             onDeleteTransaction={deleteTransaction}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
-            onResetDefaultData={handleResetDefaultData}
+            onResetDefaultData={loadDemoSampleData}
+            onClearAllData={() => clearAllLocalData({ syncCleanToCloud: storageMode === 'cloud' })}
           />
         )}
       </main>
@@ -299,6 +302,8 @@ function FIREAppContent() {
         storageMode={storageMode}
         onToggleStorageMode={toggleStorageMode}
         onOpenCloudSync={() => setIsCloudSyncOpen(true)}
+        onClearAllLocalData={() => clearAllLocalData({ syncCleanToCloud: storageMode === 'cloud' })}
+        onLoadDemoData={loadDemoSampleData}
       />
     </div>
   );

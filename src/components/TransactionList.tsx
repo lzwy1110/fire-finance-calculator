@@ -11,6 +11,7 @@ interface TransactionListProps {
   onDeleteTransaction: (id: string) => void;
   onOpenQuickAdd: () => void;
   onResetDefaultData: () => void;
+  onClearAllData?: () => void;
 }
 
 export const TransactionList: React.FC<TransactionListProps> = ({
@@ -20,6 +21,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   onDeleteTransaction,
   onOpenQuickAdd,
   onResetDefaultData,
+  onClearAllData,
 }) => {
   const currentTheme = getThemePreset(fireConfig.themeColor);
   const [search, setSearch] = useState('');
@@ -91,6 +93,19 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             >
               <Download className="w-4 h-4" style={{ color: currentTheme.primaryHex }} />
               匯出 CSV
+            </button>
+
+            <button
+              onClick={() => {
+                if (window.confirm('⚠️ 確定要清空所有本機資料（包含記帳明細、持股庫存與現金）嗎？')) {
+                  onClearAllData?.();
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 transition cursor-pointer"
+              title="清空所有本機資料"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              清空資料
             </button>
 
             <button
