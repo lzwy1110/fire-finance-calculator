@@ -106,30 +106,37 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             </span>
           </div>
 
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={95}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={themeColors[index % themeColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(val: number) => [`${sym} ${formatNum(val)}`, '總額']}
-                  contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#222', borderRadius: '12px', color: '#fff' }}
-                />
-                <Legend formatter={(val) => <span className="text-xs text-gray-300">{val}</span>} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          {pieData.length === 0 ? (
+            <div className="h-72 w-full flex flex-col items-center justify-center text-gray-500 text-xs space-y-2 border border-dashed border-white/5 rounded-2xl">
+              <PieChartIcon className="w-8 h-8 stroke-[1.5] opacity-40" />
+              <span>尚無支出記帳資料，記錄支出後即可查看佔比分析</span>
+            </div>
+          ) : (
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={95}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={themeColors[index % themeColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(val: number) => [`${sym} ${formatNum(val)}`, '總額']}
+                    contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#222', borderRadius: '12px', color: '#fff' }}
+                  />
+                  <Legend formatter={(val) => <span className="text-xs text-gray-300">{val}</span>} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         {/* Monthly Income vs Expense Bar Chart */}
@@ -141,24 +148,31 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             <span className="text-xs text-gray-400">柱狀消長趨勢</span>
           </div>
 
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyTrendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                <XAxis dataKey="month" stroke="#888" fontSize={11} />
-                <YAxis stroke="#888" fontSize={11} tickFormatter={(v) => `${v / 1000}k`} />
-                <Tooltip
-                  formatter={(val: number) => [`${sym} ${formatNum(val)}`, '']}
-                  contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#222', borderRadius: '12px', color: '#fff' }}
-                />
-                <Legend formatter={(val) => <span className="text-xs text-gray-300">{val === 'income' ? '收入' : val === 'expense' ? '支出' : val === 'tax' ? '稅金' : '投資'}</span>} />
-                <Bar dataKey="income" name="income" fill={currentTheme.primaryHex} radius={[6, 6, 0, 0]} />
-                <Bar dataKey="expense" name="expense" fill="#f97316" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="tax" name="tax" fill="#a855f7" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="investment" name="investment" fill="#10b981" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {monthlyTrendData.length === 0 ? (
+            <div className="h-72 w-full flex flex-col items-center justify-center text-gray-500 text-xs space-y-2 border border-dashed border-white/5 rounded-2xl">
+              <BarChart3 className="w-8 h-8 stroke-[1.5] opacity-40" />
+              <span>尚無月度收支紀錄，新增紀錄後即會自動生成趨勢柱狀圖</span>
+            </div>
+          ) : (
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+                  <XAxis dataKey="month" stroke="#888" fontSize={11} />
+                  <YAxis stroke="#888" fontSize={11} tickFormatter={(v) => `${v / 1000}k`} />
+                  <Tooltip
+                    formatter={(val: number) => [`${sym} ${formatNum(val)}`, '']}
+                    contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#222', borderRadius: '12px', color: '#fff' }}
+                  />
+                  <Legend formatter={(val) => <span className="text-xs text-gray-300">{val === 'income' ? '收入' : val === 'expense' ? '支出' : val === 'tax' ? '稅金' : '投資'}</span>} />
+                  <Bar dataKey="income" name="income" fill={currentTheme.primaryHex} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="expense" name="expense" fill="#f97316" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="tax" name="tax" fill="#a855f7" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="investment" name="investment" fill="#10b981" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 

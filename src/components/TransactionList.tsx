@@ -233,10 +233,10 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                       <td className={`p-3 sm:p-4 text-right font-mono font-extrabold text-sm sm:text-base whitespace-nowrap ${t.type === 'income' ? 'text-emerald-400' : t.type === 'expense' ? 'text-amber-400' : t.type === 'investment' ? 'text-purple-300' : 'text-pink-400'}`}>
                         {t.type === 'income' ? '+' : t.type === 'expense' ? '-' : ''} {sym} {formatNum(t.amount)}
                       </td>
-                      <td className="p-3 sm:p-4 text-center whitespace-nowrap">
+                      <td className="p-2 sm:p-4 text-center whitespace-nowrap">
                         <button
                           onClick={() => setDeleteTarget({ id: t.id, name: `${t.mainCategory} (${t.subCategory})`, amount: t.amount })}
-                          className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition cursor-pointer"
+                          className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center mx-auto text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
                           title="刪除這筆紀錄"
                         >
                           <Trash2 className="w-4 h-4" />

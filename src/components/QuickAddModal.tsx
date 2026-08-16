@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, Tag, Calendar, MessageSquare, DollarSign, Sparkles, Check, Flame } from 'lucide-react';
 import { CategoryItem, Transaction, TransactionType } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -24,8 +24,8 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
   const currentTheme = getThemePreset(themeColor);
   const [type, setType] = useState<TransactionType>('expense');
-  const [mainCategory, setMainCategory] = useState<string>('飲食');
-  const [subCategory, setSubCategory] = useState<string>('早餐');
+  const [mainCategory, setMainCategory] = useState<string>('');
+  const [subCategory, setSubCategory] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState<string>('');
@@ -34,6 +34,20 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   const filteredCategories = categories.filter((c) => c.type === type);
   const selectedCatObj = filteredCategories.find((c) => c.name === mainCategory) || filteredCategories[0];
   const subCategories = selectedCatObj?.subCategories || [];
+
+  // Ensure mainCategory and subCategory are always synchronized with available categories
+  useEffect(() => {
+    const validCats = categories.filter((c) => c.type === type);
+    if (validCats.length > 0) {
+      if (!validCats.some((c) => c.name === mainCategory)) {
+        setMainCategory(validCats[0].name);
+        setSubCategory(validCats[0].subCategories[0] || '');
+      }
+    } else if (categories.length > 0) {
+      setMainCategory(categories[0].name);
+      setSubCategory(categories[0].subCategories[0] || '');
+    }
+  }, [type, categories, mainCategory]);
 
   const handleTypeChange = (newType: TransactionType) => {
     setType(newType);

@@ -499,7 +499,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setConfirmModal({
       isOpen: true,
       title: '確定要整檔刪除此股票嗎？',
-      message: `確定要整檔刪除「${stockName}」及其所有歷史買賣交易對帳紀錄嗎？刪除後資料將無法復原。`,
+      message: `確定要整檔刪除「${stockName}」及其所有歷史買賣交易對帳紀錄嗎？\n\n（提示：整檔刪除僅清空庫存持股追蹤與歷史走勢，不會回退過去已扣除的現金儲備）`,
       onConfirm: () => {
         const updated = syncedStocks.filter((s) => s.id !== id);
         onUpdateStocks(updated);
