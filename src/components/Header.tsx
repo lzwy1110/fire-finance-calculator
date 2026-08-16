@@ -61,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="font-extrabold text-base text-white tracking-tight">FIREFlow</h1>
+                <h1 className="font-black text-base text-white tracking-tight">FIRE Flow</h1>
                 <span
                   className="px-1.5 py-0.5 text-[9px] uppercase font-bold rounded-full border tracking-wider"
                   style={{
