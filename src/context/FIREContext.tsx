@@ -208,6 +208,20 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   }, [storageModeState, syncCodeState, liveStockMarketValue]);
 
+  const restoreAllData = useCallback(() => {
+    const tx = loadTransactions();
+    const cat = loadCategories();
+    const presets = loadQuickPresets();
+    const stocks = loadPortfolioStocks();
+    const cfg = loadFIREConfig();
+
+    setTransactions(tx);
+    setCategories(cat);
+    setQuickPresets(presets);
+    setPortfolioStocks(stocks);
+    setFireConfig(cfg);
+  }, []);
+
   // 5. Initial App Load & Background Sync
   useEffect(() => {
     const initApp = async () => {
@@ -228,6 +242,22 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshCloudData(true);
     });
 
+    // Instant Cross-Tab LocalStorage event listener
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!e.key || e.key.startsWith('fire_')) {
+        restoreAllData();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Focus & Visibility change listener
+    const handleFocus = () => {
+      if (storageModeState === 'cloud') {
+        refreshCloudData(false);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+
     // 20s interval background refresh
     const interval = setInterval(() => {
       if (storageModeState === 'cloud' && document.visibilityState === 'visible') {
@@ -237,9 +267,11 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
       clearInterval(interval);
     };
-  }, [storageModeState, syncCodeState, refreshCloudData]);
+  }, [storageModeState, syncCodeState, refreshCloudData, restoreAllData]);
 
   // ================= MUTATION ACTIONS ================= //
 
@@ -328,20 +360,6 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setStorageModeState('local');
     }
   }, [refreshCloudData]);
-
-  const restoreAllData = useCallback(() => {
-    const tx = loadTransactions();
-    const cat = loadCategories();
-    const presets = loadQuickPresets();
-    const stocks = loadPortfolioStocks();
-    const cfg = loadFIREConfig();
-
-    setTransactions(tx);
-    setCategories(cat);
-    setQuickPresets(presets);
-    setPortfolioStocks(stocks);
-    setFireConfig(cfg);
-  }, []);
 
   const value = useMemo(() => ({
     transactions,

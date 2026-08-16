@@ -5,14 +5,20 @@ let activeRealtimeChannel: any = null;
 let currentSubscribedCode: string = '';
 let broadcastChannel: BroadcastChannel | null = null;
 
-// Unique ID for this browser tab / mobile instance
+// Unique ID for this browser tab / mobile instance (Must be per-tab, NOT shared across tabs in localStorage)
+const RUNTIME_INSTANCE_ID = 'dev_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
+
 export function getOrCreateDeviceId(): string {
-  let devId = localStorage.getItem('fire_device_instance_id');
-  if (!devId) {
-    devId = 'dev_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
-    localStorage.setItem('fire_device_instance_id', devId);
+  try {
+    let devId = sessionStorage.getItem('fire_tab_instance_id');
+    if (!devId) {
+      devId = RUNTIME_INSTANCE_ID;
+      sessionStorage.setItem('fire_tab_instance_id', devId);
+    }
+    return devId;
+  } catch (e) {
+    return RUNTIME_INSTANCE_ID;
   }
-  return devId;
 }
 
 /**
