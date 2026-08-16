@@ -183,20 +183,17 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
             : (cCfg.baseCashBalance != null 
                 ? cCfg.baseCashBalance 
                 : (cCfg.currentNetWorth != null && cCfg.currentNetWorth > 0 
-                    ? Math.max(0, cCfg.currentNetWorth - liveStockMarketValue) 
-                    : undefined));
+                    ? cCfg.currentNetWorth 
+                    : 0));
 
-          if (cashVal !== undefined) {
-            const merged: FIREConfig = {
-              ...DEFAULT_FIRE_CONFIG,
-              ...cCfg,
-              cashSavings: cashVal,
-              baseCashBalance: cashVal,
-              currentNetWorth: Math.round(cashVal + liveStockMarketValue),
-            };
-            setFireConfig(merged);
-            saveFIREConfigLocalOnly(merged);
-          }
+          const merged: FIREConfig = {
+            ...DEFAULT_FIRE_CONFIG,
+            ...cCfg,
+            cashSavings: cashVal,
+            baseCashBalance: cashVal,
+          };
+          setFireConfig(merged);
+          saveFIREConfigLocalOnly(merged);
         }
         if (Array.isArray(cPresets) && cPresets.length > 0) {
           setQuickPresets(cPresets);
@@ -215,7 +212,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSyncing(false);
     }
     return false;
-  }, [storageModeState, syncCodeState, liveStockMarketValue]);
+  }, [storageModeState, syncCodeState]);
 
   const restoreAllData = useCallback(() => {
     const tx = loadTransactions();
@@ -231,20 +228,23 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setFireConfig(cfg);
   }, []);
 
-  // 5. Initial App Load & Background Sync
+  // 5. Initial App Load (Runs strictly once on mount)
   useEffect(() => {
     const initApp = async () => {
-      setIsAppLoading(true);
-      if (storageModeState === 'cloud') {
+      const mode = getStorageMode();
+      if (mode === 'cloud') {
         await refreshCloudData(true);
       }
       setTimeout(() => {
         setIsAppLoading(false);
-      }, 300);
+      }, 250);
     };
 
     initApp();
+  }, []);
 
+  // 6. Background Realtime & Sync Listeners
+  useEffect(() => {
     // Subscribe to Realtime WebSocket / Broadcast Channel
     const unsubscribe = subscribeToRealtimeSync(syncCodeState, () => {
       // Received remote change broadcast -> execute Pure Read refresh
@@ -267,12 +267,12 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     window.addEventListener('focus', handleFocus);
 
-    // 20s interval background refresh
+    // 25s interval background refresh
     const interval = setInterval(() => {
       if (storageModeState === 'cloud' && document.visibilityState === 'visible') {
         refreshCloudData(false);
       }
-    }, 20000);
+    }, 25000);
 
     return () => {
       unsubscribe();
