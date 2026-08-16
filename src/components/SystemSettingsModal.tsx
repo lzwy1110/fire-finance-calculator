@@ -609,20 +609,27 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-sm font-bold text-red-400 flex items-center gap-2">
                 <Trash2 className="w-4 h-4 text-red-400" />
-                設定 5: 資料庫維護與重設 (Data Management)
+                設定 5: 資料管理與重設 ({storageMode === 'cloud' ? '雲端同步模式' : '純本機模式'})
               </label>
-              <span className="text-[11px] text-gray-500">本機與範例資料維護</span>
+              <span className="text-[11px] text-gray-400 font-bold">
+                {storageMode === 'cloud' ? '☁️ 連動 Supabase 雲端' : '📱 僅限本機儲存'}
+              </span>
             </div>
 
             <p className="text-xs text-gray-400 leading-relaxed">
-              若您想從頭開始記帳與記錄庫存，可一鍵清空所有本機資料；或隨時載入預設範例數據進行功能體驗。
+              {storageMode === 'cloud'
+                ? '目前處於「雲端同步模式」。清空操作將同步清空 Supabase 雲端資料庫與本機的所有記帳交易、持股庫存與現金儲備。'
+                : '目前處於「純本機離線模式」。清空操作將清空手機/瀏覽器本機的所有記帳交易、持股庫存與現金儲備。'}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm('⚠️ 確定要清空所有本機資料嗎？\n此操作將清空所有記帳交易明細、持股庫存與現金儲備，回歸全新空白起點。')) {
+                  const confirmMsg = storageMode === 'cloud'
+                    ? '⚠️ 確定要清空「雲端與本機」的所有同步資料嗎？\n此操作將清空 Supabase 雲端與本機的記帳明細、持股庫存與現金儲備，回歸全新空白起點。'
+                    : '⚠️ 確定要清除本機的所有離線紀錄嗎？\n此操作將清空本機的所有記帳明細、持股庫存與現金儲備，回歸全新空白起點。';
+                  if (window.confirm(confirmMsg)) {
                     onClearAllLocalData?.();
                     onClose();
                   }
@@ -630,7 +637,9 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 className="p-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Trash2 className="w-4 h-4 text-red-400" />
-                <span>🗑️ 清空所有本機資料 (全新空白)</span>
+                <span>
+                  {storageMode === 'cloud' ? '🗑️ 清空雲端與本機同步紀錄' : '🗑️ 清除本機離線紀錄'}
+                </span>
               </button>
 
               <button

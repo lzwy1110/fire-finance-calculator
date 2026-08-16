@@ -184,61 +184,44 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
               return (
                 <div className="bg-[#111111] p-4 rounded-2xl border border-white/5 flex flex-col justify-between">
                   <div className="text-xs text-gray-400 flex items-center justify-between mb-1">
-                    <span>目前總資產 (Total)</span>
+                    <span className="font-bold">目前總資產 (Total)</span>
                     <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
                   </div>
-                  <div className="flex items-center gap-3 my-1">
-                    <div className="relative w-11 h-11 flex-shrink-0" title={`資產配置：現金 ${cashPct}% / 股票 ${stockPct}%`}>
-                      <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                        <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4.5" />
-                        <circle
-                          cx="18"
-                          cy="18"
-                          r="14"
-                          fill="none"
-                          stroke="#10b981"
-                          strokeWidth="4.5"
-                          strokeDasharray={`${cashStrokeDash} ${circumference}`}
-                          strokeDashoffset="0"
-                          strokeLinecap="round"
-                          className="transition-all duration-700"
-                        />
-                        {stockAmt > 0 && (
-                          <circle
-                            cx="18"
-                            cy="18"
-                            r="14"
-                            fill="none"
-                            stroke="#06b6d4"
-                            strokeWidth="4.5"
-                            strokeDasharray={`${stockStrokeDash} ${circumference}`}
-                            strokeDashoffset={`-${cashStrokeDash}`}
-                            strokeLinecap="round"
-                            className="transition-all duration-700"
-                          />
-                        )}
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-400 font-mono">
-                        {cashPct}%
-                      </div>
+
+                  <div className="my-1">
+                    <div className="text-xl sm:text-2xl font-black text-white font-mono leading-tight tracking-tight truncate">
+                      {formatCurrency(config.currentNetWorth)}
                     </div>
-                    <div>
-                      <div className="text-lg sm:text-xl font-bold text-white font-mono leading-tight">
-                        {formatCurrency(config.currentNetWorth)}
-                      </div>
-                      <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                        現金 {cashPct}% / 股票 {stockPct}%
-                      </div>
+                    
+                    {/* Sleek Horizontal Proportional Asset Allocation Bar */}
+                    <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden flex my-2">
+                      <div
+                        className="bg-emerald-400 h-full transition-all duration-700"
+                        style={{ width: `${cashPct}%` }}
+                        title={`現金 ${cashPct}%`}
+                      />
+                      {stockAmt > 0 && (
+                        <div
+                          className="bg-cyan-400 h-full transition-all duration-700"
+                          style={{ width: `${stockPct}%` }}
+                          title={`股票 ${stockPct}%`}
+                        />
+                      )}
                     </div>
                   </div>
-                  <div className="text-[10px] text-gray-400 mt-1 pt-1.5 border-t border-white/5 flex items-center justify-between flex-wrap gap-1">
-                    <span className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      現金: <strong className="text-emerald-400 font-mono">{sym}{formatNumber(cashAmt)}</strong>
+
+                  <div className="text-[11px] text-gray-400 pt-1.5 border-t border-white/5 flex items-center justify-between flex-wrap gap-x-2 gap-y-1">
+                    <span className="flex items-center gap-1 font-mono">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                      <span>現金:</span>
+                      <strong className="text-emerald-400 font-bold">{sym}{formatNumber(cashAmt)}</strong>
+                      <span className="text-[10px] text-gray-500">({cashPct}%)</span>
                     </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-                      股票: <strong className="text-cyan-400 font-mono">{sym}{formatNumber(stockAmt)}</strong>
+                    <span className="flex items-center gap-1 font-mono">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0"></span>
+                      <span>股票:</span>
+                      <strong className="text-cyan-400 font-bold">{sym}{formatNumber(stockAmt)}</strong>
+                      <span className="text-[10px] text-gray-500">({stockPct}%)</span>
                     </span>
                   </div>
                 </div>
