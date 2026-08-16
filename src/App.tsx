@@ -380,7 +380,7 @@ export default function App() {
                 const newItems = parsed.filter((t: any) => !existingIds.has(t.id));
                 if (newItems.length > 0) {
                   const merged = [...newItems, ...prev];
-                  saveTransactions(merged);
+                  saveTransactionsLocalOnly(merged);
                   newItems.forEach((item) => syncSingleTransactionToCloud(item));
                   return merged;
                 }
@@ -602,7 +602,7 @@ export default function App() {
             const newItems = parsed.filter((t: any) => !existingIds.has(t.id));
             if (newItems.length > 0) {
               const merged = [...newItems, ...prev];
-              saveTransactions(merged);
+              saveTransactionsLocalOnly(merged);
               newItems.forEach((item) => syncSingleTransactionToCloud(item));
               return merged;
             }
