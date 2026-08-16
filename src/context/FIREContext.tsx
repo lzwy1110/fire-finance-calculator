@@ -63,6 +63,7 @@ interface FIREContextType {
 
   // Actions
   updateCashSavings: (amount: number) => void;
+  adjustCashSavings: (delta: number) => void;
   updateFIREConfig: (config: FIREConfig) => void;
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
   deleteTransaction: (id: string) => void;
@@ -317,6 +318,23 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveFIREConfig(updated);
   }, [fireConfig.cashSavings, liveStockMarketValue]);
 
+  const adjustCashSavings = useCallback((delta: number) => {
+    if (!delta || delta === 0) return;
+    lastUserEditTimeRef.current = Date.now();
+    setFireConfig((prev) => {
+      const currentCash = prev.cashSavings ?? (prev.baseCashBalance ?? 0);
+      const newCash = Math.max(0, Math.round(currentCash + delta));
+      const updated: FIREConfig = {
+        ...prev,
+        cashSavings: newCash,
+        baseCashBalance: newCash,
+        currentNetWorth: Math.round(newCash + liveStockMarketValue),
+      };
+      saveFIREConfig(updated);
+      return updated;
+    });
+  }, [liveStockMarketValue]);
+
   const addTransaction = useCallback((t: Omit<Transaction, 'id'>) => {
     lastUserEditTimeRef.current = Date.now();
     const newRecord: Transaction = {
@@ -324,21 +342,46 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     };
 
+    let cashDelta = 0;
+    if (t.type === 'income') {
+      cashDelta = t.amount;
+    } else if (t.type === 'expense' || t.type === 'investment') {
+      cashDelta = -t.amount;
+    }
+
     setTransactions((prev) => {
       const updated = [newRecord, ...prev];
       saveTransactions(updated);
       return updated;
     });
-  }, []);
+
+    if (cashDelta !== 0) {
+      adjustCashSavings(cashDelta);
+    }
+  }, [adjustCashSavings]);
 
   const deleteTransaction = useCallback((id: string) => {
     lastUserEditTimeRef.current = Date.now();
+    let cashDelta = 0;
+
     setTransactions((prev) => {
+      const target = prev.find((t) => t.id === id);
+      if (target) {
+        if (target.type === 'income') {
+          cashDelta = -target.amount;
+        } else if (target.type === 'expense' || target.type === 'investment') {
+          cashDelta = target.amount;
+        }
+      }
       const updated = prev.filter((t) => t.id !== id);
       saveTransactions(updated);
       return updated;
     });
-  }, []);
+
+    if (cashDelta !== 0) {
+      adjustCashSavings(cashDelta);
+    }
+  }, [adjustCashSavings]);
 
   const updateCategories = useCallback((cats: CategoryItem[]) => {
     lastUserEditTimeRef.current = Date.now();
@@ -428,6 +471,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAppLoading,
     isSyncing,
     updateCashSavings,
+    adjustCashSavings,
     updateFIREConfig,
     addTransaction,
     deleteTransaction,
@@ -453,6 +497,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAppLoading,
     isSyncing,
     updateCashSavings,
+    adjustCashSavings,
     updateFIREConfig,
     addTransaction,
     deleteTransaction,

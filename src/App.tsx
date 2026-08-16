@@ -37,6 +37,7 @@ function FIREAppContent() {
     syncCode,
     isAppLoading,
     updateFIREConfig,
+    adjustCashSavings,
     addTransaction,
     deleteTransaction,
     updateCategories,
@@ -198,6 +199,7 @@ function FIREAppContent() {
               }}
               onUpdateStocks={updatePortfolioStocks}
               onSyncNetWorthToFIRE={() => {}}
+              onAdjustCashSavings={adjustCashSavings}
             />
 
             {/* Integrated Investment Analytics & Category Distribution Section */}

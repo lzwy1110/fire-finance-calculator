@@ -40,6 +40,7 @@ interface PortfolioViewProps {
   fireConfig: FIREConfig;
   onUpdateStocks: (newStocks: PortfolioStock[]) => void;
   onSyncNetWorthToFIRE: (totalMarketValueTWD: number) => void;
+  onAdjustCashSavings?: (delta: number) => void;
 }
 
 export const PortfolioView: React.FC<PortfolioViewProps> = ({
@@ -47,6 +48,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   fireConfig,
   onUpdateStocks,
   onSyncNetWorthToFIRE,
+  onAdjustCashSavings,
 }) => {
   const currentTheme = getThemePreset(fireConfig.themeColor);
   const [filterMarket, setFilterMarket] = useState<'ALL' | 'US' | 'TW'>('ALL');
@@ -389,6 +391,22 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       updatedStocksList = [syncStockCalculations(newStockObj), ...syncedStocks];
     }
 
+    // Adjust cash savings according to the stock trade
+    let cashDelta = 0;
+    const isUS = marketInput === 'US';
+    const tradeValueTWD = parsedShares * parsedCost * (isUS ? usdRate : 1);
+    if (tradeType === 'BUY') {
+      if (!useInitialHoldings) {
+        cashDelta = -tradeValueTWD;
+      }
+    } else if (tradeType === 'SELL') {
+      cashDelta = +tradeValueTWD;
+    }
+
+    if (cashDelta !== 0 && onAdjustCashSavings) {
+      onAdjustCashSavings(cashDelta);
+    }
+
     onUpdateStocks(updatedStocksList);
     setIsAddModalOpen(false);
 
@@ -447,6 +465,17 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           ...targetStock,
           transactions: remainingTx,
         });
+
+        // Refund/revert cash if deleting trade
+        if (targetTx && onAdjustCashSavings) {
+          const isUS = targetStock.market === 'US';
+          const amtTWD = (targetTx.shares || 0) * (targetTx.price || 0) * (isUS ? usdRate : 1);
+          if (targetTx.type === 'BUY' && !targetTx.isInitialHoldings) {
+            onAdjustCashSavings(+amtTWD); // Refund buying cost
+          } else if (targetTx.type === 'SELL') {
+            onAdjustCashSavings(-amtTWD); // Deduct sell proceeds
+          }
+        }
 
         let updatedList: PortfolioStock[];
         if (remainingTx.length === 0 && updatedStock.shares === 0) {
