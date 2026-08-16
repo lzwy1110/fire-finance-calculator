@@ -83,12 +83,31 @@ export async function checkBackendHealth(): Promise<HealthCheckResponse | null> 
 }
 
 /**
- * 從 Supabase (API 或前端直連) 讀取數據
+ * 從 Supabase (前端直連優先，次為 API 路由) 讀取數據
  */
 export async function fetchCloudData(syncCode: string): Promise<FetchDataResponse | null> {
-  // 1. 嘗試 API 路由
+  const cleanCode = (syncCode || 'FIRE-DEFAULT-2026').trim().toUpperCase();
+
+  // 1. 前端 Supabase 直連 (第一優先級)
+  if (isFrontendSupabaseReady()) {
+    try {
+      const directData = await fetchSupabaseDataDirect(cleanCode);
+      if (directData) {
+        return {
+          success: true,
+          mode: 'supabase',
+          syncCode: cleanCode,
+          data: directData,
+        };
+      }
+    } catch (e) {
+      console.warn('[Supabase Direct Fetch Error]:', e);
+    }
+  }
+
+  // 2. 嘗試後端 API 路由 (若無 Supabase 憑證或連線伺服器)
   try {
-    const res = await fetch(`${API_BASE_URL}/api/data?syncCode=${encodeURIComponent(syncCode)}`, {
+    const res = await fetch(`${API_BASE_URL}/api/data?syncCode=${encodeURIComponent(cleanCode)}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -100,51 +119,11 @@ export async function fetchCloudData(syncCode: string): Promise<FetchDataRespons
     // API offline or 404
   }
 
-  // 2. 前端 Supabase 直連
-  if (isFrontendSupabaseReady()) {
-    const directData = await fetchSupabaseDataDirect(syncCode);
-    if (directData) {
-      return {
-        success: true,
-        mode: 'supabase',
-        syncCode,
-        data: directData,
-      };
-    }
-  }
-
-  // 3. 通用免費全球雲端 Relay Fallback (KVDB Global Storage)
-  try {
-    const cleanCode = syncCode.trim().toUpperCase();
-    const relayUrl = `https://kvdb.io/9L8xY7Z2w3V4u5T6s1R0/${encodeURIComponent(cleanCode)}`;
-    const relayRes = await fetch(relayUrl, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    if (relayRes.ok) {
-      const relayJson = await relayRes.json();
-      if (relayJson && (Array.isArray(relayJson.transactions) || Array.isArray(relayJson.portfolioStocks))) {
-        return {
-          success: true,
-          mode: 'supabase',
-          syncCode: cleanCode,
-          data: {
-            transactions: relayJson.transactions || [],
-            categories: relayJson.categories || [],
-            fireConfig: relayJson.fireConfig || null,
-            quickPresets: relayJson.quickPresets || [],
-            portfolioStocks: relayJson.portfolioStocks || [],
-          },
-        };
-      }
-    }
-  } catch (e) {}
-
   return null;
 }
 
 /**
- * 推送數據至 Supabase (API、前端直連或通用雲端 Relay)
+ * 推送數據至 Supabase (前端直連優先，次為 API 路由)
  */
 export async function pushCloudData(payload: {
   syncCode: string;
@@ -154,12 +133,32 @@ export async function pushCloudData(payload: {
   quickPresets?: QuickPreset[];
   portfolioStocks?: PortfolioStock[];
 }): Promise<SyncDataResponse | null> {
-  // 1. 嘗試 API 路由
+  const cleanCode = (payload.syncCode || 'FIRE-DEFAULT-2026').trim().toUpperCase();
+  const cleanPayload = { ...payload, syncCode: cleanCode };
+
+  // 1. 前端 Supabase 直連 (第一優先級)
+  if (isFrontendSupabaseReady()) {
+    try {
+      const success = await pushSupabaseDataDirect(cleanPayload);
+      if (success) {
+        return {
+          success: true,
+          mode: 'supabase',
+          lastSyncedAt: new Date().toISOString(),
+          message: '全量數據已成功透過前端直連同步至 Supabase！',
+        };
+      }
+    } catch (e) {
+      console.warn('[Supabase Direct Push Error]:', e);
+    }
+  }
+
+  // 2. 嘗試後端 API 路由
   try {
     const res = await fetch(`${API_BASE_URL}/api/data/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(cleanPayload),
     });
     if (res.ok) {
       const data = await res.json();
@@ -169,38 +168,6 @@ export async function pushCloudData(payload: {
     // API failed
   }
 
-  // 2. 前端 Supabase 直連 fallback
-  if (isFrontendSupabaseReady()) {
-    const success = await pushSupabaseDataDirect(payload);
-    if (success) {
-      return {
-        success: true,
-        mode: 'supabase',
-        lastSyncedAt: new Date().toISOString(),
-        message: '全量數據已成功透過前端直連同步至 Supabase！',
-      };
-    }
-  }
-
-  // 3. 通用免費全球雲端 Relay Fallback (KVDB Global Storage)
-  try {
-    const cleanCode = payload.syncCode.trim().toUpperCase();
-    const relayUrl = `https://kvdb.io/9L8xY7Z2w3V4u5T6s1R0/${encodeURIComponent(cleanCode)}`;
-    const relayRes = await fetch(relayUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (relayRes.ok) {
-      return {
-        success: true,
-        mode: 'supabase',
-        lastSyncedAt: new Date().toISOString(),
-        message: '全量數據已成功透過通用雲端 Relay 同步！',
-      };
-    }
-  } catch (e) {}
-
   return null;
 }
 
@@ -208,6 +175,11 @@ export async function pushCloudData(payload: {
  * 新增/更新單筆交易至 Supabase
  */
 export async function saveTransactionToCloud(syncCode: string, transaction: Transaction): Promise<boolean> {
+  if (isFrontendSupabaseReady()) {
+    const directRes = await saveTransactionDirect(transaction, syncCode);
+    if (directRes) return true;
+  }
+
   try {
     const res = await fetch(`${API_BASE_URL}/api/transactions`, {
       method: 'POST',
@@ -215,33 +187,39 @@ export async function saveTransactionToCloud(syncCode: string, transaction: Tran
       body: JSON.stringify({ syncCode, transaction }),
     });
     if (res.ok) return true;
-  } catch (err) {
-    // fall back
-  }
+  } catch (err) {}
 
-  return await saveTransactionDirect(transaction, syncCode);
+  return false;
 }
 
 /**
  * 從 Supabase 刪除交易記錄
  */
 export async function deleteTransactionFromCloud(syncCode: string, id: string): Promise<boolean> {
+  if (isFrontendSupabaseReady()) {
+    const directRes = await deleteTransactionDirect(id, syncCode);
+    if (directRes) return true;
+  }
+
   try {
     const res = await fetch(`${API_BASE_URL}/api/transactions/${id}?syncCode=${encodeURIComponent(syncCode)}`, {
       method: 'DELETE',
     });
     if (res.ok) return true;
-  } catch (err) {
-    // fall back
-  }
+  } catch (err) {}
 
-  return await deleteTransactionDirect(id, syncCode);
+  return false;
 }
 
 /**
  * 更新 FIRE 設定至 Supabase
  */
 export async function saveFIREConfigToCloud(syncCode: string, config: FIREConfig): Promise<boolean> {
+  if (isFrontendSupabaseReady()) {
+    const directRes = await saveFIREConfigDirect(config, syncCode);
+    if (directRes) return true;
+  }
+
   try {
     const res = await fetch(`${API_BASE_URL}/api/config`, {
       method: 'POST',
@@ -249,11 +227,9 @@ export async function saveFIREConfigToCloud(syncCode: string, config: FIREConfig
       body: JSON.stringify({ syncCode, config }),
     });
     if (res.ok) return true;
-  } catch (err) {
-    // fall back
-  }
+  } catch (err) {}
 
-  return await saveFIREConfigDirect(config, syncCode);
+  return false;
 }
 
 /**
