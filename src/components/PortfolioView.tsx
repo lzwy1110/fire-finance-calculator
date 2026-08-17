@@ -703,7 +703,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
               <span>🇹🇼 NT$ <strong className="font-mono">{formatNum(currentTWD)}</strong></span>
               <span className="text-emerald-500/40">|</span>
-              <span>🇺🇸 $<strong className="font-mono">{formatNum(currentUSD)}</strong> USD</span>
+              <span>🇺🇸 US$ <strong className="font-mono">{formatNum(currentUSD)}</strong></span>
             </div>
 
             {/* Auto-sync Indicator */}
