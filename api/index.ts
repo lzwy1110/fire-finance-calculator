@@ -250,18 +250,31 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
       await supabase.from('fire_configs').upsert(configRow);
     }
 
-    if (Array.isArray(categories) && categories.length > 0) {
-      const catRows = categories.map((c: any) => ({
-        id: c.id,
-        sync_code: targetSyncCode,
-        name: c.name,
-        type: c.type,
-        icon: c.icon,
-        color: c.color,
-        sub_categories: c.subCategories || [],
-        updated_at: new Date().toISOString(),
-      }));
-      await supabase.from('categories').upsert(catRows);
+    if (Array.isArray(categories)) {
+      if (categories.length > 0) {
+        const catRows = categories.map((c: any) => ({
+          id: c.id,
+          sync_code: targetSyncCode,
+          name: c.name,
+          type: c.type,
+          icon: c.icon,
+          color: c.color,
+          sub_categories: c.subCategories || [],
+          updated_at: new Date().toISOString(),
+        }));
+        const currentCatIds = categories.map((c: any) => String(c.id));
+        await supabase.from('categories').upsert(catRows);
+        try {
+          const { data: existingCats } = await supabase.from('categories').select('id').eq('sync_code', targetSyncCode);
+          if (Array.isArray(existingCats)) {
+            const currentCatIdSet = new Set(currentCatIds);
+            const toDelete = existingCats.filter((r: any) => !currentCatIdSet.has(r.id)).map((r: any) => r.id);
+            if (toDelete.length > 0) await supabase.from('categories').delete().in('id', toDelete);
+          }
+        } catch (e) {}
+      } else {
+        await supabase.from('categories').delete().eq('sync_code', targetSyncCode);
+      }
     }
 
     if (Array.isArray(transactions)) {
@@ -279,24 +292,46 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
           is_quick_preset: Boolean(t.isQuickPreset),
           updated_at: new Date().toISOString(),
         }));
+        const currentTxIds = transactions.map((t: any) => String(t.id));
         await supabase.from('transactions').upsert(txRows);
+        try {
+          const { data: existingTxs } = await supabase.from('transactions').select('id').eq('sync_code', targetSyncCode);
+          if (Array.isArray(existingTxs)) {
+            const currentTxIdSet = new Set(currentTxIds);
+            const toDelete = existingTxs.filter((r: any) => !currentTxIdSet.has(r.id)).map((r: any) => r.id);
+            if (toDelete.length > 0) await supabase.from('transactions').delete().in('id', toDelete);
+          }
+        } catch (e) {}
       } else {
         await supabase.from('transactions').delete().eq('sync_code', targetSyncCode);
       }
     }
 
-    if (Array.isArray(quickPresets) && quickPresets.length > 0) {
-      const presetRows = quickPresets.map((p: any) => ({
-        id: p.id,
-        sync_code: targetSyncCode,
-        label: p.label,
-        main_category: p.mainCategory,
-        sub_category: p.subCategory,
-        amount: p.amount,
-        icon: p.icon || 'Zap',
-        updated_at: new Date().toISOString(),
-      }));
-      await supabase.from('quick_presets').upsert(presetRows);
+    if (Array.isArray(quickPresets)) {
+      if (quickPresets.length > 0) {
+        const presetRows = quickPresets.map((p: any) => ({
+          id: p.id,
+          sync_code: targetSyncCode,
+          label: p.label,
+          main_category: p.mainCategory,
+          sub_category: p.subCategory,
+          amount: p.amount,
+          icon: p.icon || 'Zap',
+          updated_at: new Date().toISOString(),
+        }));
+        const currentPresetIds = quickPresets.map((p: any) => String(p.id));
+        await supabase.from('quick_presets').upsert(presetRows);
+        try {
+          const { data: existingPresets } = await supabase.from('quick_presets').select('id').eq('sync_code', targetSyncCode);
+          if (Array.isArray(existingPresets)) {
+            const currentPresetIdSet = new Set(currentPresetIds);
+            const toDelete = existingPresets.filter((r: any) => !currentPresetIdSet.has(r.id)).map((r: any) => r.id);
+            if (toDelete.length > 0) await supabase.from('quick_presets').delete().in('id', toDelete);
+          }
+        } catch (e) {}
+      } else {
+        await supabase.from('quick_presets').delete().eq('sync_code', targetSyncCode);
+      }
     }
 
     if (Array.isArray(portfolioStocks)) {

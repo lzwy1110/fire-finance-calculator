@@ -276,21 +276,41 @@ export async function pushSupabaseDataDirect(payload: {
     }
 
     // 2. 寫入 Categories
-    if (Array.isArray(categories) && categories.length > 0) {
-      const catRows = categories.map((c) => ({
-        id: String(c.id),
-        sync_code: targetSyncCode,
-        name: c.name,
-        type: c.type,
-        icon: c.icon,
-        color: c.color,
-        sub_categories: c.subCategories || [],
-        updated_at: new Date().toISOString(),
-      }));
-      const res = await supabase.from('categories').upsert(catRows, { onConflict: 'id' });
-      if (res.error) {
-        console.error('[Supabase categories Upsert Error]:', res.error);
-        return { success: false, error: `分類設定寫入失敗: ${res.error.message}` };
+    if (Array.isArray(categories)) {
+      if (categories.length > 0) {
+        const catRows = categories.map((c) => ({
+          id: String(c.id),
+          sync_code: targetSyncCode,
+          name: c.name,
+          type: c.type,
+          icon: c.icon,
+          color: c.color,
+          sub_categories: c.subCategories || [],
+          updated_at: new Date().toISOString(),
+        }));
+        const currentCatIds = categories.map((c) => String(c.id));
+        const res = await supabase.from('categories').upsert(catRows, { onConflict: 'id' });
+        if (res.error) {
+          console.error('[Supabase categories Upsert Error]:', res.error);
+          return { success: false, error: `分類設定寫入失敗: ${res.error.message}` };
+        }
+
+        // 精準清理已在前端被刪除的分類
+        try {
+          const { data: existingCats } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('sync_code', targetSyncCode);
+          if (Array.isArray(existingCats)) {
+            const currentCatIdSet = new Set(currentCatIds);
+            const toDeleteCats = existingCats.filter((r) => !currentCatIdSet.has(r.id)).map((r) => r.id);
+            if (toDeleteCats.length > 0) {
+              await supabase.from('categories').delete().in('id', toDeleteCats);
+            }
+          }
+        } catch (delErr) {}
+      } else {
+        await supabase.from('categories').delete().eq('sync_code', targetSyncCode);
       }
     }
 
@@ -310,32 +330,68 @@ export async function pushSupabaseDataDirect(payload: {
           is_quick_preset: Boolean(t.isQuickPreset),
           updated_at: new Date().toISOString(),
         }));
+        const currentTxIds = transactions.map((t) => String(t.id));
         const res = await supabase.from('transactions').upsert(txRows, { onConflict: 'id' });
         if (res.error) {
           console.error('[Supabase transactions Upsert Error]:', res.error);
           return { success: false, error: `記帳明細寫入失敗: ${res.error.message}` };
         }
+
+        // 精準清理已在前端被刪除的交易紀錄
+        try {
+          const { data: existingTxs } = await supabase
+            .from('transactions')
+            .select('id')
+            .eq('sync_code', targetSyncCode);
+          if (Array.isArray(existingTxs)) {
+            const currentTxIdSet = new Set(currentTxIds);
+            const toDeleteTxs = existingTxs.filter((r) => !currentTxIdSet.has(r.id)).map((r) => r.id);
+            if (toDeleteTxs.length > 0) {
+              await supabase.from('transactions').delete().in('id', toDeleteTxs);
+            }
+          }
+        } catch (delErr) {}
       } else {
         await supabase.from('transactions').delete().eq('sync_code', targetSyncCode);
       }
     }
 
     // 4. 寫入 Quick Presets
-    if (Array.isArray(quickPresets) && quickPresets.length > 0) {
-      const presetRows = quickPresets.map((p) => ({
-        id: String(p.id),
-        sync_code: targetSyncCode,
-        label: p.label,
-        main_category: p.mainCategory,
-        sub_category: p.subCategory,
-        amount: Number(p.amount) || 0,
-        icon: p.icon || 'Zap',
-        updated_at: new Date().toISOString(),
-      }));
-      const res = await supabase.from('quick_presets').upsert(presetRows, { onConflict: 'id' });
-      if (res.error) {
-        console.error('[Supabase quick_presets Upsert Error]:', res.error);
-        return { success: false, error: `快捷預設寫入失敗: ${res.error.message}` };
+    if (Array.isArray(quickPresets)) {
+      if (quickPresets.length > 0) {
+        const presetRows = quickPresets.map((p) => ({
+          id: String(p.id),
+          sync_code: targetSyncCode,
+          label: p.label,
+          main_category: p.mainCategory,
+          sub_category: p.subCategory,
+          amount: Number(p.amount) || 0,
+          icon: p.icon || 'Zap',
+          updated_at: new Date().toISOString(),
+        }));
+        const currentPresetIds = quickPresets.map((p) => String(p.id));
+        const res = await supabase.from('quick_presets').upsert(presetRows, { onConflict: 'id' });
+        if (res.error) {
+          console.error('[Supabase quick_presets Upsert Error]:', res.error);
+          return { success: false, error: `快捷預設寫入失敗: ${res.error.message}` };
+        }
+
+        // 精準清理已在前端被刪除的快捷預設
+        try {
+          const { data: existingPresets } = await supabase
+            .from('quick_presets')
+            .select('id')
+            .eq('sync_code', targetSyncCode);
+          if (Array.isArray(existingPresets)) {
+            const currentPresetIdSet = new Set(currentPresetIds);
+            const toDeletePresets = existingPresets.filter((r) => !currentPresetIdSet.has(r.id)).map((r) => r.id);
+            if (toDeletePresets.length > 0) {
+              await supabase.from('quick_presets').delete().in('id', toDeletePresets);
+            }
+          }
+        } catch (delErr) {}
+      } else {
+        await supabase.from('quick_presets').delete().eq('sync_code', targetSyncCode);
       }
     }
 
