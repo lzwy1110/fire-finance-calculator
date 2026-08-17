@@ -95,10 +95,10 @@ interface FIREContextType {
 const FIREContext = createContext<FIREContextType | undefined>(undefined);
 
 export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAppLoading, setIsAppLoading] = useState(true);
+  const [isAppLoading, setIsAppLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [storageModeState, setStorageModeState] = useState<'cloud' | 'local'>(getStorageMode());
-  const [syncCodeState, setSyncCodeState] = useState<string>(getOrCreateSyncCode());
+  const [storageModeState, setStorageModeState] = useState<'cloud' | 'local'>(() => getStorageMode());
+  const [syncCodeState, setSyncCodeState] = useState<string>(() => getOrCreateSyncCode());
 
   // Core Data States
   const [transactions, setTransactions] = useState<Transaction[]>(() => loadTransactions());
@@ -109,7 +109,14 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return raw.map((s) => syncStockCalculations(s));
   });
   const [fireConfig, setFireConfig] = useState<FIREConfig>(() => loadFIREConfig());
-  const [usdRate, setUsdRate] = useState<number>(() => fireConfig.usdRate || 32.0);
+  const [usdRate, setUsdRate] = useState<number>(() => {
+    try {
+      const cfg = loadFIREConfig();
+      return cfg?.usdRate || 32.0;
+    } catch (e) {
+      return 32.0;
+    }
+  });
 
   // Prevent refresh storms immediately after user edit
   const lastUserEditTimeRef = useRef<number>(0);

@@ -157,10 +157,6 @@ function FIREAppContent() {
     }
   };
 
-  if (isAppLoading) {
-    return <AppLoadingSplash themeColor={fireConfig.themeColor} statusMessage="正在連線雲端資料庫並同步資產..." />;
-  }
-
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-300">
       {/* Top Sticky Navigation Header */}
