@@ -500,13 +500,10 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setQuickPresets(cPresets);
           saveQuickPresetsLocalOnly(cPresets);
         }
-        // Protect portfolio stocks from empty overwrite if user recently modified stocks
         if (Array.isArray(cStocks)) {
-          if (cStocks.length > 0 || Date.now() - lastUserEditTimeRef.current > 6000) {
-            const synced = cStocks.map((s) => syncStockCalculations(s));
-            setPortfolioStocks(synced);
-            savePortfolioStocksLocalOnly(synced);
-          }
+          const synced = cStocks.map((s) => syncStockCalculations(s));
+          setPortfolioStocks(synced);
+          savePortfolioStocksLocalOnly(synced);
         }
         return true;
       }
