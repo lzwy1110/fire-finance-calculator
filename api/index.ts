@@ -184,6 +184,15 @@ app.get('/api/data', async (req: Request, res: Response) => {
         : [],
     }));
 
+    if (portfolioStocks.length === 0 && configRes.data && configRes.data.theme_color && configRes.data.theme_color.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(configRes.data.theme_color);
+        if (parsed && Array.isArray(parsed.portfolioStocks) && parsed.portfolioStocks.length > 0) {
+          portfolioStocks = parsed.portfolioStocks;
+        }
+      } catch (e) {}
+    }
+
     if (portfolioStocks.length === 0 && configRes.data && configRes.data.portfolio_stocks_json) {
       try {
         const parsedFallback = JSON.parse(configRes.data.portfolio_stocks_json);
@@ -225,24 +234,48 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
 
   try {
     if (fireConfig) {
-      await supabase.from('fire_configs').upsert({
-        sync_code: targetSyncCode,
-        current_age: fireConfig.currentAge,
-        target_retirement_age: fireConfig.targetRetirementAge,
-        current_net_worth: fireConfig.currentNetWorth,
-        monthly_income: fireConfig.monthlyIncome,
-        monthly_expenses: fireConfig.monthlyExpenses,
-        monthly_tax: fireConfig.monthlyTax,
-        monthly_investment: fireConfig.monthlyInvestment,
-        target_annual_expense_post_retirement: fireConfig.targetAnnualExpensePostRetirement,
-        expected_investment_return_rate: fireConfig.expectedInvestmentReturnRate,
-        expected_inflation_rate: fireConfig.expectedInflationRate,
-        safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
-        currency_symbol: fireConfig.currencySymbol,
-        theme_color: fireConfig.themeColor || 'cyan',
-        portfolio_stocks_json: JSON.stringify(portfolioStocks || []),
-        updated_at: new Date().toISOString(),
+      const themeWithMeta = JSON.stringify({
+        theme: fireConfig.themeColor || 'sakura',
+        portfolioStocks: portfolioStocks || [],
       });
+      try {
+        await supabase.from('fire_configs').upsert({
+          sync_code: targetSyncCode,
+          current_age: fireConfig.currentAge,
+          target_retirement_age: fireConfig.targetRetirementAge,
+          current_net_worth: fireConfig.currentNetWorth,
+          monthly_income: fireConfig.monthlyIncome,
+          monthly_expenses: fireConfig.monthlyExpenses,
+          monthly_tax: fireConfig.monthlyTax,
+          monthly_investment: fireConfig.monthlyInvestment,
+          target_annual_expense_post_retirement: fireConfig.targetAnnualExpensePostRetirement,
+          expected_investment_return_rate: fireConfig.expectedInvestmentReturnRate,
+          expected_inflation_rate: fireConfig.expectedInflationRate,
+          safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
+          currency_symbol: fireConfig.currencySymbol,
+          theme_color: themeWithMeta,
+          portfolio_stocks_json: JSON.stringify(portfolioStocks || []),
+          updated_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        await supabase.from('fire_configs').upsert({
+          sync_code: targetSyncCode,
+          current_age: fireConfig.currentAge,
+          target_retirement_age: fireConfig.targetRetirementAge,
+          current_net_worth: fireConfig.currentNetWorth,
+          monthly_income: fireConfig.monthlyIncome,
+          monthly_expenses: fireConfig.monthlyExpenses,
+          monthly_tax: fireConfig.monthlyTax,
+          monthly_investment: fireConfig.monthlyInvestment,
+          target_annual_expense_post_retirement: fireConfig.targetAnnualExpensePostRetirement,
+          expected_investment_return_rate: fireConfig.expectedInvestmentReturnRate,
+          expected_inflation_rate: fireConfig.expectedInflationRate,
+          safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
+          currency_symbol: fireConfig.currencySymbol,
+          theme_color: themeWithMeta,
+          updated_at: new Date().toISOString(),
+        });
+      }
     }
 
     if (Array.isArray(categories) && categories.length > 0) {

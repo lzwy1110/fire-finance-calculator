@@ -143,6 +143,8 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       let parsedExtra: any = {};
       let resolvedThemeColor = cfg.theme_color || 'sakura';
 
+      let portfolioStocksFromTheme: PortfolioStock[] | null = null;
+
       // 1. Decode theme_color metadata fallback (Guaranteed column in schema)
       if (cfg.theme_color && typeof cfg.theme_color === 'string' && cfg.theme_color.startsWith('{')) {
         try {
@@ -150,6 +152,9 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
           if (parsedTheme && typeof parsedTheme === 'object') {
             resolvedThemeColor = parsedTheme.theme || 'sakura';
             parsedExtra = { ...parsedExtra, ...parsedTheme };
+            if (Array.isArray(parsedTheme.portfolioStocks) && parsedTheme.portfolioStocks.length > 0) {
+              portfolioStocksFromTheme = parsedTheme.portfolioStocks;
+            }
           }
         } catch (e) {}
       }
@@ -244,6 +249,11 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       }));
     }
 
+    // Fallback 0: Check theme_color metadata (Guaranteed column in all Supabase setups)
+    if ((!portfolioStocks || portfolioStocks.length === 0) && portfolioStocksFromTheme && portfolioStocksFromTheme.length > 0) {
+      portfolioStocks = portfolioStocksFromTheme;
+    }
+
     // Fallback 1: Check fire_configs.portfolio_stocks_json
     if ((!portfolioStocks || portfolioStocks.length === 0) && configRes.data && (configRes.data as any).portfolio_stocks_json) {
       try {
@@ -305,6 +315,7 @@ export async function pushSupabaseDataDirect(payload: {
         cashSavingsUSD: fireConfig.cashSavingsUSD != null ? fireConfig.cashSavingsUSD : 0,
         usdRate: fireConfig.usdRate || 32.0,
         baseCashBalance: fireConfig.baseCashBalance != null ? fireConfig.baseCashBalance : 0,
+        portfolioStocks: portfolioStocks || [],
       });
 
       const baseConfigObj = {
