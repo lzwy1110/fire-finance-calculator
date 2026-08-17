@@ -69,6 +69,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
   // Add / Record Transaction Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [tradeType, setTradeType] = useState<'BUY' | 'SELL'>('BUY');
   const [symbolInput, setSymbolInput] = useState('');
   const [nameInput, setNameInput] = useState('');
@@ -250,6 +251,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
     if (item.price && item.price > 0) {
       setPriceInput(item.price);
+      if (!costInput || parseFloat(costInput) <= 0) {
+        setCostInput(String(item.price));
+      }
       setRefreshStatus(`✅ 已帶入 ${item.symbol} 最新實時股價 $${item.price}`);
       setTimeout(() => setRefreshStatus(null), 2000);
       return;
@@ -259,6 +263,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     const quote = await fetchSingleStockQuote(item.symbol, item.market);
     if (quote && quote.currentPrice > 0) {
       setPriceInput(quote.currentPrice);
+      if (!costInput || parseFloat(costInput) <= 0) {
+        setCostInput(String(quote.currentPrice));
+      }
       if (quote.name) setNameInput(quote.name);
       setRefreshStatus(`✅ 已獲取 ${item.symbol} 最新市價 $${quote.currentPrice}`);
     } else {
@@ -269,20 +276,22 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
   // Open Modal for Add New Transaction / Stock
   const handleOpenAddModal = (targetStock?: PortfolioStock) => {
+    setEditingTxId(null);
     setTradeType('BUY');
     if (targetStock) {
       setSymbolInput(targetStock.symbol);
       setNameInput(targetStock.name);
       setMarketInput(targetStock.market);
       setPriceInput(targetStock.currentPrice);
+      setCostInput(targetStock.currentPrice > 0 ? String(targetStock.currentPrice) : '');
     } else {
       setSymbolInput('');
       setNameInput('');
       setMarketInput(filterMarket === 'TW' ? 'TW' : 'US');
       setPriceInput(0);
+      setCostInput('');
     }
     setSharesInput('');
-    setCostInput('');
     setDateInput(new Date().toISOString().split('T')[0]);
     setNoteInput('');
     setIsInitialHoldingsInput(false);
@@ -291,13 +300,38 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setIsAddModalOpen(true);
   };
 
-  // Save Transaction (BUY / SELL)
+  // Open Modal for Editing an Existing Transaction Record
+  const handleOpenEditModal = (targetStock: PortfolioStock, tx: StockTransaction) => {
+    setEditingTxId(tx.id);
+    setTradeType(tx.type);
+    setSymbolInput(targetStock.symbol);
+    setNameInput(targetStock.name);
+    setMarketInput(targetStock.market);
+    setSharesInput(String(tx.shares));
+    setCostInput(String(tx.price));
+    setDateInput(tx.date || new Date().toISOString().split('T')[0]);
+    setNoteInput(tx.note || '');
+    setIsInitialHoldingsInput(Boolean(tx.isInitialHoldings));
+    setPriceInput(targetStock.currentPrice);
+    setSearchSuggestions([]);
+    setShowSuggestions(false);
+    setIsAddModalOpen(true);
+  };
+
+  // Save Transaction (BUY / SELL / EDIT)
   const handleSaveTransaction = async (e?: React.FormEvent, overrideInitialHoldings?: boolean) => {
     if (e) e.preventDefault();
     const cleanSym = symbolInput.trim().toUpperCase();
     const parsedShares = parseFloat(sharesInput) || 0;
-    const parsedCost = parseFloat(costInput) || 0;
-    if (!cleanSym || parsedShares <= 0 || parsedCost <= 0) return;
+    let parsedCost = parseFloat(costInput) || 0;
+    if (parsedCost <= 0 && priceInput > 0) {
+      parsedCost = priceInput;
+    }
+
+    if (!cleanSym || parsedShares <= 0 || parsedCost <= 0) {
+      alert('請填寫有效的股票代號、股數（需大於 0）與買入單價（需大於 0）！');
+      return;
+    }
 
     const useInitialHoldings =
       typeof overrideInitialHoldings === 'boolean'
@@ -306,8 +340,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         ? isInitialHoldingsInput
         : false;
 
-    // Validate cash balance for BUY trade if deducting cash
-    if (tradeType === 'BUY' && !useInitialHoldings && typeof overrideInitialHoldings === 'undefined') {
+    // Validate cash balance for BUY trade if deducting cash (only on new add)
+    if (!editingTxId && tradeType === 'BUY' && !useInitialHoldings && typeof overrideInitialHoldings === 'undefined') {
       const isUS = marketInput === 'US';
       const tradeCost = parsedShares * parsedCost;
       const availableCash = isUS ? currentUSD : currentTWD;
@@ -340,6 +374,70 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       initialPrice = quote && quote.currentPrice > 0 ? quote.currentPrice : parsedCost;
     }
 
+    // Check if stock already exists in portfolio
+    const existingStockIndex = syncedStocks.findIndex(
+      (s) => s.symbol.toUpperCase() === cleanSym.toUpperCase()
+    );
+    const existingStock = existingStockIndex >= 0 ? syncedStocks[existingStockIndex] : null;
+
+    if (editingTxId && existingStock) {
+      // Editing existing transaction
+      const oldTx = (existingStock.transactions || []).find((t) => t.id === editingTxId);
+      const oldTradeAmt = oldTx ? (oldTx.shares || 0) * (oldTx.price || 0) : 0;
+      const newTradeAmt = parsedShares * parsedCost;
+      const isUS = marketInput === 'US';
+
+      // Cash reconciliation
+      if (onAdjustCashSavings && oldTx) {
+        // Revert old
+        if (oldTx.type === 'BUY' && !oldTx.isInitialHoldings) {
+          onAdjustCashSavings(+oldTradeAmt, isUS ? 'USD' : 'TWD');
+        } else if (oldTx.type === 'SELL') {
+          onAdjustCashSavings(-oldTradeAmt, isUS ? 'USD' : 'TWD');
+        }
+        // Apply new
+        if (tradeType === 'BUY' && !useInitialHoldings) {
+          onAdjustCashSavings(-newTradeAmt, isUS ? 'USD' : 'TWD');
+        } else if (tradeType === 'SELL') {
+          onAdjustCashSavings(+newTradeAmt, isUS ? 'USD' : 'TWD');
+        }
+      }
+
+      const updatedTxs = (existingStock.transactions || []).map((t) => {
+        if (t.id === editingTxId) {
+          return {
+            ...t,
+            type: tradeType,
+            shares: parsedShares,
+            price: parsedCost,
+            date: dateInput || t.date,
+            note: noteInput.trim(),
+            isInitialHoldings: useInitialHoldings,
+          };
+        }
+        return t;
+      });
+
+      const updatedStockObj = syncStockCalculations({
+        ...existingStock,
+        name: nameInput.trim() || existingStock.name,
+        currentPrice: initialPrice > 0 ? initialPrice : existingStock.currentPrice,
+        transactions: updatedTxs,
+      });
+
+      const updatedStocksList = [...syncedStocks];
+      updatedStocksList[existingStockIndex] = updatedStockObj;
+
+      onUpdateStocks(updatedStocksList);
+      setIsAddModalOpen(false);
+      setEditingTxId(null);
+
+      if (activeHistoryStock && activeHistoryStock.id === existingStock.id) {
+        setActiveHistoryStock(updatedStockObj);
+      }
+      return;
+    }
+
     const newTx: StockTransaction = {
       id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       type: tradeType,
@@ -350,12 +448,6 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       isInitialHoldings: useInitialHoldings,
     };
 
-    // Check if stock already exists in portfolio
-    const existingStockIndex = syncedStocks.findIndex(
-      (s) => s.symbol.toUpperCase() === cleanSym.toUpperCase()
-    );
-
-    const existingStock = existingStockIndex >= 0 ? syncedStocks[existingStockIndex] : null;
     const existingTxs = existingStock ? existingStock.transactions || [] : [];
     const simulatedTxs = [newTx, ...existingTxs];
 
@@ -422,6 +514,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
     onUpdateStocks(updatedStocksList);
     setIsAddModalOpen(false);
+    setEditingTxId(null);
 
     // Keep active history modal updated if open
     if (activeHistoryStock) {
@@ -1213,13 +1306,27 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleDeleteTransaction(activeHistoryStock.id, tx.id)}
-                      className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
-                      title="刪除此筆交易紀錄"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          const st = activeHistoryStock;
+                          setActiveHistoryStock(null);
+                          handleOpenEditModal(st, tx);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-xl transition cursor-pointer"
+                        title="編輯此筆交易紀錄"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteTransaction(activeHistoryStock.id, tx.id)}
+                        className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
+                        title="刪除此筆交易紀錄"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))
               ) : (
