@@ -170,16 +170,11 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       icon: p.icon,
     }));
 
-    const portfolioStocks: PortfolioStock[] = (portRes.data || []).map((s: any) => ({
-      id: String(s.id),
-      symbol: String(s.symbol || ''),
-      name: String(s.name || s.symbol || ''),
-      market: s.market || 'US',
-      shares: Number(s.shares) || 0,
-      avgCost: Number(s.avg_cost) || 0,
-      currentPrice: Number(s.current_price) || 0,
-      currency: s.currency || 'USD',
-      transactions: Array.isArray(s.transactions)
+    const portfolioStocks: PortfolioStock[] = (portRes.data || []).map((s: any) => {
+      const shares = Number(s.shares) || 0;
+      const avgCost = Number(s.avg_cost) || 0;
+      const currentPrice = Number(s.current_price) || 0;
+      let txs = Array.isArray(s.transactions)
         ? s.transactions
         : typeof s.transactions === 'string'
         ? (() => {
@@ -189,8 +184,38 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
               return [];
             }
           })()
-        : [],
-    }));
+        : [];
+
+      if (!txs || txs.length === 0) {
+        if (shares > 0) {
+          txs = [
+            {
+              id: `tx-init-${s.id}`,
+              stockId: s.id,
+              type: 'BUY',
+              shares: shares,
+              price: avgCost,
+              date: new Date().toISOString().split('T')[0],
+              note: '初始持股',
+            },
+          ];
+        } else {
+          txs = [];
+        }
+      }
+
+      return {
+        id: String(s.id),
+        symbol: String(s.symbol || ''),
+        name: String(s.name || s.symbol || ''),
+        market: s.market === 'TW' ? 'TW' : 'US',
+        shares,
+        avgCost,
+        currentPrice,
+        currency: s.currency || (s.market === 'TW' ? 'TWD' : 'USD'),
+        transactions: txs,
+      };
+    });
 
     return {
       transactions: txRes.error ? null : transactions,
@@ -325,9 +350,22 @@ export async function pushSupabaseDataDirect(payload: {
           updated_at: new Date().toISOString(),
         }));
         const currentIds = portfolioStocks.map((s) => String(s.id));
-        const res = await supabase.from('portfolio_stocks').upsert(portRows);
+        const res = await supabase.from('portfolio_stocks').upsert(portRows, { onConflict: 'id' });
         if (res.error) {
-          console.error('[Supabase portfolio_stocks Upsert Error]:', res.error);
+          console.warn('[Supabase portfolio_stocks Upsert Error]:', res.error);
+          const portRowsBase = portfolioStocks.map((s) => ({
+            id: String(s.id),
+            sync_code: targetSyncCode,
+            symbol: String(s.symbol || '').toUpperCase(),
+            name: String(s.name || s.symbol || ''),
+            market: s.market === 'TW' ? 'TW' : 'US',
+            shares: Number(s.shares) || 0,
+            avg_cost: Number(s.avgCost) || 0,
+            current_price: Number(s.currentPrice) || 0,
+            currency: s.currency === 'TWD' ? 'TWD' : 'USD',
+            updated_at: new Date().toISOString(),
+          }));
+          await supabase.from('portfolio_stocks').upsert(portRowsBase, { onConflict: 'id' });
         }
         
         // 安全精準清理已在前端被刪除的股票

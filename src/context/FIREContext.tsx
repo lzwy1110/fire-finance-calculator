@@ -501,9 +501,11 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
           saveQuickPresetsLocalOnly(cPresets);
         }
         if (Array.isArray(cStocks)) {
-          const synced = cStocks.map((s) => syncStockCalculations(s));
-          setPortfolioStocks(synced);
-          savePortfolioStocksLocalOnly(synced);
+          if (cStocks.length > 0 || Date.now() - lastUserEditTimeRef.current > 4000) {
+            const synced = cStocks.map((s) => syncStockCalculations(s));
+            setPortfolioStocks(synced);
+            savePortfolioStocksLocalOnly(synced);
+          }
         }
         return true;
       }
