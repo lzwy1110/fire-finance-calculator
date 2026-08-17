@@ -196,250 +196,6 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     applyThemeToCSSVariables(fireConfig.themeColor);
   }, [fireConfig.themeColor]);
 
-  // 4. Ingest any Android Widget recorded transactions (Consumes from dedicated native queue)
-  const ingestPendingWidgetTransactions = useCallback(async () => {
-    if (!Capacitor.isNativePlatform()) return;
-
-    try {
-      const res = await WidgetBridge.consumePendingWidgetTransactions();
-      if (res && res.pending_transactions_json) {
-        const parsed = JSON.parse(res.pending_transactions_json);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          lastUserEditTimeRef.current = Date.now();
-          let cashDelta = 0;
-          const validNewItems: Transaction[] = [];
-
-          parsed.forEach((t: any) => {
-            if (t && t.id && t.amount > 0) {
-              const formatted: Transaction = {
-                id: t.id,
-                type: t.type || 'expense',
-                amount: Number(t.amount),
-                mainCategory: t.mainCategory || '飲食',
-                subCategory: t.subCategory || '',
-                date: t.date || new Date().toISOString().slice(0, 10),
-                note: t.note || '來自 Android 桌面小工具 1 秒速記',
-                isQuickPreset: true,
-                tags: t.tags || ['Widget'],
-              };
-              validNewItems.push(formatted);
-
-              if (formatted.type === 'income') {
-                cashDelta += formatted.amount;
-              } else if (formatted.type === 'expense' || formatted.type === 'investment' || formatted.type === 'tax') {
-                cashDelta -= formatted.amount;
-              }
-            }
-          });
-
-          if (validNewItems.length > 0) {
-            setTransactions((prev) => {
-              const existingIds = new Set(prev.map((item) => item.id));
-              const deduplicated = validNewItems.filter((item) => !existingIds.has(item.id));
-              if (deduplicated.length > 0) {
-                const merged = [...deduplicated, ...prev];
-                saveTransactions(merged);
-                return merged;
-              }
-              return prev;
-            });
-
-            if (cashDelta !== 0) {
-              adjustCashSavings(cashDelta, 'TWD');
-            }
-          }
-        }
-      }
-    } catch (e) {
-      // Ignored if not native
-    }
-  }, [adjustCashSavings]);
-
-  // 5. Pure Read Cloud Fetcher (Never pushes back)
-  const refreshCloudData = useCallback(async (isManual = false): Promise<boolean> => {
-    // Ingest any Android Widget transactions first if on native platform
-    if (Capacitor.isNativePlatform()) {
-      await ingestPendingWidgetTransactions();
-    }
-
-    if (storageModeState === 'local') return false;
-
-    // Skip background auto-refresh if user edited within last 4 seconds
-    if (!isManual && Date.now() - lastUserEditTimeRef.current < 4000) {
-      return false;
-    }
-
-    const code = syncCodeState || getOrCreateSyncCode();
-    setIsSyncing(true);
-
-    try {
-      // Fetch cloud records
-      const cloudRes = await fetchCloudData(code);
-      if (cloudRes && cloudRes.success && cloudRes.data) {
-        const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
-        if (Array.isArray(cTx)) {
-          setTransactions(cTx);
-          saveTransactionsLocalOnly(cTx);
-        }
-        if (Array.isArray(cCat) && cCat.length > 0) {
-          setCategories(cCat);
-          saveCategoriesLocalOnly(cCat);
-        }
-        if (cCfg) {
-          const cashTWD = cCfg.cashSavingsTWD != null 
-            ? cCfg.cashSavingsTWD 
-            : (cCfg.cashSavings != null 
-                ? cCfg.cashSavings 
-                : (cCfg.baseCashBalance != null 
-                    ? cCfg.baseCashBalance 
-                    : 0));
-          const cashUSD = cCfg.cashSavingsUSD != null ? cCfg.cashSavingsUSD : 0;
-          const rate = cCfg.usdRate != null && cCfg.usdRate > 0 ? cCfg.usdRate : usdRate;
-
-          if (cCfg.usdRate) {
-            setUsdRate(cCfg.usdRate);
-          }
-
-          const merged: FIREConfig = {
-            ...DEFAULT_FIRE_CONFIG,
-            ...cCfg,
-            cashSavings: cashTWD,
-            cashSavingsTWD: cashTWD,
-            cashSavingsUSD: cashUSD,
-            usdRate: rate,
-            baseCashBalance: cashTWD,
-          };
-          setFireConfig(merged);
-          saveFIREConfigLocalOnly(merged);
-        }
-        if (Array.isArray(cPresets) && cPresets.length > 0) {
-          setQuickPresets(cPresets);
-          saveQuickPresetsLocalOnly(cPresets);
-        }
-        if (Array.isArray(cStocks)) {
-          const synced = cStocks.map((s) => syncStockCalculations(s));
-          setPortfolioStocks(synced);
-          savePortfolioStocksLocalOnly(synced);
-        }
-        return true;
-      }
-    } catch (e) {
-      console.warn('Cloud refresh error:', e);
-    } finally {
-      setIsSyncing(false);
-    }
-    return false;
-  }, [storageModeState, syncCodeState, usdRate, ingestPendingWidgetTransactions]);
-
-  const restoreAllData = useCallback(() => {
-    const tx = loadTransactions();
-    const cat = loadCategories();
-    const presets = loadQuickPresets();
-    const stocks = loadPortfolioStocks();
-    const cfg = loadFIREConfig();
-
-    setTransactions(tx);
-    setCategories(cat);
-    setQuickPresets(presets);
-    setPortfolioStocks(stocks);
-    setFireConfig(cfg);
-    if (cfg.usdRate) {
-      setUsdRate(cfg.usdRate);
-    }
-  }, []);
-
-  // 6. Initial App Load (Runs strictly once on mount)
-  useEffect(() => {
-    let isMounted = true;
-
-    const initApp = async () => {
-      try {
-        if (Capacitor.isNativePlatform()) {
-          await ingestPendingWidgetTransactions();
-        }
-      } catch (e) {}
-
-      try {
-        const mode = getStorageMode();
-        if (mode === 'cloud') {
-          await refreshCloudData(true);
-        }
-      } catch (e) {}
-
-      if (isMounted) {
-        setIsAppLoading(false);
-      }
-    };
-
-    initApp();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // 7. Background Realtime & Sync Listeners
-  useEffect(() => {
-    // Subscribe to Realtime WebSocket / Broadcast Channel
-    const unsubscribe = subscribeToRealtimeSync(syncCodeState, () => {
-      // Received remote change broadcast -> execute Pure Read refresh
-      refreshCloudData(true);
-    });
-
-    // Instant Cross-Tab LocalStorage event listener
-    const handleStorageChange = (e: StorageEvent) => {
-      if (!e.key || e.key.startsWith('fire_')) {
-        restoreAllData();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-
-    // Focus & Visibility change listener
-    const handleFocus = () => {
-      if (Capacitor.isNativePlatform()) {
-        ingestPendingWidgetTransactions();
-      }
-      if (storageModeState === 'cloud') {
-        refreshCloudData(false);
-      }
-    };
-    window.addEventListener('focus', handleFocus);
-
-    // Capacitor App State listener (handles mobile background -> foreground resume)
-    let appStateHandle: any = null;
-    if (Capacitor.isNativePlatform()) {
-      try {
-        CapApp.addListener('appStateChange', ({ isActive }) => {
-          if (isActive) {
-            ingestPendingWidgetTransactions();
-            if (storageModeState === 'cloud') {
-              refreshCloudData(false);
-            }
-          }
-        }).then((handle) => {
-          appStateHandle = handle;
-        }).catch(() => {});
-      } catch (e) {}
-    }
-
-    // 25s interval background refresh
-    const interval = setInterval(() => {
-      if (storageModeState === 'cloud' && document.visibilityState === 'visible') {
-        refreshCloudData(false);
-      }
-    }, 25000);
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-      if (appStateHandle && typeof appStateHandle.remove === 'function') {
-        appStateHandle.remove();
-      }
-      clearInterval(interval);
-    };
-  }, [storageModeState, syncCodeState, refreshCloudData, restoreAllData, ingestPendingWidgetTransactions]);
-
   // ================= MUTATION ACTIONS ================= //
 
   const updateCashSavings = useCallback((twdAmount: number, usdAmount?: number) => {
@@ -455,6 +211,36 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
         cashSavingsTWD: finalTWD,
         cashSavingsUSD: finalUSD,
         baseCashBalance: finalTWD,
+        currentNetWorth: Math.round(totalCashInTWD + liveStockMarketValue),
+      };
+      saveFIREConfig(updated);
+      return updated;
+    });
+  }, [liveStockMarketValue, usdRate]);
+
+  const adjustCashSavings = useCallback((delta: number, currency: 'TWD' | 'USD' = 'TWD') => {
+    if (!delta || delta === 0) return;
+    lastUserEditTimeRef.current = Date.now();
+
+    setFireConfig((prev) => {
+      const currentTWD = prev.cashSavingsTWD ?? (prev.cashSavings ?? (prev.baseCashBalance ?? 0));
+      const currentUSD = prev.cashSavingsUSD ?? 0;
+      let newTWD = currentTWD;
+      let newUSD = currentUSD;
+
+      if (currency === 'USD') {
+        newUSD = Math.max(0, Number((currentUSD + delta).toFixed(2)));
+      } else {
+        newTWD = Math.max(0, Math.round(currentTWD + delta));
+      }
+
+      const totalCashInTWD = Math.round(newTWD + newUSD * (prev.usdRate || usdRate));
+      const updated: FIREConfig = {
+        ...prev,
+        cashSavings: newTWD,
+        cashSavingsTWD: newTWD,
+        cashSavingsUSD: newUSD,
+        baseCashBalance: newTWD,
         currentNetWorth: Math.round(totalCashInTWD + liveStockMarketValue),
       };
       saveFIREConfig(updated);
@@ -486,36 +272,6 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setFireConfig(updated);
     saveFIREConfig(updated);
   }, [fireConfig.cashSavingsTWD, fireConfig.cashSavingsUSD, liveStockMarketValue, usdRate]);
-
-  const adjustCashSavings = useCallback((delta: number, currency: 'TWD' | 'USD' = 'TWD') => {
-    if (!delta || delta === 0) return;
-    lastUserEditTimeRef.current = Date.now();
-
-    setFireConfig((prev) => {
-      const currentTWD = prev.cashSavingsTWD ?? (prev.cashSavings ?? (prev.baseCashBalance ?? 0));
-      const currentUSD = prev.cashSavingsUSD ?? 0;
-      let newTWD = currentTWD;
-      let newUSD = currentUSD;
-
-      if (currency === 'USD') {
-        newUSD = Math.max(0, Number((currentUSD + delta).toFixed(2)));
-      } else {
-        newTWD = Math.max(0, Math.round(currentTWD + delta));
-      }
-
-      const totalCashInTWD = Math.round(newTWD + newUSD * (prev.usdRate || usdRate));
-      const updated: FIREConfig = {
-        ...prev,
-        cashSavings: newTWD,
-        cashSavingsTWD: newTWD,
-        cashSavingsUSD: newUSD,
-        baseCashBalance: newTWD,
-        currentNetWorth: Math.round(totalCashInTWD + liveStockMarketValue),
-      };
-      saveFIREConfig(updated);
-      return updated;
-    });
-  }, [liveStockMarketValue, usdRate]);
 
   const exchangeCurrency = useCallback((params: {
     fromCurrency: 'TWD' | 'USD';
@@ -622,6 +378,160 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveQuickPresets(presets);
   }, []);
 
+  // ================= WIDGET INGESTION & CLOUD FETCHING ================= //
+
+  // Ingest any Android Widget recorded transactions (Consumes from dedicated native queue)
+  const ingestPendingWidgetTransactions = useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    try {
+      const res = await WidgetBridge.consumePendingWidgetTransactions();
+      if (res && res.pending_transactions_json) {
+        const parsed = JSON.parse(res.pending_transactions_json);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          lastUserEditTimeRef.current = Date.now();
+          let cashDelta = 0;
+          const validNewItems: Transaction[] = [];
+
+          parsed.forEach((t: any) => {
+            if (t && t.id && t.amount > 0) {
+              const formatted: Transaction = {
+                id: t.id,
+                type: t.type || 'expense',
+                amount: Number(t.amount),
+                mainCategory: t.mainCategory || '飲食',
+                subCategory: t.subCategory || '',
+                date: t.date || new Date().toISOString().slice(0, 10),
+                note: t.note || '來自 Android 桌面小工具 1 秒速記',
+                isQuickPreset: true,
+                tags: t.tags || ['Widget'],
+              };
+              validNewItems.push(formatted);
+
+              if (formatted.type === 'income') {
+                cashDelta += formatted.amount;
+              } else if (formatted.type === 'expense' || formatted.type === 'investment' || formatted.type === 'tax') {
+                cashDelta -= formatted.amount;
+              }
+            }
+          });
+
+          if (validNewItems.length > 0) {
+            setTransactions((prev) => {
+              const existingIds = new Set(prev.map((item) => item.id));
+              const deduplicated = validNewItems.filter((item) => !existingIds.has(item.id));
+              if (deduplicated.length > 0) {
+                const merged = [...deduplicated, ...prev];
+                saveTransactions(merged);
+                return merged;
+              }
+              return prev;
+            });
+
+            if (cashDelta !== 0) {
+              adjustCashSavings(cashDelta, 'TWD');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Ignored if not native
+    }
+  }, [adjustCashSavings]);
+
+  // Pure Read Cloud Fetcher (Never pushes back)
+  const refreshCloudData = useCallback(async (isManual = false): Promise<boolean> => {
+    // Ingest any Android Widget transactions first if on native platform
+    if (Capacitor.isNativePlatform()) {
+      await ingestPendingWidgetTransactions();
+    }
+
+    if (storageModeState === 'local') return false;
+
+    // Skip background auto-refresh if user edited within last 4 seconds
+    if (!isManual && Date.now() - lastUserEditTimeRef.current < 4000) {
+      return false;
+    }
+
+    const code = syncCodeState || getOrCreateSyncCode();
+    setIsSyncing(true);
+
+    try {
+      // Fetch cloud records
+      const cloudRes = await fetchCloudData(code);
+      if (cloudRes && cloudRes.success && cloudRes.data) {
+        const { transactions: cTx, categories: cCat, fireConfig: cCfg, quickPresets: cPresets, portfolioStocks: cStocks } = cloudRes.data;
+        if (Array.isArray(cTx)) {
+          setTransactions(cTx);
+          saveTransactionsLocalOnly(cTx);
+        }
+        if (Array.isArray(cCat) && cCat.length > 0) {
+          setCategories(cCat);
+          saveCategoriesLocalOnly(cCat);
+        }
+        if (cCfg) {
+          const cashTWD = cCfg.cashSavingsTWD != null 
+            ? cCfg.cashSavingsTWD 
+            : (cCfg.cashSavings != null 
+                ? cCfg.cashSavings 
+                : (cCfg.baseCashBalance != null 
+                    ? cCfg.baseCashBalance 
+                    : 0));
+          const cashUSD = cCfg.cashSavingsUSD != null ? cCfg.cashSavingsUSD : 0;
+          const rate = cCfg.usdRate != null && cCfg.usdRate > 0 ? cCfg.usdRate : usdRate;
+
+          if (cCfg.usdRate) {
+            setUsdRate(cCfg.usdRate);
+          }
+
+          const merged: FIREConfig = {
+            ...DEFAULT_FIRE_CONFIG,
+            ...cCfg,
+            cashSavings: cashTWD,
+            cashSavingsTWD: cashTWD,
+            cashSavingsUSD: cashUSD,
+            usdRate: rate,
+            baseCashBalance: cashTWD,
+          };
+          setFireConfig(merged);
+          saveFIREConfigLocalOnly(merged);
+        }
+        if (Array.isArray(cPresets) && cPresets.length > 0) {
+          setQuickPresets(cPresets);
+          saveQuickPresetsLocalOnly(cPresets);
+        }
+        if (Array.isArray(cStocks)) {
+          const synced = cStocks.map((s) => syncStockCalculations(s));
+          setPortfolioStocks(synced);
+          savePortfolioStocksLocalOnly(synced);
+        }
+        return true;
+      }
+    } catch (e) {
+      console.warn('Cloud refresh error:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+    return false;
+  }, [storageModeState, syncCodeState, usdRate, ingestPendingWidgetTransactions]);
+
+  const restoreAllData = useCallback(() => {
+    const tx = loadTransactions();
+    const cat = loadCategories();
+    const presets = loadQuickPresets();
+    const stocks = loadPortfolioStocks();
+    const cfg = loadFIREConfig();
+
+    setTransactions(tx);
+    setCategories(cat);
+    setQuickPresets(presets);
+    setPortfolioStocks(stocks);
+    setFireConfig(cfg);
+    if (cfg.usdRate) {
+      setUsdRate(cfg.usdRate);
+    }
+  }, []);
+
   const toggleStorageMode = useCallback(async (mode: 'cloud' | 'local') => {
     if (mode === 'cloud') {
       const res = await switchToCloudMode();
@@ -634,6 +544,100 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setStorageModeState('local');
     }
   }, [refreshCloudData]);
+
+  // ================= LIFECYCLE & BACKGROUND LISTENERS ================= //
+
+  // Initial App Load (Runs strictly once on mount)
+  useEffect(() => {
+    let isMounted = true;
+
+    const initApp = async () => {
+      try {
+        if (Capacitor.isNativePlatform()) {
+          await ingestPendingWidgetTransactions();
+        }
+      } catch (e) {}
+
+      try {
+        const mode = getStorageMode();
+        if (mode === 'cloud') {
+          await refreshCloudData(true);
+        }
+      } catch (e) {}
+
+      if (isMounted) {
+        setIsAppLoading(false);
+      }
+    };
+
+    initApp();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [ingestPendingWidgetTransactions, refreshCloudData]);
+
+  // Background Realtime & Sync Listeners
+  useEffect(() => {
+    // Subscribe to Realtime WebSocket / Broadcast Channel
+    const unsubscribe = subscribeToRealtimeSync(syncCodeState, () => {
+      // Received remote change broadcast -> execute Pure Read refresh
+      refreshCloudData(true);
+    });
+
+    // Instant Cross-Tab LocalStorage event listener
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!e.key || e.key.startsWith('fire_')) {
+        restoreAllData();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Focus & Visibility change listener
+    const handleFocus = () => {
+      if (Capacitor.isNativePlatform()) {
+        ingestPendingWidgetTransactions();
+      }
+      if (storageModeState === 'cloud') {
+        refreshCloudData(false);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Capacitor App State listener (handles mobile background -> foreground resume)
+    let appStateHandle: any = null;
+    if (Capacitor.isNativePlatform()) {
+      try {
+        CapApp.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) {
+            ingestPendingWidgetTransactions();
+            if (storageModeState === 'cloud') {
+              refreshCloudData(false);
+            }
+          }
+        }).then((handle) => {
+          appStateHandle = handle;
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
+    // 25s interval background refresh
+    const interval = setInterval(() => {
+      if (storageModeState === 'cloud' && document.visibilityState === 'visible') {
+        refreshCloudData(false);
+      }
+    }, 25000);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+      if (appStateHandle && typeof appStateHandle.remove === 'function') {
+        appStateHandle.remove();
+      }
+      clearInterval(interval);
+    };
+  }, [storageModeState, syncCodeState, refreshCloudData, restoreAllData, ingestPendingWidgetTransactions]);
 
   const clearAllLocalData = useCallback((options?: { syncCleanToCloud?: boolean }) => {
     lastUserEditTimeRef.current = Date.now();
