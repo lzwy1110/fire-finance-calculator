@@ -43,6 +43,8 @@ interface PortfolioViewProps {
   cashSavingsUSD?: number;
   usdRate?: number;
   onUpdateStocks: (newStocks: PortfolioStock[]) => void;
+  onSaveSingleStock?: (stock: PortfolioStock) => Promise<{ success: boolean; error?: string }>;
+  onDeleteSingleStock?: (stockId: string) => Promise<{ success: boolean; error?: string }>;
   onSyncNetWorthToFIRE: (totalMarketValueTWD: number) => void;
   onAdjustCashSavings?: (delta: number, currency?: 'TWD' | 'USD') => void;
   onOpenCurrencyExchange?: () => void;
@@ -55,6 +57,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   cashSavingsUSD,
   usdRate: propUsdRate,
   onUpdateStocks,
+  onSaveSingleStock,
+  onDeleteSingleStock,
   onSyncNetWorthToFIRE,
   onAdjustCashSavings,
   onOpenCurrencyExchange,
@@ -66,6 +70,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const currentUSD = cashSavingsUSD ?? (fireConfig.cashSavingsUSD ?? 0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Add / Record Transaction Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -376,151 +381,167 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     );
     const existingStock = existingStockIndex >= 0 ? syncedStocks[existingStockIndex] : null;
 
-    if (editingTxId && existingStock) {
-      // Editing existing transaction
-      const oldTx = (existingStock.transactions || []).find((t) => t.id === editingTxId);
-      const oldTradeAmt = oldTx ? (oldTx.shares || 0) * (oldTx.price || 0) : 0;
-      const newTradeAmt = parsedShares * parsedCost;
-      const isUS = marketInput === 'US';
+    setIsSaving(true);
+    try {
+      if (editingTxId && existingStock) {
+        // Editing existing transaction
+        const oldTx = (existingStock.transactions || []).find((t) => t.id === editingTxId);
+        const oldTradeAmt = oldTx ? (oldTx.shares || 0) * (oldTx.price || 0) : 0;
+        const newTradeAmt = parsedShares * parsedCost;
+        const isUS = marketInput === 'US';
 
-      // Cash reconciliation
-      if (onAdjustCashSavings && oldTx) {
-        // Revert old
-        if (oldTx.type === 'BUY' && !oldTx.isInitialHoldings) {
-          onAdjustCashSavings(+oldTradeAmt, isUS ? 'USD' : 'TWD');
-        } else if (oldTx.type === 'SELL') {
-          onAdjustCashSavings(-oldTradeAmt, isUS ? 'USD' : 'TWD');
+        const updatedTxs = (existingStock.transactions || []).map((t) => {
+          if (t.id === editingTxId) {
+            return {
+              ...t,
+              type: tradeType,
+              shares: parsedShares,
+              price: parsedCost,
+              date: dateInput || t.date,
+              note: noteInput.trim(),
+              isInitialHoldings: useInitialHoldings,
+            };
+          }
+          return t;
+        });
+
+        const updatedStockObj = syncStockCalculations({
+          ...existingStock,
+          name: nameInput.trim() || existingStock.name,
+          currentPrice: initialPrice > 0 ? initialPrice : existingStock.currentPrice,
+          transactions: updatedTxs,
+        });
+
+        if (onSaveSingleStock) {
+          const res = await onSaveSingleStock(updatedStockObj);
+          if (!res.success) {
+            alert(`❌ 雲端同步失敗: ${res.error || '無法寫入 Supabase 資料庫'}\n請檢查網路或 Supabase 資料表設定！`);
+            return;
+          }
+        } else {
+          const updatedStocksList = [...syncedStocks];
+          updatedStocksList[existingStockIndex] = updatedStockObj;
+          onUpdateStocks(updatedStocksList);
         }
-        // Apply new
-        if (tradeType === 'BUY' && !useInitialHoldings) {
-          onAdjustCashSavings(-newTradeAmt, isUS ? 'USD' : 'TWD');
-        } else if (tradeType === 'SELL') {
-          onAdjustCashSavings(+newTradeAmt, isUS ? 'USD' : 'TWD');
+
+        // Cash reconciliation
+        if (onAdjustCashSavings && oldTx) {
+          if (oldTx.type === 'BUY' && !oldTx.isInitialHoldings) {
+            onAdjustCashSavings(+oldTradeAmt, isUS ? 'USD' : 'TWD');
+          } else if (oldTx.type === 'SELL') {
+            onAdjustCashSavings(-oldTradeAmt, isUS ? 'USD' : 'TWD');
+          }
+          if (tradeType === 'BUY' && !useInitialHoldings) {
+            onAdjustCashSavings(-newTradeAmt, isUS ? 'USD' : 'TWD');
+          } else if (tradeType === 'SELL') {
+            onAdjustCashSavings(+newTradeAmt, isUS ? 'USD' : 'TWD');
+          }
         }
+
+        setIsAddModalOpen(false);
+        setEditingTxId(null);
+
+        if (activeHistoryStock && activeHistoryStock.id === existingStock.id) {
+          setActiveHistoryStock(updatedStockObj);
+        }
+        return;
       }
 
-      const updatedTxs = (existingStock.transactions || []).map((t) => {
-        if (t.id === editingTxId) {
-          return {
-            ...t,
-            type: tradeType,
-            shares: parsedShares,
-            price: parsedCost,
-            date: dateInput || t.date,
-            note: noteInput.trim(),
-            isInitialHoldings: useInitialHoldings,
-          };
+      const newTx: StockTransaction = {
+        id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        type: tradeType,
+        shares: parsedShares,
+        price: parsedCost,
+        date: dateInput || new Date().toISOString().split('T')[0],
+        note: noteInput.trim(),
+        isInitialHoldings: useInitialHoldings,
+      };
+
+      const existingTxs = existingStock ? existingStock.transactions || [] : [];
+      const simulatedTxs = [newTx, ...existingTxs];
+
+      // Validate chronological timeline to prevent naked shorting / negative shares
+      const timelineCheck = validateTradeTimeline(simulatedTxs);
+      if (!timelineCheck.isValid) {
+        setWarningModal({
+          isOpen: true,
+          title: '現股庫存不足警告 ⚠️',
+          message: timelineCheck.errorMessage || '現有持股庫存數量不足，無法執行賣出交易！',
+          details: '【防裸賣機制】系統已依據交易日期比對歷史庫存。在該日期賣出的股數，不得大於當時實際持有的可賣現股數量。',
+        });
+        return;
+      }
+
+      let targetStockObj: PortfolioStock;
+
+      if (existingStockIndex >= 0 && existingStock) {
+        const updatedTxArray = [newTx, ...(existingStock.transactions || [])];
+        targetStockObj = syncStockCalculations({
+          ...existingStock,
+          name: nameInput.trim() || existingStock.name,
+          currentPrice: initialPrice,
+          transactions: updatedTxArray,
+        });
+      } else {
+        const newStockObj: PortfolioStock = {
+          id: `port-${Date.now()}`,
+          symbol: cleanSym,
+          name: nameInput.trim() || cleanSym,
+          market: marketInput,
+          shares: parsedShares,
+          avgCost: parsedCost,
+          currentPrice: initialPrice,
+          currency: marketInput === 'US' ? 'USD' : 'TWD',
+          lastUpdated: new Date().toISOString(),
+          transactions: [newTx],
+        };
+        targetStockObj = syncStockCalculations(newStockObj);
+      }
+
+      if (onSaveSingleStock) {
+        const res = await onSaveSingleStock(targetStockObj);
+        if (!res.success) {
+          alert(`❌ 雲端同步失敗: ${res.error || '無法寫入 Supabase 資料庫'}\n請檢查網路或 Supabase 資料表設定！`);
+          return;
         }
-        return t;
-      });
+      } else {
+        let updatedList: PortfolioStock[];
+        if (existingStockIndex >= 0) {
+          updatedList = [...syncedStocks];
+          updatedList[existingStockIndex] = targetStockObj;
+        } else {
+          updatedList = [targetStockObj, ...syncedStocks];
+        }
+        onUpdateStocks(updatedList);
+      }
 
-      const updatedStockObj = syncStockCalculations({
-        ...existingStock,
-        name: nameInput.trim() || existingStock.name,
-        currentPrice: initialPrice > 0 ? initialPrice : existingStock.currentPrice,
-        transactions: updatedTxs,
-      });
+      // Adjust cash savings according to the stock trade and currency
+      let cashDelta = 0;
+      const isUS = marketInput === 'US';
+      const tradeValue = parsedShares * parsedCost;
+      if (tradeType === 'BUY') {
+        if (!useInitialHoldings) {
+          cashDelta = -tradeValue;
+        }
+      } else if (tradeType === 'SELL') {
+        cashDelta = +tradeValue;
+      }
 
-      const updatedStocksList = [...syncedStocks];
-      updatedStocksList[existingStockIndex] = updatedStockObj;
+      if (cashDelta !== 0 && onAdjustCashSavings) {
+        onAdjustCashSavings(cashDelta, isUS ? 'USD' : 'TWD');
+      }
 
-      onUpdateStocks(updatedStocksList);
+      if (filterMarket !== 'ALL' && filterMarket !== marketInput) {
+        setFilterMarket('ALL');
+      }
       setIsAddModalOpen(false);
       setEditingTxId(null);
 
-      if (activeHistoryStock && activeHistoryStock.id === existingStock.id) {
-        setActiveHistoryStock(updatedStockObj);
+      if (activeHistoryStock && activeHistoryStock.id === targetStockObj.id) {
+        setActiveHistoryStock(targetStockObj);
       }
-      return;
-    }
-
-    const newTx: StockTransaction = {
-      id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      type: tradeType,
-      shares: parsedShares,
-      price: parsedCost,
-      date: dateInput || new Date().toISOString().split('T')[0],
-      note: noteInput.trim(),
-      isInitialHoldings: useInitialHoldings,
-    };
-
-    const existingTxs = existingStock ? existingStock.transactions || [] : [];
-    const simulatedTxs = [newTx, ...existingTxs];
-
-    // Validate chronological timeline to prevent naked shorting / negative shares
-    const timelineCheck = validateTradeTimeline(simulatedTxs);
-    if (!timelineCheck.isValid) {
-      setWarningModal({
-        isOpen: true,
-        title: '現股庫存不足警告 ⚠️',
-        message: timelineCheck.errorMessage || '現有持股庫存數量不足，無法執行賣出交易！',
-        details: '【防裸賣機制】系統已依據交易日期比對歷史庫存。在該日期賣出的股數，不得大於當時實際持有的可賣現股數量。',
-      });
-      return;
-    }
-
-    let updatedStocksList: PortfolioStock[];
-
-    if (existingStockIndex >= 0) {
-      // Append transaction to existing stock
-      const existing = syncedStocks[existingStockIndex];
-      const updatedTxArray = [newTx, ...(existing.transactions || [])];
-      const updatedStockObj = syncStockCalculations({
-        ...existing,
-        name: nameInput.trim() || existing.name,
-        currentPrice: initialPrice,
-        transactions: updatedTxArray,
-      });
-
-      updatedStocksList = [...syncedStocks];
-      updatedStocksList[existingStockIndex] = updatedStockObj;
-    } else {
-      // Create new stock entry with initial transaction
-      const newStockObj: PortfolioStock = {
-        id: `port-${Date.now()}`,
-        symbol: cleanSym,
-        name: nameInput.trim() || cleanSym,
-        market: marketInput,
-        shares: parsedShares,
-        avgCost: parsedCost,
-        currentPrice: initialPrice,
-        currency: marketInput === 'US' ? 'USD' : 'TWD',
-        lastUpdated: new Date().toISOString(),
-        transactions: [newTx],
-      };
-
-      updatedStocksList = [syncStockCalculations(newStockObj), ...syncedStocks];
-    }
-
-    // Adjust cash savings according to the stock trade and currency
-    let cashDelta = 0;
-    const isUS = marketInput === 'US';
-    const tradeValue = parsedShares * parsedCost;
-    if (tradeType === 'BUY') {
-      if (!useInitialHoldings) {
-        cashDelta = -tradeValue;
-      }
-    } else if (tradeType === 'SELL') {
-      cashDelta = +tradeValue;
-    }
-
-    if (cashDelta !== 0 && onAdjustCashSavings) {
-      onAdjustCashSavings(cashDelta, isUS ? 'USD' : 'TWD');
-    }
-
-    onUpdateStocks(updatedStocksList);
-    if (filterMarket !== 'ALL' && filterMarket !== marketInput) {
-      setFilterMarket('ALL');
-    }
-    setIsAddModalOpen(false);
-    setEditingTxId(null);
-
-    // Keep active history modal updated if open
-    if (activeHistoryStock) {
-      const refreshedActive = updatedStocksList.find(
-        (s) => s.symbol.toUpperCase() === cleanSym.toUpperCase()
-      );
-      if (refreshedActive) setActiveHistoryStock(refreshedActive);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -541,18 +562,18 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   } | null>(null);
 
   // Delete Single Transaction Record with Styled Confirmation
-  const handleDeleteTransaction = (stockId: string, txId: string) => {
+  const handleDeleteSingleTransaction = (stockId: string, txId: string) => {
     const targetStock = syncedStocks.find((s) => s.id === stockId);
-    if (!targetStock) return;
+    if (!targetStock || !targetStock.transactions) return;
 
-    // Check if deleting this transaction causes downstream negative inventory
-    const valResult = validateTradeDeletionOrEdit(targetStock.transactions || [], txId);
-    if (!valResult.isValid) {
+    // Validate deletion impact on downstream inventory
+    const deleteCheck = validateTradeDeletionOrEdit(targetStock.transactions, txId);
+    if (!deleteCheck.isValid) {
       setWarningModal({
         isOpen: true,
-        title: '無法刪除歷史買入紀錄 ⚠️',
-        message: valResult.errorMessage || '刪除此筆買入紀錄會導致後續日期的賣出庫存變為負數！',
-        details: '【時序完整性維護】刪除此筆買入前，請先刪除或調整在該日期之後發生的賣出交易紀錄。',
+        title: '無法刪除此筆交易 ⚠️',
+        message: deleteCheck.errorMessage || '刪除此筆交易會導致後續歷史庫存不足或變為負數！',
+        details: '【防裸賣防禦機制】此交易在歷史時間軸上支撐了後續的賣出交易，若要刪除請先調整或刪除該日期之後的賣出紀錄。',
       });
       return;
     }
@@ -564,7 +585,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       isOpen: true,
       title: '確定要刪除這筆交易明細？',
       message: `確定要刪除股票「${targetStock.name} (${targetStock.symbol})」的 ${txDesc} 交易紀錄嗎？刪除後持股與買入均價將重新計算。`,
-      onConfirm: () => {
+      onConfirm: async () => {
         const remainingTx = targetStock.transactions.filter((t) => t.id !== txId);
         const updatedStock = syncStockCalculations({
           ...targetStock,
@@ -576,22 +597,29 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           const isUS = targetStock.market === 'US';
           const tradeAmt = (targetTx.shares || 0) * (targetTx.price || 0);
           if (targetTx.type === 'BUY' && !targetTx.isInitialHoldings) {
-            onAdjustCashSavings(+tradeAmt, isUS ? 'USD' : 'TWD'); // Refund buying cost
+            onAdjustCashSavings(+tradeAmt, isUS ? 'USD' : 'TWD');
           } else if (targetTx.type === 'SELL') {
-            onAdjustCashSavings(-tradeAmt, isUS ? 'USD' : 'TWD'); // Deduct sell proceeds
+            onAdjustCashSavings(-tradeAmt, isUS ? 'USD' : 'TWD');
           }
         }
 
-        let updatedList: PortfolioStock[];
         if (remainingTx.length === 0 && updatedStock.shares === 0) {
-          updatedList = syncedStocks.filter((s) => s.id !== stockId);
+          if (onDeleteSingleStock) {
+            await onDeleteSingleStock(stockId);
+          } else {
+            const updatedList = syncedStocks.filter((s) => s.id !== stockId);
+            onUpdateStocks(updatedList);
+          }
           setActiveHistoryStock(null);
         } else {
-          updatedList = syncedStocks.map((s) => (s.id === stockId ? updatedStock : s));
+          if (onSaveSingleStock) {
+            await onSaveSingleStock(updatedStock);
+          } else {
+            const updatedList = syncedStocks.map((s) => (s.id === stockId ? updatedStock : s));
+            onUpdateStocks(updatedList);
+          }
           setActiveHistoryStock(updatedStock);
         }
-
-        onUpdateStocks(updatedList);
       },
     });
   };
@@ -605,9 +633,17 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       isOpen: true,
       title: '確定要整檔刪除此股票嗎？',
       message: `確定要整檔刪除「${stockName}」及其所有歷史買賣交易對帳紀錄嗎？\n\n（提示：整檔刪除僅清空庫存持股追蹤與歷史走勢，不會回退過去已扣除的現金儲備）`,
-      onConfirm: () => {
-        const updated = syncedStocks.filter((s) => s.id !== id);
-        onUpdateStocks(updated);
+      onConfirm: async () => {
+        if (onDeleteSingleStock) {
+          const res = await onDeleteSingleStock(id);
+          if (!res.success) {
+            alert(`❌ 刪除失敗: ${res.error || '無法從雲端刪除'}`);
+            return;
+          }
+        } else {
+          const updated = syncedStocks.filter((s) => s.id !== id);
+          onUpdateStocks(updated);
+        }
         if (activeHistoryStock?.id === id) {
           setActiveHistoryStock(null);
         }
@@ -1180,10 +1216,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
                 <button
                   type="submit"
-                  className="px-5 py-2 font-black rounded-xl text-black shadow-lg cursor-pointer flex items-center gap-1.5"
+                  disabled={isSaving}
+                  className="px-5 py-2 font-black rounded-xl text-black shadow-lg cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   style={{ backgroundColor: currentTheme.primaryHex }}
                 >
-                  <span>{tradeType === 'BUY' ? '確認新增買入紀錄' : '確認新增賣出紀錄'}</span>
+                  {isSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
+                  <span>{isSaving ? '儲存同步中...' : tradeType === 'BUY' ? '確認新增買入紀錄' : '確認新增賣出紀錄'}</span>
                 </button>
               </div>
             </form>

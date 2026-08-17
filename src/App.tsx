@@ -211,6 +211,8 @@ function FIREAppContent() {
               cashSavingsUSD={cashSavingsUSD}
               usdRate={usdRate}
               onUpdateStocks={updatePortfolioStocks}
+              onSaveSingleStock={saveSingleStock}
+              onDeleteSingleStock={deleteSingleStock}
               onSyncNetWorthToFIRE={() => {}}
               onAdjustCashSavings={adjustCashSavings}
               onOpenCurrencyExchange={() => setIsCurrencyExchangeOpen(true)}

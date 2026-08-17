@@ -39,7 +39,7 @@ import {
   switchToLocalMode,
   restoreFromBackupJSON,
 } from '../utils/storage';
-import { fetchCloudData } from '../services/api';
+import { fetchCloudData, saveStockToCloud, deleteStockFromCloud } from '../services/api';
 import { subscribeToRealtimeSync, broadcastDataSyncEvent } from '../services/realtimeSync';
 import { syncStockCalculations } from '../utils/portfolioMath';
 import { calculateFIRE } from '../utils/fireCalculator';
@@ -84,6 +84,8 @@ interface FIREContextType {
   deleteTransaction: (id: string) => void;
   updateCategories: (cats: CategoryItem[]) => void;
   updatePortfolioStocks: (stocks: PortfolioStock[]) => void;
+  saveSingleStock: (stock: PortfolioStock) => Promise<{ success: boolean; error?: string }>;
+  deleteSingleStock: (stockId: string) => Promise<{ success: boolean; error?: string }>;
   updateQuickPresets: (presets: QuickPreset[]) => void;
   refreshCloudData: (isManual?: boolean) => Promise<boolean>;
   toggleStorageMode: (mode: 'cloud' | 'local') => Promise<void>;
@@ -371,6 +373,54 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPortfolioStocks(synced);
     savePortfolioStocks(synced);
   }, []);
+
+  const saveSingleStock = useCallback(async (stock: PortfolioStock): Promise<{ success: boolean; error?: string }> => {
+    lastUserEditTimeRef.current = Date.now();
+    const syncedStock = syncStockCalculations(stock);
+
+    if (storageModeState === 'cloud') {
+      const code = syncCodeState || getOrCreateSyncCode();
+      const res = await saveStockToCloud(code, syncedStock);
+      if (!res.success) {
+        return res;
+      }
+    }
+
+    setPortfolioStocks((prev) => {
+      const idx = prev.findIndex((s) => s.id === syncedStock.id || s.symbol.toUpperCase() === syncedStock.symbol.toUpperCase());
+      let updated: PortfolioStock[];
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = syncedStock;
+      } else {
+        updated = [syncedStock, ...prev];
+      }
+      savePortfolioStocks(updated);
+      return updated;
+    });
+
+    return { success: true };
+  }, [storageModeState, syncCodeState]);
+
+  const deleteSingleStock = useCallback(async (stockId: string): Promise<{ success: boolean; error?: string }> => {
+    lastUserEditTimeRef.current = Date.now();
+
+    if (storageModeState === 'cloud') {
+      const code = syncCodeState || getOrCreateSyncCode();
+      const res = await deleteStockFromCloud(code, stockId);
+      if (!res.success) {
+        return res;
+      }
+    }
+
+    setPortfolioStocks((prev) => {
+      const updated = prev.filter((s) => s.id !== stockId);
+      savePortfolioStocks(updated);
+      return updated;
+    });
+
+    return { success: true };
+  }, [storageModeState, syncCodeState]);
 
   const updateQuickPresets = useCallback((presets: QuickPreset[]) => {
     lastUserEditTimeRef.current = Date.now();
@@ -723,6 +773,8 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deleteTransaction,
     updateCategories,
     updatePortfolioStocks,
+    saveSingleStock,
+    deleteSingleStock,
     updateQuickPresets,
     refreshCloudData,
     toggleStorageMode,
@@ -755,6 +807,8 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deleteTransaction,
     updateCategories,
     updatePortfolioStocks,
+    saveSingleStock,
+    deleteSingleStock,
     updateQuickPresets,
     refreshCloudData,
     toggleStorageMode,

@@ -6,6 +6,8 @@ import {
   pushSupabaseDataDirect,
   saveFIREConfigDirect,
   saveTransactionDirect,
+  saveStockDirect,
+  deleteStockDirect,
   testSupabaseDirectConnection,
   clearCloudDataDirect,
 } from './supabaseFrontend';
@@ -212,12 +214,32 @@ export async function deleteTransactionFromCloud(syncCode: string, id: string): 
 }
 
 /**
+ * 新增/更新單筆持股至 Supabase
+ */
+export async function saveStockToCloud(syncCode: string, stock: PortfolioStock): Promise<{ success: boolean; error?: string }> {
+  if (isFrontendSupabaseReady()) {
+    return await saveStockDirect(stock, syncCode);
+  }
+  return { success: true };
+}
+
+/**
+ * 從 Supabase 刪除單筆持股
+ */
+export async function deleteStockFromCloud(syncCode: string, stockId: string): Promise<{ success: boolean; error?: string }> {
+  if (isFrontendSupabaseReady()) {
+    return await deleteStockDirect(stockId, syncCode);
+  }
+  return { success: true };
+}
+
+/**
  * 更新 FIRE 設定至 Supabase
  */
 export async function saveFIREConfigToCloud(syncCode: string, config: FIREConfig): Promise<boolean> {
   if (isFrontendSupabaseReady()) {
     const directRes = await saveFIREConfigDirect(config, syncCode);
-    if (directRes) return true;
+    if (directRes.success) return true;
   }
 
   try {
