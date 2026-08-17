@@ -61,6 +61,8 @@ public class MainActivity extends BridgeActivity {
         public void saveWidgetAppData(PluginCall call) {
             JSArray txsArr = call.getArray("transactions");
             int todayExpense = call.getInt("todayExpense", 0);
+            Double cashSavingsTWD = call.getDouble("cashSavingsTWD");
+            Double cashSavingsUSD = call.getDouble("cashSavingsUSD");
             String categoriesJson = call.getString("categoriesJson");
             String supabaseUrl = call.getString("supabaseUrl");
             String supabaseAnonKey = call.getString("supabaseAnonKey");
@@ -74,6 +76,8 @@ public class MainActivity extends BridgeActivity {
                 editor.putString("app_transactions_json", txsArr.toString());
             }
             editor.putInt("today_expense", todayExpense);
+            if (cashSavingsTWD != null) editor.putLong("cash_savings_twd", cashSavingsTWD.longValue());
+            if (cashSavingsUSD != null) editor.putLong("cash_savings_usd", cashSavingsUSD.longValue());
             if (categoriesJson != null) editor.putString("all_categories_json", categoriesJson);
             if (supabaseUrl != null) editor.putString("supabase_url", supabaseUrl);
             if (supabaseAnonKey != null) editor.putString("supabase_anon_key", supabaseAnonKey);

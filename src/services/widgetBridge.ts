@@ -7,6 +7,8 @@ export interface WidgetBridgePluginType {
   saveWidgetAppData: (options: {
     transactions?: any[];
     todayExpense?: number;
+    cashSavingsTWD?: number;
+    cashSavingsUSD?: number;
     categoriesJson?: string;
     supabaseUrl?: string;
     supabaseAnonKey?: string;

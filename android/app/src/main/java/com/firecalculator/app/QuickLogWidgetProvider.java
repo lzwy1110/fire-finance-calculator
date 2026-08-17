@@ -142,6 +142,10 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                 try {
                     final String txId = "t-widget-" + System.currentTimeMillis();
                     final String txType = "收入".equals(cat) ? "income" : "投資".equals(cat) ? "investment" : "expense";
+                    final int cashDelta = "income".equals(txType) ? finalAmt : -finalAmt;
+
+                    long currentTwd = prefs.getLong("cash_savings_twd", 0);
+                    final long newTwd = currentTwd + cashDelta;
 
                     final JSONObject newTx = new JSONObject();
                     newTx.put("id", txId);
@@ -173,6 +177,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                     prefs.edit()
                             .putString("pending_widget_txs", pendingArr.toString())
                             .putString("app_transactions_json", newArr.toString())
+                            .putLong("cash_savings_twd", newTwd)
                             .putInt("step", 0)
                             .putInt("cat_page", 0)
                             .putInt("sub_page", 0)
@@ -180,7 +185,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                             .putString("last_logged", "✅ 已記【" + cat + "/" + sub + "】$" + finalAmt)
                             .apply();
 
-                    // 2. 原生後台直連 Supabase 上傳 (無須開啟 App 即刻入庫)
+                    // 2. 原生後台直連 Supabase 上傳 (雙表連動：交易明細 + 現金儲備)
                     final String supabaseUrl = prefs.getString("supabase_url", "");
                     final String supabaseAnonKey = prefs.getString("supabase_anon_key", "");
                     final String syncCode = prefs.getString("sync_code", "FIRE-DEFAULT-2026");
@@ -192,6 +197,8 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                             public void run() {
                                 try {
                                     String cleanUrl = supabaseUrl.trim().replaceAll("/+$", "");
+
+                                    // A. 寫入 transactions 表
                                     URL url = new URL(cleanUrl + "/rest/v1/transactions");
                                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                                     conn.setRequestMethod("POST");
@@ -221,9 +228,37 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                                     }
 
                                     int respCode = conn.getResponseCode();
-                                    android.util.Log.d("WidgetSync", "Direct background sync to Supabase status: " + respCode);
+                                    android.util.Log.d("WidgetSync", "Direct background sync to Supabase transactions: " + respCode);
+
+                                    // B. 同步更新 fire_configs 現金儲備 (扣除/增減現金)
+                                    try {
+                                        URL configUrl = new URL(cleanUrl + "/rest/v1/fire_configs?sync_code=eq." + syncCode);
+                                        HttpURLConnection configConn = (HttpURLConnection) configUrl.openConnection();
+                                        configConn.setRequestMethod("PATCH");
+                                        configConn.setRequestProperty("apikey", supabaseAnonKey);
+                                        configConn.setRequestProperty("Authorization", "Bearer " + supabaseAnonKey);
+                                        configConn.setRequestProperty("Content-Type", "application/json");
+                                        configConn.setRequestProperty("Prefer", "return=minimal");
+                                        configConn.setDoOutput(true);
+                                        configConn.setConnectTimeout(8000);
+                                        configConn.setReadTimeout(8000);
+
+                                        JSONObject patchConfig = new JSONObject();
+                                        patchConfig.put("cash_savings", newTwd);
+                                        patchConfig.put("updated_at", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(new Date()));
+
+                                        byte[] configInput = patchConfig.toString().getBytes(StandardCharsets.UTF_8);
+                                        try (OutputStream os = configConn.getOutputStream()) {
+                                            os.write(configInput, 0, configInput.length);
+                                        }
+                                        int cfgResp = configConn.getResponseCode();
+                                        android.util.Log.d("WidgetSync", "Direct cash savings patch status: " + cfgResp);
+                                    } catch (Exception cfgEx) {
+                                        android.util.Log.w("WidgetSync", "Direct cash savings patch exception: " + cfgEx.getMessage());
+                                    }
+
                                 } catch (Exception e) {
-                                    android.util.Log.w("WidgetSync", "Background sync exception (queued for App ingest): " + e.getMessage());
+                                    android.util.Log.w("WidgetSync", "Background sync exception: " + e.getMessage());
                                 }
                             }
                         }).start();

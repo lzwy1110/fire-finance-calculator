@@ -71,6 +71,8 @@ function FIREAppContent() {
       WidgetBridge.saveWidgetAppData({
         transactions: transactions as any,
         todayExpense: todayTotal,
+        cashSavingsTWD: cashSavingsTWD,
+        cashSavingsUSD: cashSavingsUSD,
         categoriesJson: JSON.stringify(categories || []),
         supabaseUrl: rawUrl,
         supabaseAnonKey: rawKey,
@@ -78,7 +80,7 @@ function FIREAppContent() {
         storageMode: storageMode,
       }).catch(() => {});
     }
-  }, [transactions, categories, syncCode, storageMode]);
+  }, [transactions, categories, cashSavingsTWD, cashSavingsUSD, syncCode, storageMode]);
 
   // 2. Android Widget Bridge: Sync Categories & Config to Native Widget
   useEffect(() => {
