@@ -95,7 +95,7 @@ interface FIREContextType {
 const FIREContext = createContext<FIREContextType | undefined>(undefined);
 
 export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAppLoading, setIsAppLoading] = useState(false);
+  const [isAppLoading, setIsAppLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [storageModeState, setStorageModeState] = useState<'cloud' | 'local'>(() => getStorageMode());
   const [syncCodeState, setSyncCodeState] = useState<string>(() => getOrCreateSyncCode());
@@ -565,15 +565,24 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (e) {}
 
-      if (isMounted) {
-        setIsAppLoading(false);
-      }
+      setTimeout(() => {
+        if (isMounted) {
+          setIsAppLoading(false);
+        }
+      }, 250);
     };
 
     initApp();
 
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsAppLoading(false);
+      }
+    }, 1500);
+
     return () => {
       isMounted = false;
+      clearTimeout(fallbackTimer);
     };
   }, [ingestPendingWidgetTransactions, refreshCloudData]);
 
