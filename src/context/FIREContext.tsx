@@ -229,9 +229,9 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let newUSD = currentUSD;
 
       if (currency === 'USD') {
-        newUSD = Math.max(0, Number((currentUSD + delta).toFixed(2)));
+        newUSD = Number((currentUSD + delta).toFixed(2));
       } else {
-        newTWD = Math.max(0, Math.round(currentTWD + delta));
+        newTWD = Math.round(currentTWD + delta);
       }
 
       const totalCashInTWD = Math.round(newTWD + newUSD * (prev.usdRate || usdRate));

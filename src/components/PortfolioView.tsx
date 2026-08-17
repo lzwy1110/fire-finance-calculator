@@ -509,6 +509,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
 
     onUpdateStocks(updatedStocksList);
+    if (filterMarket !== 'ALL' && filterMarket !== marketInput) {
+      setFilterMarket('ALL');
+    }
     setIsAddModalOpen(false);
     setEditingTxId(null);
 
