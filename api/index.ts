@@ -316,11 +316,19 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
         }));
         const currentIds = portfolioStocks.map((s: any) => String(s.id));
         await supabase.from('portfolio_stocks').upsert(portRows);
-        await supabase
-          .from('portfolio_stocks')
-          .delete()
-          .eq('sync_code', targetSyncCode)
-          .not('id', 'in', `(${currentIds.join(',')})`);
+        try {
+          const { data: existingRows } = await supabase
+            .from('portfolio_stocks')
+            .select('id')
+            .eq('sync_code', targetSyncCode);
+          if (Array.isArray(existingRows)) {
+            const currentIdSet = new Set(currentIds);
+            const toDelete = existingRows.filter((r: any) => !currentIdSet.has(r.id)).map((r: any) => r.id);
+            if (toDelete.length > 0) {
+              await supabase.from('portfolio_stocks').delete().in('id', toDelete);
+            }
+          }
+        } catch (delErr) {}
       } else {
         await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
       }

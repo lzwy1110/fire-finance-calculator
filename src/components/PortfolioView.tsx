@@ -368,11 +368,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       }
     }
 
-    let initialPrice = priceInput;
-    if (initialPrice <= 0) {
-      const quote = await fetchSingleStockQuote(cleanSym, marketInput);
-      initialPrice = quote && quote.currentPrice > 0 ? quote.currentPrice : parsedCost;
-    }
+    const initialPrice = priceInput > 0 ? priceInput : parsedCost;
 
     // Check if stock already exists in portfolio
     const existingStockIndex = syncedStocks.findIndex(

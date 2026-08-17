@@ -329,11 +329,21 @@ export async function pushSupabaseDataDirect(payload: {
         if (res.error) {
           console.error('[Supabase portfolio_stocks Upsert Error]:', res.error);
         }
-        await supabase
-          .from('portfolio_stocks')
-          .delete()
-          .eq('sync_code', targetSyncCode)
-          .not('id', 'in', `(${currentIds.join(',')})`);
+        
+        // 安全精準清理已在前端被刪除的股票
+        try {
+          const { data: existingRows } = await supabase
+            .from('portfolio_stocks')
+            .select('id')
+            .eq('sync_code', targetSyncCode);
+          if (Array.isArray(existingRows)) {
+            const currentIdSet = new Set(currentIds);
+            const toDelete = existingRows.filter((r) => !currentIdSet.has(r.id)).map((r) => r.id);
+            if (toDelete.length > 0) {
+              await supabase.from('portfolio_stocks').delete().in('id', toDelete);
+            }
+          }
+        } catch (delErr) {}
       } else {
         await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
       }
