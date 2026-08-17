@@ -57,7 +57,7 @@ function FIREAppContent() {
     loadDemoSampleData,
   } = useFIRE();
 
-  // 1. Android Widget Bridge: Push live today's expense & transactions to Native Widget
+  // 1. Android Widget Bridge: Push live today's expense, transactions & Supabase config to Native Widget
   useEffect(() => {
     if (Capacitor.isNativePlatform() && transactions) {
       const todayStr = new Date().toISOString().slice(0, 10);
@@ -65,30 +65,45 @@ function FIREAppContent() {
         .filter((t) => t.date === todayStr && t.type !== 'income')
         .reduce((sum, t) => sum + t.amount, 0);
 
+      const rawUrl = localStorage.getItem('fire_supabase_url') || '';
+      const rawKey = localStorage.getItem('fire_supabase_anon_key') || '';
+
       WidgetBridge.saveWidgetAppData({
         transactions: transactions as any,
         todayExpense: todayTotal,
+        categoriesJson: JSON.stringify(categories || []),
+        supabaseUrl: rawUrl,
+        supabaseAnonKey: rawKey,
+        syncCode: syncCode,
+        storageMode: storageMode,
       }).catch(() => {});
     }
-  }, [transactions]);
+  }, [transactions, categories, syncCode, storageMode]);
 
-  // 2. Android Widget Bridge: Sync Categories to Native Widget
+  // 2. Android Widget Bridge: Sync Categories & Config to Native Widget
   useEffect(() => {
     if (Capacitor.isNativePlatform() && categories && categories.length > 0) {
       try {
         const subsMap: Record<string, string[]> = {};
         categories.forEach((c) => {
           if (c.subCategories && c.subCategories.length > 0) {
-            subsMap[c.name] = c.subCategories.slice(0, 8);
+            subsMap[c.name] = c.subCategories;
           }
         });
+        const rawUrl = localStorage.getItem('fire_supabase_url') || '';
+        const rawKey = localStorage.getItem('fire_supabase_anon_key') || '';
+
         WidgetBridge.saveWidgetCustomConfig({
           categoriesJson: JSON.stringify(categories),
           subs: JSON.stringify(subsMap),
+          supabaseUrl: rawUrl,
+          supabaseAnonKey: rawKey,
+          syncCode: syncCode,
+          storageMode: storageMode,
         }).catch(() => {});
       } catch (e) {}
     }
-  }, [categories]);
+  }, [categories, syncCode, storageMode]);
 
   // 3. Android Widget Intent & Quick Add Launch Handling
   useEffect(() => {

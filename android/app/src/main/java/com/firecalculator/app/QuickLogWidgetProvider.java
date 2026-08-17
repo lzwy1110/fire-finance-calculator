@@ -14,6 +14,10 @@ import android.widget.RemoteViews;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -23,7 +27,9 @@ import java.util.Locale;
 public class QuickLogWidgetProvider extends AppWidgetProvider {
 
     public static final String ACTION_SELECT_MAIN = "com.firecalculator.app.WIDGET_SELECT_MAIN";
+    public static final String ACTION_NEXT_CAT_PAGE = "com.firecalculator.app.WIDGET_NEXT_CAT_PAGE";
     public static final String ACTION_SELECT_SUB = "com.firecalculator.app.WIDGET_SELECT_SUB";
+    public static final String ACTION_NEXT_SUB_PAGE = "com.firecalculator.app.WIDGET_NEXT_SUB_PAGE";
     public static final String ACTION_KEY_DIGIT = "com.firecalculator.app.WIDGET_KEY_DIGIT";
     public static final String ACTION_KEY_DEL = "com.firecalculator.app.WIDGET_KEY_DEL";
     public static final String ACTION_KEY_CLEAR = "com.firecalculator.app.WIDGET_KEY_CLEAR";
@@ -60,17 +66,28 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             prefs.edit()
                     .putString("selected_cat", cat)
                     .putInt("step", 1)
+                    .putInt("sub_page", 0)
                     .apply();
+            updateAllWidgets(context);
+
+        } else if (ACTION_NEXT_CAT_PAGE.equals(action)) {
+            int currentPage = prefs.getInt("cat_page", 0);
+            prefs.edit().putInt("cat_page", currentPage + 1).apply();
             updateAllWidgets(context);
 
         } else if (ACTION_SELECT_SUB.equals(action)) {
             String sub = intent.getStringExtra(EXTRA_SUB);
-            if (sub == null) sub = "午餐";
+            if (sub == null) sub = "一般";
             prefs.edit()
                     .putString("selected_sub", sub)
                     .putInt("step", 2)
                     .putString("entered_amt", "0")
                     .apply();
+            updateAllWidgets(context);
+
+        } else if (ACTION_NEXT_SUB_PAGE.equals(action)) {
+            int currentPage = prefs.getInt("sub_page", 0);
+            prefs.edit().putInt("sub_page", currentPage + 1).apply();
             updateAllWidgets(context);
 
         } else if (ACTION_KEY_DIGIT.equals(action)) {
@@ -118,7 +135,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
 
             if (amt > 0) {
                 final String cat = prefs.getString("selected_cat", "飲食");
-                final String sub = prefs.getString("selected_sub", "午餐");
+                final String sub = prefs.getString("selected_sub", "一般");
                 final String todayStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
                 final int finalAmt = amt;
 
@@ -126,7 +143,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                     final String txId = "t-widget-" + System.currentTimeMillis();
                     final String txType = "收入".equals(cat) ? "income" : "投資".equals(cat) ? "investment" : "expense";
 
-                    JSONObject newTx = new JSONObject();
+                    final JSONObject newTx = new JSONObject();
                     newTx.put("id", txId);
                     newTx.put("type", txType);
                     newTx.put("amount", finalAmt);
@@ -136,16 +153,15 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                     newTx.put("note", "來自 Android 桌面小工具 1 秒速記");
                     newTx.put("isQuickPreset", true);
 
-                    JSONArray tagsArr = new JSONArray();
+                    final JSONArray tagsArr = new JSONArray();
                     tagsArr.put("Widget");
                     newTx.put("tags", tagsArr);
 
-                    // 1. Append to dedicated pending_widget_txs queue for App consumption
+                    // 1. 本地持久化與隊列保存 (0ms 即時反饋)
                     String pendingStr = prefs.getString("pending_widget_txs", "[]");
                     JSONArray pendingArr = new JSONArray(pendingStr);
                     pendingArr.put(newTx);
 
-                    // 2. Prepend to app_transactions_json for immediate widget display
                     String txsJsonStr = prefs.getString("app_transactions_json", "[]");
                     JSONArray arr = new JSONArray(txsJsonStr);
                     JSONArray newArr = new JSONArray();
@@ -158,9 +174,60 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                             .putString("pending_widget_txs", pendingArr.toString())
                             .putString("app_transactions_json", newArr.toString())
                             .putInt("step", 0)
+                            .putInt("cat_page", 0)
+                            .putInt("sub_page", 0)
                             .putString("entered_amt", "0")
                             .putString("last_logged", "✅ 已記【" + cat + "/" + sub + "】$" + finalAmt)
                             .apply();
+
+                    // 2. 原生後台直連 Supabase 上傳 (無須開啟 App 即刻入庫)
+                    final String supabaseUrl = prefs.getString("supabase_url", "");
+                    final String supabaseAnonKey = prefs.getString("supabase_anon_key", "");
+                    final String syncCode = prefs.getString("sync_code", "FIRE-DEFAULT-2026");
+                    final String storageMode = prefs.getString("storage_mode", "cloud");
+
+                    if (!"local".equals(storageMode) && supabaseUrl != null && !supabaseUrl.isEmpty() && supabaseAnonKey != null && !supabaseAnonKey.isEmpty()) {
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    String cleanUrl = supabaseUrl.trim().replaceAll("/+$", "");
+                                    URL url = new URL(cleanUrl + "/rest/v1/transactions");
+                                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                                    conn.setRequestMethod("POST");
+                                    conn.setRequestProperty("apikey", supabaseAnonKey);
+                                    conn.setRequestProperty("Authorization", "Bearer " + supabaseAnonKey);
+                                    conn.setRequestProperty("Content-Type", "application/json");
+                                    conn.setRequestProperty("Prefer", "resolution=merge-duplicates");
+                                    conn.setDoOutput(true);
+                                    conn.setConnectTimeout(8000);
+                                    conn.setReadTimeout(8000);
+
+                                    JSONObject postRow = new JSONObject();
+                                    postRow.put("id", txId);
+                                    postRow.put("sync_code", syncCode);
+                                    postRow.put("type", txType);
+                                    postRow.put("amount", finalAmt);
+                                    postRow.put("main_category", cat);
+                                    postRow.put("sub_category", sub);
+                                    postRow.put("date", todayStr);
+                                    postRow.put("note", "來自 Android 桌面小工具 1 秒速記");
+                                    postRow.put("is_quick_preset", true);
+                                    postRow.put("tags", tagsArr);
+
+                                    byte[] input = postRow.toString().getBytes(StandardCharsets.UTF_8);
+                                    try (OutputStream os = conn.getOutputStream()) {
+                                        os.write(input, 0, input.length);
+                                    }
+
+                                    int respCode = conn.getResponseCode();
+                                    android.util.Log.d("WidgetSync", "Direct background sync to Supabase status: " + respCode);
+                                } catch (Exception e) {
+                                    android.util.Log.w("WidgetSync", "Background sync exception (queued for App ingest): " + e.getMessage());
+                                }
+                            }
+                        }).start();
+                    }
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -170,7 +237,12 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             updateAllWidgets(context);
 
         } else if (ACTION_RESET.equals(action)) {
-            prefs.edit().putInt("step", 0).putString("entered_amt", "0").apply();
+            prefs.edit()
+                    .putInt("step", 0)
+                    .putInt("cat_page", 0)
+                    .putInt("sub_page", 0)
+                    .putString("entered_amt", "0")
+                    .apply();
             updateAllWidgets(context);
 
         } else if (ACTION_PREV_STEP.equals(action)) {
@@ -198,254 +270,318 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
 
         int todayExpense = calculateTodayExpense(prefs, todayStr);
         int step = prefs.getInt("step", 0);
-        String cat = prefs.getString("selected_cat", "飲食");
-        String sub = prefs.getString("selected_sub", "午餐");
+        String selectedCat = prefs.getString("selected_cat", "飲食");
+        String selectedSub = prefs.getString("selected_sub", "午餐");
         String enteredAmt = prefs.getString("entered_amt", "0");
         String lastLogged = prefs.getString("last_logged", "");
 
-        // Set Today Expense Text
-        views.setTextViewText(R.id.txt_today_expense, "NT$ " + todayExpense);
-        views.setTextViewText(R.id.txt_entered_amount, enteredAmt);
+        // 1. Top Bar Total Expense
+        views.setTextViewText(R.id.txt_today_expense, "NT$ " + formatNumber(todayExpense));
 
-        // Attach Navigation Intents
-        views.setOnClickPendingIntent(R.id.btn_reset_step, createBroadcastIntent(context, ACTION_RESET, null, null, null, 0, 99));
-        views.setOnClickPendingIntent(R.id.btn_prev_step, createBroadcastIntent(context, ACTION_PREV_STEP, null, null, null, 0, 98));
+        // 2. Control Layout Visibility based on Step
+        views.setViewVisibility(R.id.layout_step_main, step == 0 ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.layout_step_sub, step == 1 ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.layout_step_amount, step == 2 ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.btn_prev_step, step > 0 ? View.VISIBLE : View.GONE);
 
-        // Attach Launch App Modal PendingIntent for btn_launch_app_modal
-        Intent customLaunchIntent = new Intent(context, MainActivity.class);
-        customLaunchIntent.setData(Uri.parse("fireflow://quick-add"));
-        customLaunchIntent.setAction(Intent.ACTION_VIEW);
-        PendingIntent pendingLaunch = PendingIntent.getActivity(
-            context,
-            200,
-            customLaunchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        views.setOnClickPendingIntent(R.id.btn_launch_app_modal, pendingLaunch);
-
-        // Control Previous Step Button Visibility
-        if (step > 0) {
-            views.setViewVisibility(R.id.btn_prev_step, View.VISIBLE);
-        } else {
-            views.setViewVisibility(R.id.btn_prev_step, View.GONE);
-        }
-
+        // 3. Breadcrumb / Step Hint
         if (step == 0) {
-            // STEP 1: Main Category Selection
-            views.setViewVisibility(R.id.layout_step_main, View.VISIBLE);
-            views.setViewVisibility(R.id.layout_step_sub, View.GONE);
-            views.setViewVisibility(R.id.layout_step_amount, View.GONE);
-
-            String hint = lastLogged.isEmpty() ? "第一步：請選擇【大類】" : lastLogged;
-            views.setTextViewText(R.id.txt_step_hint, hint);
-
-            List<String> dynamicCats = getMainCategories(prefs);
-
-            int[] catViewIds = new int[]{
-                R.id.btn_cat_food,
-                R.id.btn_cat_ent,
-                R.id.btn_cat_trans,
-                R.id.btn_cat_daily,
-                R.id.btn_cat_inc,
-                R.id.btn_cat_inv
-            };
-
-            for (int i = 0; i < catViewIds.length; i++) {
-                String cName = i < dynamicCats.size() ? dynamicCats.get(i) : getDefaultCatName(i);
-                views.setTextViewText(catViewIds[i], getCatIcon(cName) + " " + cName);
-                views.setOnClickPendingIntent(catViewIds[i], createBroadcastIntent(context, ACTION_SELECT_MAIN, cName, null, null, 0, 10 + i));
+            if (lastLogged != null && !lastLogged.isEmpty()) {
+                views.setTextViewText(R.id.txt_step_hint, lastLogged);
+            } else {
+                views.setTextViewText(R.id.txt_step_hint, "第一步：請選擇【大類】");
             }
-
         } else if (step == 1) {
-            // STEP 2: Sub Category Selection
-            views.setViewVisibility(R.id.layout_step_main, View.GONE);
-            views.setViewVisibility(R.id.layout_step_sub, View.VISIBLE);
-            views.setViewVisibility(R.id.layout_step_amount, View.GONE);
-
-            views.setTextViewText(R.id.txt_step_hint, "第二步：【" + cat + "】選細類");
-
-            String[] subList = getSubCategories(context, prefs, cat);
-            int[] subViewIds = new int[]{
-                R.id.btn_sub_1,
-                R.id.btn_sub_2,
-                R.id.btn_sub_3,
-                R.id.btn_sub_4,
-                R.id.btn_sub_5,
-                R.id.btn_sub_6
-            };
-
-            for (int i = 0; i < subViewIds.length; i++) {
-                String sName = i < subList.length ? subList[i] : ("細項" + (i + 1));
-                views.setTextViewText(subViewIds[i], sName);
-                views.setOnClickPendingIntent(subViewIds[i], createBroadcastIntent(context, ACTION_SELECT_SUB, cat, sName, null, 0, 20 + i));
-            }
-
-        } else if (step == 2) {
-            // STEP 3: Amount Keypad Input
-            views.setViewVisibility(R.id.layout_step_main, View.GONE);
-            views.setViewVisibility(R.id.layout_step_sub, View.GONE);
-            views.setViewVisibility(R.id.layout_step_amount, View.VISIBLE);
-
-            views.setTextViewText(R.id.txt_step_hint, "第三步：【" + cat + "/" + sub + "】輸入金額");
-
-            views.setOnClickPendingIntent(R.id.key_1, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "1", 0, 31));
-            views.setOnClickPendingIntent(R.id.key_2, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "2", 0, 32));
-            views.setOnClickPendingIntent(R.id.key_3, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "3", 0, 33));
-            views.setOnClickPendingIntent(R.id.key_4, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "4", 0, 34));
-            views.setOnClickPendingIntent(R.id.key_5, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "5", 0, 35));
-            views.setOnClickPendingIntent(R.id.key_6, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "6", 0, 36));
-            views.setOnClickPendingIntent(R.id.key_7, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "7", 0, 37));
-            views.setOnClickPendingIntent(R.id.key_8, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "8", 0, 38));
-            views.setOnClickPendingIntent(R.id.key_9, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "9", 0, 39));
-            views.setOnClickPendingIntent(R.id.key_0, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "0", 0, 40));
-            views.setOnClickPendingIntent(R.id.key_00, createBroadcastIntent(context, ACTION_KEY_DIGIT, null, null, "00", 0, 41));
-
-            views.setOnClickPendingIntent(R.id.key_del, createBroadcastIntent(context, ACTION_KEY_DEL, null, null, null, 0, 42));
-            views.setOnClickPendingIntent(R.id.key_clear, createBroadcastIntent(context, ACTION_KEY_CLEAR, null, null, null, 0, 43));
-
-            views.setOnClickPendingIntent(R.id.key_plus100, createBroadcastIntent(context, ACTION_KEY_PLUS, null, null, null, 100, 44));
-            views.setOnClickPendingIntent(R.id.key_plus500, createBroadcastIntent(context, ACTION_KEY_PLUS, null, null, null, 500, 45));
-
-            views.setOnClickPendingIntent(R.id.key_confirm, createBroadcastIntent(context, ACTION_CONFIRM, null, null, null, 0, 46));
+            views.setTextViewText(R.id.txt_step_hint, "【" + selectedCat + "】➡ 第二步：選擇【細項】");
+        } else {
+            views.setTextViewText(R.id.txt_step_hint, "【" + selectedCat + " / " + selectedSub + "】➡ 輸入金額");
+            views.setTextViewText(R.id.txt_entered_amount, enteredAmt);
         }
+
+        // 4. Setup Dynamic Categories for STEP 1 (with Pagination)
+        setupDynamicCategories(context, views, prefs, appWidgetId);
+
+        // 5. Setup Dynamic Subcategories for STEP 2 (with Pagination)
+        setupDynamicSubCategories(context, views, prefs, selectedCat, appWidgetId);
+
+        // 6. Setup Step 3 Numeric Keypad PendingIntents
+        setupKeypadPendingIntents(context, views, appWidgetId);
+
+        // 7. Navigation Buttons
+        views.setOnClickPendingIntent(R.id.btn_prev_step, getPendingSelfIntent(context, ACTION_PREV_STEP, appWidgetId));
+        views.setOnClickPendingIntent(R.id.btn_reset_step, getPendingSelfIntent(context, ACTION_RESET, appWidgetId));
+
+        // 8. Launch App Quick Add Modal Intent
+        Intent launchAppIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("fireplanner://app/quick-add"));
+        launchAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent launchPi = PendingIntent.getActivity(
+                context,
+                appWidgetId + 9999,
+                launchAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        views.setOnClickPendingIntent(R.id.btn_launch_app_modal, launchPi);
 
         appWidgetManager.updateAppWidget(appWidgetId, views);
     }
 
-    private List<String> getMainCategories(SharedPreferences prefs) {
-        List<String> list = new ArrayList<>();
+    private void setupDynamicCategories(Context context, RemoteViews views, SharedPreferences prefs, int appWidgetId) {
+        List<String> allCats = new ArrayList<>();
         try {
-            String allCatsJson = prefs.getString("all_categories_json", "[]");
-            JSONArray arr = new JSONArray(allCatsJson);
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject obj = arr.getJSONObject(i);
-                String name = obj.optString("name", "");
-                if (!name.isEmpty() && !list.contains(name)) {
-                    list.add(name);
+            String allCatsJson = prefs.getString("all_categories_json", "");
+            if (allCatsJson != null && !allCatsJson.isEmpty()) {
+                JSONArray arr = new JSONArray(allCatsJson);
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject obj = arr.getJSONObject(i);
+                    String name = obj.optString("name", "");
+                    if (!name.isEmpty() && !allCats.contains(name)) {
+                        allCats.add(name);
+                    }
                 }
             }
         } catch (Exception ignored) {}
 
-        if (list.isEmpty()) {
-            list.add("飲食");
-            list.add("娛樂");
-            list.add("交通");
-            list.add("日用");
-            list.add("收入");
-            list.add("投資");
+        if (allCats.isEmpty()) {
+            allCats.add("🍔 飲食");
+            allCats.add("🎮 娛樂");
+            allCats.add("🚗 交通");
+            allCats.add("🛍️ 日用");
+            allCats.add("💰 收入");
+            allCats.add("🚀 投資");
         }
-        return list;
+
+        int[] catBtnIds = new int[]{
+                R.id.btn_cat_1, R.id.btn_cat_2, R.id.btn_cat_3,
+                R.id.btn_cat_4, R.id.btn_cat_5, R.id.btn_cat_6
+        };
+
+        int totalCats = allCats.size();
+        if (totalCats <= 6) {
+            for (int i = 0; i < 6; i++) {
+                int btnId = catBtnIds[i];
+                if (i < totalCats) {
+                    String catName = allCats.get(i);
+                    views.setViewVisibility(btnId, View.VISIBLE);
+                    views.setTextViewText(btnId, catName);
+                    views.setOnClickPendingIntent(btnId, getCategorySelectIntent(context, catName, appWidgetId));
+                } else {
+                    views.setViewVisibility(btnId, View.INVISIBLE);
+                }
+            }
+        } else {
+            // Pagination: 5 items per page + 1 "More" button
+            int pageSize = 5;
+            int totalPages = (int) Math.ceil((double) totalCats / pageSize);
+            int catPage = prefs.getInt("cat_page", 0) % totalPages;
+            int startIndex = catPage * pageSize;
+
+            for (int i = 0; i < 5; i++) {
+                int btnId = catBtnIds[i];
+                int catIndex = startIndex + i;
+                if (catIndex < totalCats) {
+                    String catName = allCats.get(catIndex);
+                    views.setViewVisibility(btnId, View.VISIBLE);
+                    views.setTextViewText(btnId, catName);
+                    views.setOnClickPendingIntent(btnId, getCategorySelectIntent(context, catName, appWidgetId));
+                } else {
+                    views.setViewVisibility(btnId, View.INVISIBLE);
+                }
+            }
+
+            // Button 6 is "More" pagination
+            int moreBtnId = catBtnIds[5];
+            views.setViewVisibility(moreBtnId, View.VISIBLE);
+            views.setTextViewText(moreBtnId, "➡️ 更多 (" + (catPage + 1) + "/" + totalPages + ")");
+            views.setOnClickPendingIntent(moreBtnId, getPendingSelfIntent(context, ACTION_NEXT_CAT_PAGE, appWidgetId));
+        }
     }
 
-    private String getDefaultCatName(int index) {
-        String[] defaults = new String[]{"飲食", "娛樂", "交通", "日用", "收入", "投資"};
-        if (index >= 0 && index < defaults.length) return defaults[index];
-        return "自訂";
+    private void setupDynamicSubCategories(Context context, RemoteViews views, SharedPreferences prefs, String mainCat, int appWidgetId) {
+        List<String> subList = new ArrayList<>();
+        try {
+            String allCatsJson = prefs.getString("all_categories_json", "");
+            if (allCatsJson != null && !allCatsJson.isEmpty()) {
+                JSONArray arr = new JSONArray(allCatsJson);
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject obj = arr.getJSONObject(i);
+                    String name = obj.optString("name", "");
+                    if (name.equals(mainCat) || cleanEmoji(name).equals(cleanEmoji(mainCat))) {
+                        JSONArray subsArr = obj.optJSONArray("subCategories");
+                        if (subsArr != null) {
+                            for (int j = 0; j < subsArr.length(); j++) {
+                                String s = subsArr.optString(j, "");
+                                if (!s.isEmpty()) subList.add(s);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        if (subList.isEmpty()) {
+            if (mainCat.contains("飲食") || mainCat.contains("food")) {
+                subList = List.of("早餐", "午餐", "晚餐", "宵夜", "飲料", "生鮮");
+            } else if (mainCat.contains("娛樂")) {
+                subList = List.of("電影", "遊戲", "聚會", "旅遊", "訂閱", "運動");
+            } else if (mainCat.contains("交通")) {
+                subList = List.of("捷運", "公車", "加油", "計程車", "停車", "高鐵");
+            } else if (mainCat.contains("收入")) {
+                subList = List.of("薪資", "獎金", "副業", "股息", "利息", "發票");
+            } else {
+                subList = List.of("一般", "自訂項目", "固定扣款", "其它");
+            }
+        }
+
+        int[] subBtnIds = new int[]{
+                R.id.btn_sub_1, R.id.btn_sub_2, R.id.btn_sub_3,
+                R.id.btn_sub_4, R.id.btn_sub_5, R.id.btn_sub_6
+        };
+
+        int totalSubs = subList.size();
+        if (totalSubs <= 6) {
+            for (int i = 0; i < 6; i++) {
+                int btnId = subBtnIds[i];
+                if (i < totalSubs) {
+                    String subName = subList.get(i);
+                    views.setViewVisibility(btnId, View.VISIBLE);
+                    views.setTextViewText(btnId, subName);
+                    views.setOnClickPendingIntent(btnId, getSubSelectIntent(context, subName, appWidgetId));
+                } else {
+                    views.setViewVisibility(btnId, View.INVISIBLE);
+                }
+            }
+        } else {
+            // Pagination: 5 items per page + 1 "More" button
+            int pageSize = 5;
+            int totalPages = (int) Math.ceil((double) totalSubs / pageSize);
+            int subPage = prefs.getInt("sub_page", 0) % totalPages;
+            int startIndex = subPage * pageSize;
+
+            for (int i = 0; i < 5; i++) {
+                int btnId = subBtnIds[i];
+                int subIndex = startIndex + i;
+                if (subIndex < totalSubs) {
+                    String subName = subList.get(subIndex);
+                    views.setViewVisibility(btnId, View.VISIBLE);
+                    views.setTextViewText(btnId, subName);
+                    views.setOnClickPendingIntent(btnId, getSubSelectIntent(context, subName, appWidgetId));
+                } else {
+                    views.setViewVisibility(btnId, View.INVISIBLE);
+                }
+            }
+
+            int moreBtnId = subBtnIds[5];
+            views.setViewVisibility(moreBtnId, View.VISIBLE);
+            views.setTextViewText(moreBtnId, "➡️ 更多 (" + (subPage + 1) + "/" + totalPages + ")");
+            views.setOnClickPendingIntent(moreBtnId, getPendingSelfIntent(context, ACTION_NEXT_SUB_PAGE, appWidgetId));
+        }
+    }
+
+    private void setupKeypadPendingIntents(Context context, RemoteViews views, int appWidgetId) {
+        int[] digitIds = new int[]{
+                R.id.key_0, R.id.key_1, R.id.key_2, R.id.key_3, R.id.key_4,
+                R.id.key_5, R.id.key_6, R.id.key_7, R.id.key_8, R.id.key_9
+        };
+        for (int i = 0; i <= 9; i++) {
+            views.setOnClickPendingIntent(digitIds[i], getDigitIntent(context, String.valueOf(i), appWidgetId));
+        }
+        views.setOnClickPendingIntent(R.id.key_00, getDigitIntent(context, "00", appWidgetId));
+
+        views.setOnClickPendingIntent(R.id.key_plus100, getPlusIntent(context, 100, appWidgetId));
+        views.setOnClickPendingIntent(R.id.key_plus500, getPlusIntent(context, 500, appWidgetId));
+        views.setOnClickPendingIntent(R.id.key_del, getPendingSelfIntent(context, ACTION_KEY_DEL, appWidgetId));
+        views.setOnClickPendingIntent(R.id.key_clear, getPendingSelfIntent(context, ACTION_KEY_CLEAR, appWidgetId));
+        views.setOnClickPendingIntent(R.id.key_confirm, getPendingSelfIntent(context, ACTION_CONFIRM, appWidgetId));
+    }
+
+    private PendingIntent getCategorySelectIntent(Context context, String catName, int appWidgetId) {
+        Intent intent = new Intent(context, QuickLogWidgetProvider.class);
+        intent.setAction(ACTION_SELECT_MAIN);
+        intent.putExtra(EXTRA_CAT, catName);
+        return PendingIntent.getBroadcast(
+                context,
+                appWidgetId * 100 + Math.abs(catName.hashCode() % 1000),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
+    private PendingIntent getSubSelectIntent(Context context, String subName, int appWidgetId) {
+        Intent intent = new Intent(context, QuickLogWidgetProvider.class);
+        intent.setAction(ACTION_SELECT_SUB);
+        intent.putExtra(EXTRA_SUB, subName);
+        return PendingIntent.getBroadcast(
+                context,
+                appWidgetId * 1000 + Math.abs(subName.hashCode() % 1000),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
+    private PendingIntent getDigitIntent(Context context, String digit, int appWidgetId) {
+        Intent intent = new Intent(context, QuickLogWidgetProvider.class);
+        intent.setAction(ACTION_KEY_DIGIT);
+        intent.putExtra(EXTRA_DIGIT, digit);
+        return PendingIntent.getBroadcast(
+                context,
+                appWidgetId * 10000 + Math.abs(digit.hashCode() % 1000),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
+    private PendingIntent getPlusIntent(Context context, int plus, int appWidgetId) {
+        Intent intent = new Intent(context, QuickLogWidgetProvider.class);
+        intent.setAction(ACTION_KEY_PLUS);
+        intent.putExtra(EXTRA_PLUS, plus);
+        return PendingIntent.getBroadcast(
+                context,
+                appWidgetId * 100000 + plus,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
+    private PendingIntent getPendingSelfIntent(Context context, String action, int appWidgetId) {
+        Intent intent = new Intent(context, QuickLogWidgetProvider.class);
+        intent.setAction(action);
+        return PendingIntent.getBroadcast(
+                context,
+                appWidgetId * 10 + Math.abs(action.hashCode() % 1000),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
     }
 
     private int calculateTodayExpense(SharedPreferences prefs, String todayStr) {
+        int sum = 0;
         try {
-            String txsJsonStr = prefs.getString("app_transactions_json", "[]");
-            JSONArray arr = new JSONArray(txsJsonStr);
-            int total = 0;
+            String txsJson = prefs.getString("app_transactions_json", "[]");
+            JSONArray arr = new JSONArray(txsJson);
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject obj = arr.getJSONObject(i);
                 String date = obj.optString("date", "");
                 String type = obj.optString("type", "expense");
-                int amount = obj.optInt("amount", 0);
-
+                int amt = obj.optInt("amount", 0);
                 if (todayStr.equals(date) && !"income".equals(type)) {
-                    total += amount;
+                    sum += amt;
                 }
             }
-            return total;
-        } catch (Exception e) {
-            return prefs.getInt("today_expense", 0);
+        } catch (Exception ignored) {}
+
+        if (sum == 0) {
+            sum = prefs.getInt("today_expense", 0);
         }
+        return sum;
     }
 
-    private String getCatIcon(String cat) {
-        if ("飲食".equals(cat)) return "🍔";
-        if ("娛樂".equals(cat)) return "🎮";
-        if ("交通".equals(cat)) return "🚗";
-        if ("日用".equals(cat)) return "🛍️";
-        if ("居住".equals(cat)) return "🏠";
-        if ("醫療".equals(cat)) return "💊";
-        if ("服飾".equals(cat)) return "👕";
-        if ("教育".equals(cat)) return "📚";
-        if ("收入".equals(cat)) return "💰";
-        if ("投資".equals(cat)) return "🚀";
-        if ("稅金".equals(cat) || "稅費".equals(cat)) return "🏛️";
-        return "🏷️";
+    private String cleanEmoji(String s) {
+        if (s == null) return "";
+        return s.replaceAll("[^\\p{L}\\p{N}]", "").trim();
     }
 
-    private String[] getSubCategories(Context context, SharedPreferences prefs, String cat) {
-        // 1. Try parsing from all_categories_json
-        try {
-            String allCatsJson = prefs.getString("all_categories_json", "[]");
-            JSONArray arr = new JSONArray(allCatsJson);
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject obj = arr.getJSONObject(i);
-                if (cat.equals(obj.optString("name", ""))) {
-                    JSONArray subs = obj.optJSONArray("subCategories");
-                    if (subs != null && subs.length() > 0) {
-                        int len = Math.min(6, subs.length());
-                        String[] res = new String[len];
-                        for (int s = 0; s < len; s++) {
-                            res[s] = subs.getString(s);
-                        }
-                        return res;
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
-
-        // 2. Try parsing from custom_subs_json
-        try {
-            String customSubsJson = prefs.getString("custom_subs_json", "{}");
-            JSONObject obj = new JSONObject(customSubsJson);
-            if (obj.has(cat)) {
-                JSONArray arr = obj.getJSONArray(cat);
-                if (arr.length() > 0) {
-                    int len = Math.min(6, arr.length());
-                    String[] res = new String[len];
-                    for (int i = 0; i < len; i++) {
-                        res[i] = arr.getString(i);
-                    }
-                    return res;
-                }
-            }
-        } catch (Exception ignored) {}
-
-        // 3. Fallback defaults
-        if ("娛樂".equals(cat)) return new String[]{"電影", "遊戲", "聚會", "戶外", "訂閱", "旅遊"};
-        if ("交通".equals(cat)) return new String[]{"捷運", "加油", "公車", "高鐵", "叫車", "停車"};
-        if ("日用".equals(cat)) return new String[]{"耗材", "清潔", "廚房", "家電", "雜貨", "個人"};
-        if ("居住".equals(cat)) return new String[]{"房租", "水電", "瓦斯", "網路", "管理", "維修"};
-        if ("醫療".equals(cat)) return new String[]{"看診", "藥品", "保健", "健檢", "保險", "復健"};
-        if ("服飾".equals(cat)) return new String[]{"服飾", "鞋包", "剪髮", "美妝", "保養", "飾品"};
-        if ("教育".equals(cat)) return new String[]{"書籍", "課程", "證照", "軟體", "文具", "學費"};
-        if ("收入".equals(cat)) return new String[]{"正職", "獎金", "副業", "股息", "利息", "二手"};
-        if ("投資".equals(cat)) return new String[]{"0050", "VOO", "美股", "定存", "加密幣", "黃金"};
-        return new String[]{"早餐", "午餐", "晚餐", "宵夜", "點心", "飲料"};
-    }
-
-    private PendingIntent createBroadcastIntent(Context context, String action, String cat, String sub, String digit, int plus, int reqCode) {
-        Intent intent = new Intent(context, QuickLogWidgetProvider.class);
-        intent.setAction(action);
-        if (cat != null) intent.putExtra(EXTRA_CAT, cat);
-        if (sub != null) intent.putExtra(EXTRA_SUB, sub);
-        if (digit != null) intent.putExtra(EXTRA_DIGIT, digit);
-        if (plus > 0) intent.putExtra(EXTRA_PLUS, plus);
-
-        String uniqueUri = "widget://" + action + "/" + reqCode + "/" + (cat != null ? cat : "") + "/" + (sub != null ? sub : "") + "/" + (digit != null ? digit : "");
-        intent.setData(Uri.parse(uniqueUri));
-
-        return PendingIntent.getBroadcast(
-            context,
-            reqCode,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+    private String formatNumber(int val) {
+        return String.format(Locale.getDefault(), "%,d", val);
     }
 }

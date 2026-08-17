@@ -4,11 +4,11 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="10dp"
+    android:padding="8dp"
     android:background="@drawable/widget_bg_dark"
     android:gravity="center_horizontal">
 
-    <!-- Top Bar: Logo & Today's Total Expense -->
+    <!-- Top Bar: Logo, Today Total Expense & Sync Status -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -97,7 +97,7 @@
             android:paddingHorizontal="4dp" />
     </LinearLayout>
 
-    <!-- STEP 1: Main Category Selection Grid -->
+    <!-- STEP 1: Main Category Selection Grid (Dynamic from User Categories with Pagination) -->
     <LinearLayout
         android:id="@+id/layout_step_main"
         android:layout_width="match_parent"
@@ -112,21 +112,21 @@
             android:layout_marginTop="4dp">
 
             <TextView
-                android:id="@+id/btn_cat_food"
+                android:id="@+id/btn_cat_1"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="🍔 飲食"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/btn_cat_ent"
+                android:id="@+id/btn_cat_2"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -134,21 +134,21 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="🎮 娛樂"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/btn_cat_trans"
+                android:id="@+id/btn_cat_3"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="🚗 交通"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -162,21 +162,21 @@
             android:layout_marginTop="4dp">
 
             <TextView
-                android:id="@+id/btn_cat_daily"
+                android:id="@+id/btn_cat_4"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="🛍️ 日用"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/btn_cat_inc"
+                android:id="@+id/btn_cat_5"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -184,21 +184,21 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="💰 收入"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/btn_cat_inv"
+                android:id="@+id/btn_cat_6"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="🚀 投資"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -206,7 +206,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- STEP 2: Sub Category Selection Grid (Dynamic Labels) -->
+    <!-- STEP 2: Sub Category Selection Grid (Dynamic from Chosen Main Category with Pagination) -->
     <LinearLayout
         android:id="@+id/layout_step_sub"
         android:layout_width="match_parent"
@@ -228,7 +228,7 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="早餐"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -243,7 +243,7 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="午餐"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -257,7 +257,7 @@
                 android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="晚餐"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -278,7 +278,7 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="宵夜"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -293,7 +293,7 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="飲料"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -307,7 +307,7 @@
                 android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="7dp"
+                android:paddingVertical="6dp"
                 android:text="生鮮"
                 android:textColor="#ffffff"
                 android:textSize="11sp"
@@ -329,7 +329,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center"
-            android:paddingVertical="4dp"
+            android:paddingVertical="3dp"
             android:background="#240a1b"
             android:layout_marginTop="2dp">
 
@@ -338,7 +338,7 @@
                 android:layout_height="wrap_content"
                 android:text="輸入金額: NT$ "
                 android:textColor="#f472b6"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -347,7 +347,7 @@
                 android:layout_height="wrap_content"
                 android:text="0"
                 android:textColor="#ffffff"
-                android:textSize="15sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -366,10 +366,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="1"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -381,10 +381,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="2"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -396,10 +396,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="3"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -410,10 +410,10 @@
                 android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="+100"
                 android:textColor="#f472b6"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -432,10 +432,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="4"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -447,10 +447,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="5"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -462,10 +462,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="6"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -476,10 +476,10 @@
                 android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="+500"
                 android:textColor="#f472b6"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -498,10 +498,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="7"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -513,10 +513,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="8"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -528,10 +528,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="9"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -542,10 +542,10 @@
                 android:layout_marginStart="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="⌫ 刪除"
                 android:textColor="#ff8888"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -564,10 +564,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="C 清空"
                 android:textColor="#ffaa66"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -579,10 +579,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="0"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -594,10 +594,10 @@
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/widget_item_bg"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="00"
                 android:textColor="#ffffff"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -608,7 +608,7 @@
                 android:layout_marginStart="2dp"
                 android:background="@drawable/widget_button_sakura"
                 android:gravity="center"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4.5dp"
                 android:text="✅ 確定"
                 android:textColor="#000000"
                 android:textSize="11sp"
@@ -621,12 +621,12 @@
         android:id="@+id/btn_launch_app_modal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
+        android:layout_marginTop="4dp"
         android:background="@drawable/widget_button_sakura"
         android:gravity="center"
-        android:paddingVertical="6dp"
+        android:paddingVertical="5dp"
         android:text="⚡ + 自訂 (開啟 App 記帳彈窗)"
         android:textColor="#000000"
-        android:textSize="11sp"
+        android:textSize="10.5sp"
         android:textStyle="bold" />
 </LinearLayout>

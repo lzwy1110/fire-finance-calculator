@@ -61,6 +61,12 @@ public class MainActivity extends BridgeActivity {
         public void saveWidgetAppData(PluginCall call) {
             JSArray txsArr = call.getArray("transactions");
             int todayExpense = call.getInt("todayExpense", 0);
+            String categoriesJson = call.getString("categoriesJson");
+            String supabaseUrl = call.getString("supabaseUrl");
+            String supabaseAnonKey = call.getString("supabaseAnonKey");
+            String syncCode = call.getString("syncCode");
+            String storageMode = call.getString("storageMode");
+
             SharedPreferences prefs = getContext().getSharedPreferences("widget_data", Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
 
@@ -68,6 +74,11 @@ public class MainActivity extends BridgeActivity {
                 editor.putString("app_transactions_json", txsArr.toString());
             }
             editor.putInt("today_expense", todayExpense);
+            if (categoriesJson != null) editor.putString("all_categories_json", categoriesJson);
+            if (supabaseUrl != null) editor.putString("supabase_url", supabaseUrl);
+            if (supabaseAnonKey != null) editor.putString("supabase_anon_key", supabaseAnonKey);
+            if (syncCode != null) editor.putString("sync_code", syncCode);
+            if (storageMode != null) editor.putString("storage_mode", storageMode);
             editor.apply();
 
             // Broadcast to trigger Widget UI update immediately
@@ -89,11 +100,20 @@ public class MainActivity extends BridgeActivity {
             String categoriesJson = call.getString("categoriesJson");
             String catsJson = call.getString("cats");
             String subsJson = call.getString("subs");
+            String supabaseUrl = call.getString("supabaseUrl");
+            String supabaseAnonKey = call.getString("supabaseAnonKey");
+            String syncCode = call.getString("syncCode");
+            String storageMode = call.getString("storageMode");
+
             SharedPreferences prefs = getContext().getSharedPreferences("widget_data", Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
             if (categoriesJson != null) editor.putString("all_categories_json", categoriesJson);
             if (catsJson != null) editor.putString("custom_cats_json", catsJson);
             if (subsJson != null) editor.putString("custom_subs_json", subsJson);
+            if (supabaseUrl != null) editor.putString("supabase_url", supabaseUrl);
+            if (supabaseAnonKey != null) editor.putString("supabase_anon_key", supabaseAnonKey);
+            if (syncCode != null) editor.putString("sync_code", syncCode);
+            if (storageMode != null) editor.putString("storage_mode", storageMode);
             editor.apply();
 
             // Broadcast to update widget categories

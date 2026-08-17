@@ -4,8 +4,24 @@ export interface WidgetBridgePluginType {
   consumePendingWidgetTransactions: () => Promise<{ pending_transactions_json: string }>;
   getPendingWidgetTransactions: () => Promise<{ pending_txs: string }>;
   loadWidgetAppData: () => Promise<{ app_transactions_json: string }>;
-  saveWidgetAppData: (options: { transactions: any[]; todayExpense: number }) => Promise<void>;
-  saveWidgetCustomConfig: (options: { categoriesJson?: string; cats?: string; subs?: string }) => Promise<void>;
+  saveWidgetAppData: (options: {
+    transactions?: any[];
+    todayExpense?: number;
+    categoriesJson?: string;
+    supabaseUrl?: string;
+    supabaseAnonKey?: string;
+    syncCode?: string;
+    storageMode?: string;
+  }) => Promise<void>;
+  saveWidgetCustomConfig: (options: {
+    categoriesJson?: string;
+    cats?: string;
+    subs?: string;
+    supabaseUrl?: string;
+    supabaseAnonKey?: string;
+    syncCode?: string;
+    storageMode?: string;
+  }) => Promise<void>;
 }
 
 export const WidgetBridge = registerPlugin<WidgetBridgePluginType>('WidgetBridge');
