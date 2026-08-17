@@ -314,6 +314,10 @@ function FIREAppContent() {
         storageMode={storageMode}
         onToggleStorageMode={toggleStorageMode}
         onOpenCloudSync={() => setIsCloudSyncOpen(true)}
+        onOpenCategoryManager={() => {
+          setIsSystemSettingsOpen(false);
+          setIsCategoryManagerOpen(true);
+        }}
         onClearAllLocalData={() => clearAllLocalData({ syncCleanToCloud: storageMode === 'cloud' })}
         onLoadDemoData={loadDemoSampleData}
       />

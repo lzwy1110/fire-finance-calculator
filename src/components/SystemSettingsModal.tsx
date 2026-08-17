@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock, Trash2, RefreshCw } from 'lucide-react';
+import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock, Trash2, RefreshCw, Tag } from 'lucide-react';
 import { FIREConfig } from '../types';
 import { THEME_PRESETS, CURRENCY_OPTIONS, getThemePreset } from '../utils/theme';
 
@@ -13,6 +13,7 @@ interface SystemSettingsModalProps {
   storageMode: 'cloud' | 'local';
   onToggleStorageMode: (newMode: 'cloud' | 'local') => Promise<void>;
   onOpenCloudSync: () => void;
+  onOpenCategoryManager?: () => void;
   onClearAllLocalData?: () => void;
   onLoadDemoData?: () => void;
 }
@@ -27,6 +28,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   storageMode,
   onToggleStorageMode,
   onOpenCloudSync,
+  onOpenCategoryManager,
   onClearAllLocalData,
   onLoadDemoData,
 }) => {
@@ -46,9 +48,6 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   const [targetAnnualExpenseInput, setTargetAnnualExpenseInput] = useState<string>('');
   const [expectedReturnRateInput, setExpectedReturnRateInput] = useState<string>('');
   const [expectedInflationRateInput, setExpectedInflationRateInput] = useState<string>('');
-
-  // Widget Category Configuration State
-  const [widgetCats, setWidgetCats] = useState<string[]>(['飲食', '娛樂', '交通', '日用', '收入', '投資']);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -78,17 +77,6 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
     } else {
       setIsCustomColor(false);
     }
-
-    // Load custom widget categories from localStorage
-    try {
-      const savedCats = localStorage.getItem('widget_custom_cats');
-      if (savedCats) {
-        const parsed = JSON.parse(savedCats);
-        if (Array.isArray(parsed) && parsed.length === 6) {
-          setWidgetCats(parsed);
-        }
-      }
-    } catch (e) {}
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -117,12 +105,6 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
       setIsCustomCurrency(false);
       handleChange('currencySymbol', sym);
     }
-  };
-
-  const handleWidgetCatChange = (index: number, val: string) => {
-    const updated = [...widgetCats];
-    updated[index] = val;
-    setWidgetCats(updated);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -426,34 +408,38 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 2: Android 桌面 Widget 小工具大類配置 */}
-          <div className="bg-white/5 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-3">
+          {/* SECTION 2: 記帳大類與細類細項管理 */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <label className="text-sm font-bold text-white flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-pink-400" />
-                設定 2: Android 桌面 Widget 6 大類別自訂配置
+                <Tag className="w-4 h-4" style={{ color: currentTheme.primaryHex }} />
+                設定 2: 記帳大類與細類細項管理 (Categories)
               </label>
-              <span className="text-xs text-gray-400 font-mono">桌面小工具預覽</span>
+              <span className="text-[10px] text-gray-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/5 font-mono">
+                全端同步
+              </span>
             </div>
 
-            <p className="text-xs text-gray-400">
-              設定要在 Android 桌面 AppWidget 第一步顯示的 6 個主要大類別名稱：
+            <p className="text-xs text-gray-400 leading-relaxed">
+              自訂您的收支大類、新增或刪除細分類項目。修改後的分類結構將自動同步至 App 記帳選單與雲端資料庫。
             </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
-              {widgetCats.map((catName, idx) => (
-                <div key={idx} className="space-y-1">
-                  <span className="text-[10px] text-pink-400 font-bold block">位置 {idx + 1}:</span>
-                  <input
-                    type="text"
-                    value={catName}
-                    onChange={(e) => handleWidgetCatChange(idx, e.target.value)}
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white focus:border-pink-500 focus:outline-none"
-                    placeholder={`類別 ${idx + 1}`}
-                  />
-                </div>
-              ))}
-            </div>
+            {onOpenCategoryManager && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenCategoryManager();
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-black flex items-center justify-center gap-2 shadow-md transition cursor-pointer active:scale-98"
+                style={{
+                  backgroundColor: currentTheme.primaryHex,
+                }}
+              >
+                <Tag className="w-3.5 h-3.5" />
+                <span>🏷️ 開啟分類管理器 (自訂大類 / 細項)</span>
+              </button>
+            )}
           </div>
 
           {/* SECTION 3: 貨幣種類設定 */}
