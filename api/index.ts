@@ -136,10 +136,20 @@ app.get('/api/data', async (req: Request, res: Response) => {
     let fireConfig = null;
     if (configRes.data) {
       const cfg = configRes.data;
+      const cashSavingsTWD = Number(cfg.cash_savings ?? cfg.current_net_worth ?? 0);
+      const cashSavingsUSD = Number(cfg.cash_savings_usd ?? 0);
+      const usdRate = Number(cfg.usd_rate ?? 32.0);
+      const baseCashBalance = Number(cfg.base_cash_balance ?? cfg.cash_savings ?? cashSavingsTWD);
+
       fireConfig = {
         currentAge: Number(cfg.current_age),
         targetRetirementAge: Number(cfg.target_retirement_age),
         currentNetWorth: Number(cfg.current_net_worth),
+        cashSavings: cashSavingsTWD,
+        cashSavingsTWD: cashSavingsTWD,
+        cashSavingsUSD: cashSavingsUSD,
+        usdRate: usdRate > 0 ? usdRate : 32.0,
+        baseCashBalance: baseCashBalance,
         monthlyIncome: Number(cfg.monthly_income),
         monthlyExpenses: Number(cfg.monthly_expenses),
         monthlyTax: Number(cfg.monthly_tax),
@@ -148,8 +158,8 @@ app.get('/api/data', async (req: Request, res: Response) => {
         expectedInvestmentReturnRate: Number(cfg.expected_investment_return_rate),
         expectedInflationRate: Number(cfg.expected_inflation_rate),
         safeWithdrawalRate: Number(cfg.safe_withdrawal_rate),
-        currencySymbol: cfg.currency_symbol,
-        themeColor: cfg.theme_color,
+        currencySymbol: cfg.currency_symbol || 'NT$',
+        themeColor: cfg.theme_color || 'cyan',
       };
     }
 
@@ -163,13 +173,13 @@ app.get('/api/data', async (req: Request, res: Response) => {
     }));
 
     let portfolioStocks = (portRes.data || []).map((s: any) => ({
-      id: s.id,
-      symbol: s.symbol,
-      name: s.name,
+      id: String(s.id),
+      symbol: String(s.symbol || ''),
+      name: String(s.name || s.symbol || ''),
       market: s.market || 'US',
-      shares: Number(s.shares),
-      avgCost: Number(s.avg_cost),
-      currentPrice: Number(s.current_price),
+      shares: Number(s.shares) || 0,
+      avgCost: Number(s.avg_cost) || 0,
+      currentPrice: Number(s.current_price) || 0,
       currency: s.currency || 'USD',
       transactions: Array.isArray(s.transactions)
         ? s.transactions
@@ -222,6 +232,8 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
         target_retirement_age: fireConfig.targetRetirementAge,
         current_net_worth: fireConfig.currentNetWorth,
         cash_savings: fireConfig.cashSavingsTWD != null ? fireConfig.cashSavingsTWD : (fireConfig.cashSavings || 0),
+        cash_savings_usd: fireConfig.cashSavingsUSD != null ? fireConfig.cashSavingsUSD : 0,
+        usd_rate: fireConfig.usdRate != null ? fireConfig.usdRate : 32.0,
         base_cash_balance: fireConfig.baseCashBalance != null ? fireConfig.baseCashBalance : 0,
         monthly_income: fireConfig.monthlyIncome,
         monthly_expenses: fireConfig.monthlyExpenses,
@@ -290,19 +302,25 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
     if (Array.isArray(portfolioStocks)) {
       if (portfolioStocks.length > 0) {
         const portRows = portfolioStocks.map((s: any) => ({
-          id: s.id,
+          id: String(s.id),
           sync_code: targetSyncCode,
-          symbol: s.symbol,
-          name: s.name,
-          market: s.market,
-          shares: s.shares,
-          avg_cost: s.avgCost,
-          current_price: s.currentPrice,
-          currency: s.currency,
-          transactions: s.transactions || [],
+          symbol: String(s.symbol || '').toUpperCase(),
+          name: String(s.name || s.symbol || ''),
+          market: s.market === 'TW' ? 'TW' : 'US',
+          shares: Number(s.shares) || 0,
+          avg_cost: Number(s.avgCost) || 0,
+          current_price: Number(s.currentPrice) || 0,
+          currency: s.currency === 'TWD' ? 'TWD' : 'USD',
+          transactions: Array.isArray(s.transactions) ? s.transactions : [],
           updated_at: new Date().toISOString(),
         }));
+        const currentIds = portfolioStocks.map((s: any) => String(s.id));
         await supabase.from('portfolio_stocks').upsert(portRows);
+        await supabase
+          .from('portfolio_stocks')
+          .delete()
+          .eq('sync_code', targetSyncCode)
+          .not('id', 'in', `(${currentIds.join(',')})`);
       } else {
         await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
       }

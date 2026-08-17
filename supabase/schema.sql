@@ -36,13 +36,15 @@ CREATE TABLE IF NOT EXISTS public.categories (
 
 CREATE INDEX IF NOT EXISTS idx_categories_sync_code ON public.categories(sync_code);
 
--- 3. FIRE 退休財務規劃參數表 (FIRE Configs)
+-- 3. FIRE 退休財務規劃參數與現金儲備表 (FIRE Configs)
 CREATE TABLE IF NOT EXISTS public.fire_configs (
     sync_code TEXT PRIMARY KEY,
     current_age INT NOT NULL DEFAULT 30,
     target_retirement_age INT NOT NULL DEFAULT 50,
     current_net_worth NUMERIC(15, 2) NOT NULL DEFAULT 3500000,
     cash_savings NUMERIC(15, 2) DEFAULT 0,
+    cash_savings_usd NUMERIC(15, 2) DEFAULT 0,
+    usd_rate NUMERIC(8, 4) DEFAULT 32.0,
     base_cash_balance NUMERIC(15, 2) DEFAULT 0,
     monthly_income NUMERIC(15, 2) NOT NULL DEFAULT 85000,
     monthly_expenses NUMERIC(15, 2) NOT NULL DEFAULT 35000,
@@ -59,6 +61,8 @@ CREATE TABLE IF NOT EXISTS public.fire_configs (
 
 -- 安全補齊欄位 (若舊表已存在)
 ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS cash_savings NUMERIC(15, 2) DEFAULT 0;
+ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS cash_savings_usd NUMERIC(15, 2) DEFAULT 0;
+ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS usd_rate NUMERIC(8, 4) DEFAULT 32.0;
 ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS base_cash_balance NUMERIC(15, 2) DEFAULT 0;
 
 -- 4. 桌面與快捷記帳預設表 (Quick Presets)
