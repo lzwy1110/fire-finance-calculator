@@ -218,45 +218,49 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       icon: p.icon,
     }));
 
-    let portfolioStocks: PortfolioStock[] = ((portRes as any)?.data || []).map((s: any) => ({
-      id: s.id,
-      symbol: s.symbol,
-      name: s.name,
-      market: s.market || 'US',
-      shares: Number(s.shares),
-      avgCost: Number(s.avg_cost),
-      currentPrice: Number(s.current_price),
-      currency: s.currency || 'USD',
-      transactions: Array.isArray(s.transactions)
-        ? s.transactions
-        : typeof s.transactions === 'string'
-        ? (() => {
-            try {
-              return JSON.parse(s.transactions);
-            } catch (e) {
-              return [];
-            }
-          })()
-        : [],
-    }));
+    let portfolioStocks: PortfolioStock[] | null = null;
+
+    if (!portRes.error && Array.isArray(portRes.data)) {
+      portfolioStocks = portRes.data.map((s: any) => ({
+        id: s.id,
+        symbol: s.symbol,
+        name: s.name,
+        market: s.market || 'US',
+        shares: Number(s.shares),
+        avgCost: Number(s.avg_cost),
+        currentPrice: Number(s.current_price),
+        currency: s.currency || 'USD',
+        transactions: Array.isArray(s.transactions)
+          ? s.transactions
+          : typeof s.transactions === 'string'
+          ? (() => {
+              try {
+                return JSON.parse(s.transactions);
+              } catch (e) {
+                return [];
+              }
+            })()
+          : [],
+      }));
+    }
 
     // Fallback 1: Check fire_configs.portfolio_stocks_json
-    if (portfolioStocks.length === 0 && configRes.data && (configRes.data as any).portfolio_stocks_json) {
+    if ((!portfolioStocks || portfolioStocks.length === 0) && configRes.data && (configRes.data as any).portfolio_stocks_json) {
       try {
         const parsedFallback = JSON.parse((configRes.data as any).portfolio_stocks_json);
-        if (Array.isArray(parsedFallback)) {
+        if (Array.isArray(parsedFallback) && parsedFallback.length > 0) {
           portfolioStocks = parsedFallback;
-        } else if (parsedFallback && Array.isArray(parsedFallback.stocks)) {
+        } else if (parsedFallback && Array.isArray(parsedFallback.stocks) && parsedFallback.stocks.length > 0) {
           portfolioStocks = parsedFallback.stocks;
         }
       } catch (e) {}
     }
 
     // Fallback 2: Check System Backup Record in transactions table (100% Guaranteed Fail-safe)
-    if (portfolioStocks.length === 0 && sysPortfolioTx && sysPortfolioTx.note) {
+    if ((!portfolioStocks || portfolioStocks.length === 0) && sysPortfolioTx && sysPortfolioTx.note) {
       try {
         const parsedSys = JSON.parse(sysPortfolioTx.note);
-        if (Array.isArray(parsedSys)) {
+        if (Array.isArray(parsedSys) && parsedSys.length > 0) {
           portfolioStocks = parsedSys;
         }
       } catch (e) {}
@@ -267,7 +271,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       categories: catRes.error ? null : (categories.length > 0 ? categories : null),
       fireConfig,
       quickPresets: presetRes.error ? null : (quickPresets.length > 0 ? quickPresets : null),
-      portfolioStocks,
+      portfolioStocks: portfolioStocks ?? (portRes.error ? null : []),
     };
   } catch (err) {
     console.error('[Supabase Direct Fetch Error]:', err);
@@ -467,15 +471,15 @@ export async function pushSupabaseDataDirect(payload: {
           avg_cost: s.avgCost,
           current_price: s.currentPrice,
           currency: s.currency,
-          transactions: JSON.stringify(s.transactions || []),
+          transactions: s.transactions || [],
           updated_at: new Date().toISOString(),
         }));
+        
         try {
-          await supabase.from('portfolio_stocks').upsert(portRows);
-        } catch (e) {
-          try {
-            // Retry without stringifying if transactions is jsonb
-            const portRowsRaw = portfolioStocks.map((s) => ({
+          const res1 = await supabase.from('portfolio_stocks').upsert(portRows);
+          if (res1.error) {
+            // Fallback without transactions column in case column doesn't exist in Supabase yet
+            const portRowsBase = portfolioStocks.map((s) => ({
               id: s.id,
               sync_code: targetSyncCode,
               symbol: s.symbol,
@@ -485,10 +489,25 @@ export async function pushSupabaseDataDirect(payload: {
               avg_cost: s.avgCost,
               current_price: s.currentPrice,
               currency: s.currency,
-              transactions: s.transactions || [],
               updated_at: new Date().toISOString(),
             }));
-            await supabase.from('portfolio_stocks').upsert(portRowsRaw);
+            await supabase.from('portfolio_stocks').upsert(portRowsBase);
+          }
+        } catch (e) {
+          try {
+            const portRowsBase = portfolioStocks.map((s) => ({
+              id: s.id,
+              sync_code: targetSyncCode,
+              symbol: s.symbol,
+              name: s.name,
+              market: s.market,
+              shares: s.shares,
+              avg_cost: s.avgCost,
+              current_price: s.currentPrice,
+              currency: s.currency,
+              updated_at: new Date().toISOString(),
+            }));
+            await supabase.from('portfolio_stocks').upsert(portRowsBase);
           } catch (e2) {}
         }
       } else {

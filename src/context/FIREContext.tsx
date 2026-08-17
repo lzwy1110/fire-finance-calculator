@@ -448,8 +448,8 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (storageModeState === 'local') return false;
 
-    // Skip background auto-refresh if user edited within last 4 seconds
-    if (!isManual && Date.now() - lastUserEditTimeRef.current < 4000) {
+    // Skip background auto-refresh if user edited within last 4.5 seconds
+    if (!isManual && Date.now() - lastUserEditTimeRef.current < 4500) {
       return false;
     }
 
@@ -500,10 +500,13 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setQuickPresets(cPresets);
           saveQuickPresetsLocalOnly(cPresets);
         }
+        // Protect portfolio stocks from empty overwrite if user recently modified stocks
         if (Array.isArray(cStocks)) {
-          const synced = cStocks.map((s) => syncStockCalculations(s));
-          setPortfolioStocks(synced);
-          savePortfolioStocksLocalOnly(synced);
+          if (cStocks.length > 0 || Date.now() - lastUserEditTimeRef.current > 6000) {
+            const synced = cStocks.map((s) => syncStockCalculations(s));
+            setPortfolioStocks(synced);
+            savePortfolioStocksLocalOnly(synced);
+          }
         }
         return true;
       }
@@ -590,8 +593,10 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Subscribe to Realtime WebSocket / Broadcast Channel
     const unsubscribe = subscribeToRealtimeSync(syncCodeState, () => {
-      // Received remote change broadcast -> execute Pure Read refresh
-      refreshCloudData(true);
+      // Received remote change broadcast -> execute Pure Read refresh (skip if this device recently edited)
+      if (Date.now() - lastUserEditTimeRef.current >= 4000) {
+        refreshCloudData(true);
+      }
     });
 
     // Instant Cross-Tab LocalStorage event listener

@@ -310,8 +310,39 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
           updated_at: new Date().toISOString(),
         }));
         try {
-          await supabase.from('portfolio_stocks').upsert(portRows);
-        } catch (e) {}
+          const res1 = await supabase.from('portfolio_stocks').upsert(portRows);
+          if (res1.error) {
+            const portRowsBase = portfolioStocks.map((s: any) => ({
+              id: s.id,
+              sync_code: targetSyncCode,
+              symbol: s.symbol,
+              name: s.name,
+              market: s.market,
+              shares: s.shares,
+              avg_cost: s.avgCost,
+              current_price: s.currentPrice,
+              currency: s.currency,
+              updated_at: new Date().toISOString(),
+            }));
+            await supabase.from('portfolio_stocks').upsert(portRowsBase);
+          }
+        } catch (e) {
+          try {
+            const portRowsBase = portfolioStocks.map((s: any) => ({
+              id: s.id,
+              sync_code: targetSyncCode,
+              symbol: s.symbol,
+              name: s.name,
+              market: s.market,
+              shares: s.shares,
+              avg_cost: s.avgCost,
+              current_price: s.currentPrice,
+              currency: s.currency,
+              updated_at: new Date().toISOString(),
+            }));
+            await supabase.from('portfolio_stocks').upsert(portRowsBase);
+          } catch (e2) {}
+        }
       } else {
         try {
           await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);

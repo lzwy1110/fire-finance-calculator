@@ -80,8 +80,12 @@ CREATE TABLE IF NOT EXISTS public.portfolio_stocks (
     avg_cost NUMERIC(15, 4) NOT NULL DEFAULT 0,
     current_price NUMERIC(15, 4) NOT NULL DEFAULT 0,
     currency TEXT NOT NULL DEFAULT 'USD',
+    transactions JSONB DEFAULT '[]'::jsonb,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 安全補齊欄位 (若先前已建表)
+ALTER TABLE public.portfolio_stocks ADD COLUMN IF NOT EXISTS transactions JSONB DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_portfolio_stocks_sync_code ON public.portfolio_stocks(sync_code);
 
