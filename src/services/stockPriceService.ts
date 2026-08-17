@@ -23,27 +23,29 @@ export interface StockSearchResult {
  * Universal Native HTTP GET Request (Bypasses WebView CORS restrictions natively via Android Java)
  */
 async function httpGetJson(url: string): Promise<any> {
-  // 1. Try Native CapacitorHttp (Native Android Java HTTP GET)
-  try {
-    const requestUrl = url.startsWith('/') && typeof window !== 'undefined' ? `${window.location.origin}${url}` : url;
-    const res = await CapacitorHttp.get({
-      url: requestUrl,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-      },
-    });
-    if (res.status === 200 && res.data) {
-      return typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+  // 1. Try Native CapacitorHttp on native Android/iOS
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const requestUrl = url.startsWith('/') && typeof window !== 'undefined' ? `${window.location.origin}${url}` : url;
+      const res = await CapacitorHttp.get({
+        url: requestUrl,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+        },
+      });
+      if (res.status === 200 && res.data) {
+        return typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+      }
+    } catch (e) {
+      // Non-native web browser fallback
     }
-  } catch (e) {
-    // Non-native web browser fallback
   }
 
   // 2. Direct web fetch
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (res.ok) {
@@ -57,21 +59,18 @@ async function httpGetJson(url: string): Promise<any> {
     const corsProxies = [
       `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
       `https://corsproxy.org/?${encodeURIComponent(url)}`,
-      `https://proxy.cors.sh/${url}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
     ];
-
-    for (const proxyUrl of corsProxies) {
+    for (const proxy of corsProxies) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4500);
-        const res = await fetch(proxyUrl, { signal: controller.signal });
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch(proxy, { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
           const text = await res.text();
           return JSON.parse(text);
         }
-      } catch (e) {}
+      } catch (err) {}
     }
   }
 
