@@ -49,6 +49,8 @@ function FIREAppContent() {
     deleteTransaction,
     updateCategories,
     updatePortfolioStocks,
+    saveSingleStock,
+    deleteSingleStock,
     toggleStorageMode,
     restoreAllData,
     clearAllLocalData,
