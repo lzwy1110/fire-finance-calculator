@@ -110,23 +110,17 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       supabase.from('portfolio_stocks').select('*').eq('sync_code', syncCode),
     ]);
 
-    // Extract system portfolio backup record if present
-    const sysPortfolioTx = (txRes.data || []).find((t: any) => t.id === 'SYS-PORTFOLIO-SYNC');
-
-    // Filter out system backup records from user ledger transactions
-    const transactions: Transaction[] = (txRes.data || [])
-      .filter((t: any) => t.id !== 'SYS-PORTFOLIO-SYNC')
-      .map((t: any) => ({
-        id: t.id,
-        type: t.type,
-        amount: Number(t.amount),
-        mainCategory: t.main_category,
-        subCategory: t.sub_category,
-        date: t.date,
-        note: t.note,
-        tags: t.tags || [],
-        isQuickPreset: t.is_quick_preset,
-      }));
+    const transactions: Transaction[] = (txRes.data || []).map((t: any) => ({
+      id: t.id,
+      type: t.type,
+      amount: Number(t.amount),
+      mainCategory: t.main_category,
+      subCategory: t.sub_category,
+      date: t.date,
+      note: t.note,
+      tags: t.tags || [],
+      isQuickPreset: t.is_quick_preset,
+    }));
 
     const categories: CategoryItem[] = (catRes.data || []).map((c: any) => ({
       id: c.id,
@@ -140,57 +134,8 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
     let fireConfig: FIREConfig | null = null;
     if (configRes.data) {
       const cfg = configRes.data;
-      let parsedExtra: any = {};
-      let resolvedThemeColor = cfg.theme_color || 'sakura';
-
-      let portfolioStocksFromTheme: PortfolioStock[] | null = null;
-
-      // 1. Decode theme_color metadata fallback (Guaranteed column in schema)
-      if (cfg.theme_color && typeof cfg.theme_color === 'string' && cfg.theme_color.startsWith('{')) {
-        try {
-          const parsedTheme = JSON.parse(cfg.theme_color);
-          if (parsedTheme && typeof parsedTheme === 'object') {
-            resolvedThemeColor = parsedTheme.theme || 'sakura';
-            parsedExtra = { ...parsedExtra, ...parsedTheme };
-            if (Array.isArray(parsedTheme.portfolioStocks) && parsedTheme.portfolioStocks.length > 0) {
-              portfolioStocksFromTheme = parsedTheme.portfolioStocks;
-            }
-          }
-        } catch (e) {}
-      }
-
-      // 2. Decode portfolio_stocks_json metadata fallback
-      if ((cfg as any).portfolio_stocks_json) {
-        try {
-          const parsed = JSON.parse((cfg as any).portfolio_stocks_json);
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed._metaConfig) {
-            parsedExtra = { ...parsedExtra, ...parsed._metaConfig };
-          }
-        } catch (e) {}
-      }
-
-      const cashSavingsTWD = parsedExtra.cashSavingsTWD != null
-        ? Number(parsedExtra.cashSavingsTWD)
-        : (cfg.cash_savings != null 
-            ? Number(cfg.cash_savings) 
-            : (cfg.base_cash_balance != null 
-                ? Number(cfg.base_cash_balance) 
-                : (parsedExtra.cashSavings != null 
-                    ? Number(parsedExtra.cashSavings) 
-                    : (parsedExtra.baseCashBalance != null 
-                        ? Number(parsedExtra.baseCashBalance) 
-                        : Number(cfg.current_net_worth || 0)))));
-
-      const cashSavingsUSD = parsedExtra.cashSavingsUSD != null ? Number(parsedExtra.cashSavingsUSD) : 0;
-      const usdRate = parsedExtra.usdRate != null ? Number(parsedExtra.usdRate) : 32.0;
-
-      const baseCashBalance = cfg.base_cash_balance != null 
-        ? Number(cfg.base_cash_balance) 
-        : (cfg.cash_savings != null 
-            ? Number(cfg.cash_savings) 
-            : (parsedExtra.baseCashBalance != null 
-                ? Number(parsedExtra.baseCashBalance) 
-                : cashSavingsTWD));
+      const cashSavingsTWD = Number(cfg.cash_savings ?? cfg.current_net_worth ?? 0);
+      const baseCashBalance = Number(cfg.base_cash_balance ?? cfg.cash_savings ?? cashSavingsTWD);
 
       fireConfig = {
         currentAge: Number(cfg.current_age),
@@ -198,9 +143,9 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
         currentNetWorth: Number(cfg.current_net_worth),
         cashSavings: cashSavingsTWD,
         cashSavingsTWD: cashSavingsTWD,
-        cashSavingsUSD: cashSavingsUSD,
-        usdRate: usdRate,
-        baseCashBalance: baseCashBalance != null ? Number(baseCashBalance) : 0,
+        cashSavingsUSD: 0,
+        usdRate: 32.0,
+        baseCashBalance: baseCashBalance,
         monthlyIncome: Number(cfg.monthly_income),
         monthlyExpenses: Number(cfg.monthly_expenses),
         monthlyTax: Number(cfg.monthly_tax),
@@ -209,8 +154,8 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
         expectedInvestmentReturnRate: Number(cfg.expected_investment_return_rate),
         expectedInflationRate: Number(cfg.expected_inflation_rate),
         safeWithdrawalRate: Number(cfg.safe_withdrawal_rate),
-        currencySymbol: cfg.currency_symbol,
-        themeColor: resolvedThemeColor,
+        currencySymbol: cfg.currency_symbol || 'NT$',
+        themeColor: cfg.theme_color || 'cyan',
       };
     }
 
@@ -223,65 +168,34 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
       icon: p.icon,
     }));
 
-    let portfolioStocks: PortfolioStock[] | null = null;
-
-    if (!portRes.error && Array.isArray(portRes.data)) {
-      portfolioStocks = portRes.data.map((s: any) => ({
-        id: s.id,
-        symbol: s.symbol,
-        name: s.name,
-        market: s.market || 'US',
-        shares: Number(s.shares),
-        avgCost: Number(s.avg_cost),
-        currentPrice: Number(s.current_price),
-        currency: s.currency || 'USD',
-        transactions: Array.isArray(s.transactions)
-          ? s.transactions
-          : typeof s.transactions === 'string'
-          ? (() => {
-              try {
-                return JSON.parse(s.transactions);
-              } catch (e) {
-                return [];
-              }
-            })()
-          : [],
-      }));
-    }
-
-    // Fallback 0: Check theme_color metadata (Guaranteed column in all Supabase setups)
-    if ((!portfolioStocks || portfolioStocks.length === 0) && portfolioStocksFromTheme && portfolioStocksFromTheme.length > 0) {
-      portfolioStocks = portfolioStocksFromTheme;
-    }
-
-    // Fallback 1: Check fire_configs.portfolio_stocks_json
-    if ((!portfolioStocks || portfolioStocks.length === 0) && configRes.data && (configRes.data as any).portfolio_stocks_json) {
-      try {
-        const parsedFallback = JSON.parse((configRes.data as any).portfolio_stocks_json);
-        if (Array.isArray(parsedFallback) && parsedFallback.length > 0) {
-          portfolioStocks = parsedFallback;
-        } else if (parsedFallback && Array.isArray(parsedFallback.stocks) && parsedFallback.stocks.length > 0) {
-          portfolioStocks = parsedFallback.stocks;
-        }
-      } catch (e) {}
-    }
-
-    // Fallback 2: Check System Backup Record in transactions table (100% Guaranteed Fail-safe)
-    if ((!portfolioStocks || portfolioStocks.length === 0) && sysPortfolioTx && sysPortfolioTx.note) {
-      try {
-        const parsedSys = JSON.parse(sysPortfolioTx.note);
-        if (Array.isArray(parsedSys) && parsedSys.length > 0) {
-          portfolioStocks = parsedSys;
-        }
-      } catch (e) {}
-    }
+    const portfolioStocks: PortfolioStock[] = (portRes.data || []).map((s: any) => ({
+      id: s.id,
+      symbol: s.symbol,
+      name: s.name,
+      market: s.market || 'US',
+      shares: Number(s.shares),
+      avgCost: Number(s.avg_cost),
+      currentPrice: Number(s.current_price),
+      currency: s.currency || 'USD',
+      transactions: Array.isArray(s.transactions)
+        ? s.transactions
+        : typeof s.transactions === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(s.transactions);
+            } catch (e) {
+              return [];
+            }
+          })()
+        : [],
+    }));
 
     return {
       transactions: txRes.error ? null : transactions,
       categories: catRes.error ? null : (categories.length > 0 ? categories : null),
       fireConfig,
       quickPresets: presetRes.error ? null : (quickPresets.length > 0 ? quickPresets : null),
-      portfolioStocks: portfolioStocks ?? (portRes.error ? null : []),
+      portfolioStocks: portRes.error ? null : portfolioStocks,
     };
   } catch (err) {
     console.error('[Supabase Direct Fetch Error]:', err);
@@ -290,7 +204,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
 }
 
 /**
- * 推送全量備份至 Supabase (前端直連 - 具備 Triple Fail-safe 彈性)
+ * 推送全量備份至 Supabase (前端直連 - 標準關聯式結構)
  */
 export async function pushSupabaseDataDirect(payload: {
   syncCode: string;
@@ -307,24 +221,15 @@ export async function pushSupabaseDataDirect(payload: {
   const targetSyncCode = syncCode || 'FIRE-DEFAULT-2026';
 
   try {
-    // 1. Safely Upsert FIRE Config (handling missing columns without throwing)
-      const themeWithMeta = JSON.stringify({
-        theme: fireConfig.themeColor || 'sakura',
-        cashSavings: fireConfig.cashSavings != null ? fireConfig.cashSavings : 0,
-        cashSavingsTWD: fireConfig.cashSavingsTWD != null ? fireConfig.cashSavingsTWD : (fireConfig.cashSavings || 0),
-        cashSavingsUSD: fireConfig.cashSavingsUSD != null ? fireConfig.cashSavingsUSD : 0,
-        usdRate: fireConfig.usdRate || 32.0,
-        baseCashBalance: fireConfig.baseCashBalance != null ? fireConfig.baseCashBalance : 0,
-        portfolioStocks: portfolioStocks || [],
-      });
-
-      const baseConfigObj = {
+    // 1. 寫入 FIRE Config
+    if (fireConfig) {
+      const configRow = {
         sync_code: targetSyncCode,
         current_age: fireConfig.currentAge,
         target_retirement_age: fireConfig.targetRetirementAge,
         current_net_worth: fireConfig.currentNetWorth,
-        cash_savings: fireConfig.cashSavingsTWD != null ? fireConfig.cashSavingsTWD : fireConfig.cashSavings,
-        base_cash_balance: fireConfig.baseCashBalance,
+        cash_savings: fireConfig.cashSavingsTWD != null ? fireConfig.cashSavingsTWD : (fireConfig.cashSavings || 0),
+        base_cash_balance: fireConfig.baseCashBalance != null ? fireConfig.baseCashBalance : 0,
         monthly_income: fireConfig.monthlyIncome,
         monthly_expenses: fireConfig.monthlyExpenses,
         monthly_tax: fireConfig.monthlyTax,
@@ -333,51 +238,18 @@ export async function pushSupabaseDataDirect(payload: {
         expected_investment_return_rate: fireConfig.expectedInvestmentReturnRate,
         expected_inflation_rate: fireConfig.expectedInflationRate,
         safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
-        currency_symbol: fireConfig.currencySymbol,
-        theme_color: themeWithMeta,
+        currency_symbol: fireConfig.currencySymbol || 'NT$',
+        theme_color: fireConfig.themeColor || 'cyan',
         updated_at: new Date().toISOString(),
       };
 
-      const metaFallback = {
-        stocks: portfolioStocks || [],
-        _metaConfig: {
-          cashSavings: fireConfig.cashSavings,
-          cashSavingsTWD: fireConfig.cashSavingsTWD,
-          cashSavingsUSD: fireConfig.cashSavingsUSD,
-          usdRate: fireConfig.usdRate,
-          baseCashBalance: fireConfig.baseCashBalance,
-        },
-      };
-
-      const payloadWithAll = {
-        ...baseConfigObj,
-        portfolio_stocks_json: JSON.stringify(metaFallback),
-      };
-
-      const res1 = await supabase.from('fire_configs').upsert(payloadWithAll);
-      if (res1.error) {
-        console.warn('[Supabase fire_configs upsert error, retrying with core standard columns]:', res1.error.message);
-        const coreFallback = {
-          sync_code: targetSyncCode,
-          current_age: fireConfig.currentAge,
-          target_retirement_age: fireConfig.targetRetirementAge,
-          current_net_worth: fireConfig.currentNetWorth,
-          monthly_income: fireConfig.monthlyIncome,
-          monthly_expenses: fireConfig.monthlyExpenses,
-          monthly_tax: fireConfig.monthlyTax,
-          monthly_investment: fireConfig.monthlyInvestment,
-          target_annual_expense_post_retirement: fireConfig.targetAnnualExpensePostRetirement,
-          expected_investment_return_rate: fireConfig.expectedInvestmentReturnRate,
-          expected_inflation_rate: fireConfig.expectedInflationRate,
-          safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
-          currency_symbol: fireConfig.currencySymbol,
-          theme_color: themeWithMeta,
-          updated_at: new Date().toISOString(),
-        };
-        await supabase.from('fire_configs').upsert(coreFallback);
+      const res = await supabase.from('fire_configs').upsert(configRow);
+      if (res.error) {
+        console.error('[Supabase fire_configs Upsert Error]:', res.error);
       }
+    }
 
-    // 2. Safely Upsert Categories
+    // 2. 寫入 Categories
     if (Array.isArray(categories) && categories.length > 0) {
       const catRows = categories.map((c) => ({
         id: c.id,
@@ -389,24 +261,14 @@ export async function pushSupabaseDataDirect(payload: {
         sub_categories: c.subCategories || [],
         updated_at: new Date().toISOString(),
       }));
-      try {
-        await supabase.from('categories').upsert(catRows);
-        const currentCatIds = categories.map((c) => c.id);
-        if (currentCatIds.length > 0) {
-          await supabase
-            .from('categories')
-            .delete()
-            .eq('sync_code', targetSyncCode)
-            .not('id', 'in', `(${currentCatIds.join(',')})`);
-        }
-      } catch (e) {}
+      const res = await supabase.from('categories').upsert(catRows);
+      if (res.error) console.error('[Supabase categories Upsert Error]:', res.error);
     }
 
-    // 3. Upsert Transactions & System Portfolio Backup Record (100% Fail-safe)
+    // 3. 寫入 Transactions
     if (Array.isArray(transactions)) {
-      const cleanTx = transactions.filter((t) => t.id !== 'SYS-PORTFOLIO-SYNC');
-      if (cleanTx.length > 0) {
-        const txRows = cleanTx.map((t) => ({
+      if (transactions.length > 0) {
+        const txRows = transactions.map((t) => ({
           id: t.id,
           sync_code: targetSyncCode,
           type: t.type,
@@ -419,40 +281,14 @@ export async function pushSupabaseDataDirect(payload: {
           is_quick_preset: Boolean(t.isQuickPreset),
           updated_at: new Date().toISOString(),
         }));
-        try {
-          await supabase.from('transactions').upsert(txRows);
-        } catch (e) {}
+        const res = await supabase.from('transactions').upsert(txRows);
+        if (res.error) console.error('[Supabase transactions Upsert Error]:', res.error);
       } else {
-        try {
-          await supabase.from('transactions').delete().eq('sync_code', targetSyncCode).neq('id', 'SYS-PORTFOLIO-SYNC');
-        } catch (e) {}
+        await supabase.from('transactions').delete().eq('sync_code', targetSyncCode);
       }
     }
 
-    // Bulletproof System Backup Record for Portfolio Stocks in transactions table
-    if (Array.isArray(portfolioStocks)) {
-      try {
-        if (portfolioStocks.length > 0) {
-          await supabase.from('transactions').upsert({
-            id: 'SYS-PORTFOLIO-SYNC',
-            sync_code: targetSyncCode,
-            type: 'investment',
-            amount: 0,
-            main_category: '__SYS_PORTFOLIO__',
-            sub_category: 'System Backup',
-            date: new Date().toISOString().slice(0, 10),
-            note: JSON.stringify(portfolioStocks),
-            tags: ['SYS'],
-            is_quick_preset: false,
-            updated_at: new Date().toISOString(),
-          });
-        } else {
-          await supabase.from('transactions').delete().eq('id', 'SYS-PORTFOLIO-SYNC').eq('sync_code', targetSyncCode);
-        }
-      } catch (e) {}
-    }
-
-    // 4. Safely Upsert Quick Presets
+    // 4. 寫入 Quick Presets
     if (Array.isArray(quickPresets) && quickPresets.length > 0) {
       const presetRows = quickPresets.map((p) => ({
         id: p.id,
@@ -464,12 +300,11 @@ export async function pushSupabaseDataDirect(payload: {
         icon: p.icon || 'Zap',
         updated_at: new Date().toISOString(),
       }));
-      try {
-        await supabase.from('quick_presets').upsert(presetRows);
-      } catch (e) {}
+      const res = await supabase.from('quick_presets').upsert(presetRows);
+      if (res.error) console.error('[Supabase quick_presets Upsert Error]:', res.error);
     }
 
-    // 5. Safely Upsert Portfolio Stocks Table
+    // 5. 寫入 Portfolio Stocks
     if (Array.isArray(portfolioStocks)) {
       if (portfolioStocks.length > 0) {
         const portRows = portfolioStocks.map((s) => ({
@@ -485,46 +320,12 @@ export async function pushSupabaseDataDirect(payload: {
           transactions: s.transactions || [],
           updated_at: new Date().toISOString(),
         }));
-        
-        try {
-          const res1 = await supabase.from('portfolio_stocks').upsert(portRows);
-          if (res1.error) {
-            // Fallback without transactions column in case column doesn't exist in Supabase yet
-            const portRowsBase = portfolioStocks.map((s) => ({
-              id: s.id,
-              sync_code: targetSyncCode,
-              symbol: s.symbol,
-              name: s.name,
-              market: s.market,
-              shares: s.shares,
-              avg_cost: s.avgCost,
-              current_price: s.currentPrice,
-              currency: s.currency,
-              updated_at: new Date().toISOString(),
-            }));
-            await supabase.from('portfolio_stocks').upsert(portRowsBase);
-          }
-        } catch (e) {
-          try {
-            const portRowsBase = portfolioStocks.map((s) => ({
-              id: s.id,
-              sync_code: targetSyncCode,
-              symbol: s.symbol,
-              name: s.name,
-              market: s.market,
-              shares: s.shares,
-              avg_cost: s.avgCost,
-              current_price: s.currentPrice,
-              currency: s.currency,
-              updated_at: new Date().toISOString(),
-            }));
-            await supabase.from('portfolio_stocks').upsert(portRowsBase);
-          } catch (e2) {}
+        const res = await supabase.from('portfolio_stocks').upsert(portRows);
+        if (res.error) {
+          console.error('[Supabase portfolio_stocks Upsert Error]:', res.error);
         }
       } else {
-        try {
-          await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
-        } catch (e) {}
+        await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
       }
     }
 

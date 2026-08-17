@@ -184,24 +184,6 @@ app.get('/api/data', async (req: Request, res: Response) => {
         : [],
     }));
 
-    if (portfolioStocks.length === 0 && configRes.data && configRes.data.theme_color && configRes.data.theme_color.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(configRes.data.theme_color);
-        if (parsed && Array.isArray(parsed.portfolioStocks) && parsed.portfolioStocks.length > 0) {
-          portfolioStocks = parsed.portfolioStocks;
-        }
-      } catch (e) {}
-    }
-
-    if (portfolioStocks.length === 0 && configRes.data && configRes.data.portfolio_stocks_json) {
-      try {
-        const parsedFallback = JSON.parse(configRes.data.portfolio_stocks_json);
-        if (Array.isArray(parsedFallback)) {
-          portfolioStocks = parsedFallback;
-        }
-      } catch (e) {}
-    }
-
     return res.json({
       success: true,
       mode: 'supabase',
@@ -211,7 +193,7 @@ app.get('/api/data', async (req: Request, res: Response) => {
         categories: catRes.error ? null : (categories.length > 0 ? categories : null),
         fireConfig,
         quickPresets: presetRes.error ? null : (quickPresets.length > 0 ? quickPresets : null),
-        portfolioStocks: portRes.error && portfolioStocks.length === 0 ? null : portfolioStocks,
+        portfolioStocks: portRes.error ? null : portfolioStocks,
       },
     });
   } catch (err: any) {
@@ -234,48 +216,26 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
 
   try {
     if (fireConfig) {
-      const themeWithMeta = JSON.stringify({
-        theme: fireConfig.themeColor || 'sakura',
-        portfolioStocks: portfolioStocks || [],
-      });
-      try {
-        await supabase.from('fire_configs').upsert({
-          sync_code: targetSyncCode,
-          current_age: fireConfig.currentAge,
-          target_retirement_age: fireConfig.targetRetirementAge,
-          current_net_worth: fireConfig.currentNetWorth,
-          monthly_income: fireConfig.monthlyIncome,
-          monthly_expenses: fireConfig.monthlyExpenses,
-          monthly_tax: fireConfig.monthlyTax,
-          monthly_investment: fireConfig.monthlyInvestment,
-          target_annual_expense_post_retirement: fireConfig.targetAnnualExpensePostRetirement,
-          expected_investment_return_rate: fireConfig.expectedInvestmentReturnRate,
-          expected_inflation_rate: fireConfig.expectedInflationRate,
-          safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
-          currency_symbol: fireConfig.currencySymbol,
-          theme_color: themeWithMeta,
-          portfolio_stocks_json: JSON.stringify(portfolioStocks || []),
-          updated_at: new Date().toISOString(),
-        });
-      } catch (e) {
-        await supabase.from('fire_configs').upsert({
-          sync_code: targetSyncCode,
-          current_age: fireConfig.currentAge,
-          target_retirement_age: fireConfig.targetRetirementAge,
-          current_net_worth: fireConfig.currentNetWorth,
-          monthly_income: fireConfig.monthlyIncome,
-          monthly_expenses: fireConfig.monthlyExpenses,
-          monthly_tax: fireConfig.monthlyTax,
-          monthly_investment: fireConfig.monthlyInvestment,
-          target_annual_expense_post_retirement: fireConfig.targetAnnualExpensePostRetirement,
-          expected_investment_return_rate: fireConfig.expectedInvestmentReturnRate,
-          expected_inflation_rate: fireConfig.expectedInflationRate,
-          safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
-          currency_symbol: fireConfig.currencySymbol,
-          theme_color: themeWithMeta,
-          updated_at: new Date().toISOString(),
-        });
-      }
+      const configRow = {
+        sync_code: targetSyncCode,
+        current_age: fireConfig.currentAge,
+        target_retirement_age: fireConfig.targetRetirementAge,
+        current_net_worth: fireConfig.currentNetWorth,
+        cash_savings: fireConfig.cashSavingsTWD != null ? fireConfig.cashSavingsTWD : (fireConfig.cashSavings || 0),
+        base_cash_balance: fireConfig.baseCashBalance != null ? fireConfig.baseCashBalance : 0,
+        monthly_income: fireConfig.monthlyIncome,
+        monthly_expenses: fireConfig.monthlyExpenses,
+        monthly_tax: fireConfig.monthlyTax,
+        monthly_investment: fireConfig.monthlyInvestment,
+        target_annual_expense_post_retirement: fireConfig.targetAnnualExpensePostRetirement,
+        expected_investment_return_rate: fireConfig.expectedInvestmentReturnRate,
+        expected_inflation_rate: fireConfig.expectedInflationRate,
+        safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
+        currency_symbol: fireConfig.currencySymbol || 'NT$',
+        theme_color: fireConfig.themeColor || 'cyan',
+        updated_at: new Date().toISOString(),
+      };
+      await supabase.from('fire_configs').upsert(configRow);
     }
 
     if (Array.isArray(categories) && categories.length > 0) {
@@ -342,44 +302,9 @@ app.post('/api/data/sync', async (req: Request, res: Response) => {
           transactions: s.transactions || [],
           updated_at: new Date().toISOString(),
         }));
-        try {
-          const res1 = await supabase.from('portfolio_stocks').upsert(portRows);
-          if (res1.error) {
-            const portRowsBase = portfolioStocks.map((s: any) => ({
-              id: s.id,
-              sync_code: targetSyncCode,
-              symbol: s.symbol,
-              name: s.name,
-              market: s.market,
-              shares: s.shares,
-              avg_cost: s.avgCost,
-              current_price: s.currentPrice,
-              currency: s.currency,
-              updated_at: new Date().toISOString(),
-            }));
-            await supabase.from('portfolio_stocks').upsert(portRowsBase);
-          }
-        } catch (e) {
-          try {
-            const portRowsBase = portfolioStocks.map((s: any) => ({
-              id: s.id,
-              sync_code: targetSyncCode,
-              symbol: s.symbol,
-              name: s.name,
-              market: s.market,
-              shares: s.shares,
-              avg_cost: s.avgCost,
-              current_price: s.currentPrice,
-              currency: s.currency,
-              updated_at: new Date().toISOString(),
-            }));
-            await supabase.from('portfolio_stocks').upsert(portRowsBase);
-          } catch (e2) {}
-        }
+        await supabase.from('portfolio_stocks').upsert(portRows);
       } else {
-        try {
-          await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
-        } catch (e) {}
+        await supabase.from('portfolio_stocks').delete().eq('sync_code', targetSyncCode);
       }
     }
 

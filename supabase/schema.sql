@@ -1,5 +1,6 @@
 -- ==============================================================================
--- FIRE 財務與退休進度計算器 - Supabase 資料庫建表與初始化 SQL
+-- FIRE 財務與退休進度計算器 - Supabase 資料庫完整標準結構 SQL
+-- 請在 Supabase 控制台的 [SQL Editor] 中貼上並執行即可！
 -- ==============================================================================
 
 -- 1. 記帳交易明細表 (Transactions)
@@ -18,7 +19,6 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 索引加速同同步碼與日期查詢
 CREATE INDEX IF NOT EXISTS idx_transactions_sync_code ON public.transactions(sync_code);
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions(date);
 
@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS public.fire_configs (
     current_age INT NOT NULL DEFAULT 30,
     target_retirement_age INT NOT NULL DEFAULT 50,
     current_net_worth NUMERIC(15, 2) NOT NULL DEFAULT 3500000,
+    cash_savings NUMERIC(15, 2) DEFAULT 0,
+    base_cash_balance NUMERIC(15, 2) DEFAULT 0,
     monthly_income NUMERIC(15, 2) NOT NULL DEFAULT 85000,
     monthly_expenses NUMERIC(15, 2) NOT NULL DEFAULT 35000,
     monthly_tax NUMERIC(15, 2) NOT NULL DEFAULT 4500,
@@ -54,6 +56,10 @@ CREATE TABLE IF NOT EXISTS public.fire_configs (
     theme_color TEXT NOT NULL DEFAULT 'cyan',
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 安全補齊欄位 (若舊表已存在)
+ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS cash_savings NUMERIC(15, 2) DEFAULT 0;
+ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS base_cash_balance NUMERIC(15, 2) DEFAULT 0;
 
 -- 4. 桌面與快捷記帳預設表 (Quick Presets)
 CREATE TABLE IF NOT EXISTS public.quick_presets (
@@ -69,7 +75,7 @@ CREATE TABLE IF NOT EXISTS public.quick_presets (
 
 CREATE INDEX IF NOT EXISTS idx_quick_presets_sync_code ON public.quick_presets(sync_code);
 
--- 5. 美股與台股投資庫存表 (Portfolio Stocks)
+-- 5. 美股與台股投資庫存與交易歷史表 (Portfolio Stocks)
 CREATE TABLE IF NOT EXISTS public.portfolio_stocks (
     id TEXT PRIMARY KEY,
     sync_code TEXT NOT NULL DEFAULT 'FIRE-DEFAULT-2026',
@@ -84,19 +90,19 @@ CREATE TABLE IF NOT EXISTS public.portfolio_stocks (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 安全補齊欄位 (若先前已建表)
+-- 安全補齊欄位 (若舊表已存在)
 ALTER TABLE public.portfolio_stocks ADD COLUMN IF NOT EXISTS transactions JSONB DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_portfolio_stocks_sync_code ON public.portfolio_stocks(sync_code);
 
--- 啟用 Row Level Security (RLS) 並允許公開 API KEY (Anon) 讀寫
+-- 啟用 Row Level Security (RLS) 並允許公開存取
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fire_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quick_presets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portfolio_stocks ENABLE ROW LEVEL SECURITY;
 
--- 建立通用讀寫 Policy (允許所有具備 anon/authenticated 權限之請求)
+-- 建立通用讀寫 Policy
 DROP POLICY IF EXISTS "Allow public access to transactions" ON public.transactions;
 CREATE POLICY "Allow public access to transactions" ON public.transactions FOR ALL USING (true) WITH CHECK (true);
 
