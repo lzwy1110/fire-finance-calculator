@@ -14,12 +14,10 @@ import android.widget.RemoteViews;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 public class QuickLogWidgetProvider extends AppWidgetProvider {
@@ -125,13 +123,10 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                 final int finalAmt = amt;
 
                 try {
-                    String txsJsonStr = prefs.getString("app_transactions_json", "[]");
-                    JSONArray arr = new JSONArray(txsJsonStr);
-
-                    JSONObject newTx = new JSONObject();
                     final String txId = "t-widget-" + System.currentTimeMillis();
                     final String txType = "收入".equals(cat) ? "income" : "投資".equals(cat) ? "investment" : "expense";
 
+                    JSONObject newTx = new JSONObject();
                     newTx.put("id", txId);
                     newTx.put("type", txType);
                     newTx.put("amount", finalAmt);
@@ -141,6 +136,18 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                     newTx.put("note", "來自 Android 桌面小工具 1 秒速記");
                     newTx.put("isQuickPreset", true);
 
+                    JSONArray tagsArr = new JSONArray();
+                    tagsArr.put("Widget");
+                    newTx.put("tags", tagsArr);
+
+                    // 1. Append to dedicated pending_widget_txs queue for App consumption
+                    String pendingStr = prefs.getString("pending_widget_txs", "[]");
+                    JSONArray pendingArr = new JSONArray(pendingStr);
+                    pendingArr.put(newTx);
+
+                    // 2. Prepend to app_transactions_json for immediate widget display
+                    String txsJsonStr = prefs.getString("app_transactions_json", "[]");
+                    JSONArray arr = new JSONArray(txsJsonStr);
                     JSONArray newArr = new JSONArray();
                     newArr.put(newTx);
                     for (int i = 0; i < arr.length(); i++) {
@@ -148,40 +155,12 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
                     }
 
                     prefs.edit()
+                            .putString("pending_widget_txs", pendingArr.toString())
                             .putString("app_transactions_json", newArr.toString())
                             .putInt("step", 0)
                             .putString("entered_amt", "0")
                             .putString("last_logged", "✅ 已記【" + cat + "/" + sub + "】$" + finalAmt)
                             .apply();
-
-                    new Thread(() -> {
-                        try {
-                            String syncCode = prefs.getString("sync_code", "DEFAULT_FIRE_SYNC_CODE");
-                            URL url = new URL("https://xzghqvvvgwvhbngytnpx.supabase.co/rest/v1/fire_transactions");
-                            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                            conn.setRequestMethod("POST");
-                            conn.setRequestProperty("Content-Type", "application/json");
-                            conn.setRequestProperty("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6Z2hxdnZ2Z3d2aGJuZ3l0bnB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEzMjQ5NTMsImV4cCI6MjA1NjkwMDk1M30.7sN1-2Ew629JpE99_W0i0T-16Z1T80g09T_wXy1z_W0");
-                            conn.setRequestProperty("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6Z2hxdnZ2Z3d2aGJuZ3l0bnB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEzMjQ5NTMsImV4cCI6MjA1NjkwMDk1M30.7sN1-2Ew629JpE99_W0i0T-16Z1T80g09T_wXy1z_W0");
-                            conn.setDoOutput(true);
-
-                            JSONObject body = new JSONObject();
-                            body.put("sync_code", syncCode);
-                            body.put("tx_id", txId);
-                            body.put("type", txType);
-                            body.put("amount", finalAmt);
-                            body.put("main_category", cat);
-                            body.put("sub_category", sub);
-                            body.put("tx_date", todayStr);
-                            body.put("note", "來自 Android 桌面小工具 1 秒速記");
-
-                            byte[] out = body.toString().getBytes(StandardCharsets.UTF_8);
-                            try (OutputStream os = conn.getOutputStream()) {
-                                os.write(out);
-                            }
-                            conn.getResponseCode();
-                        } catch (Exception ignored) {}
-                    }).start();
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -260,26 +239,22 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             String hint = lastLogged.isEmpty() ? "第一步：請選擇【大類】" : lastLogged;
             views.setTextViewText(R.id.txt_step_hint, hint);
 
-            String cat1 = prefs.getString("cfg_cat_1", "飲食");
-            String cat2 = prefs.getString("cfg_cat_2", "娛樂");
-            String cat3 = prefs.getString("cfg_cat_3", "交通");
-            String cat4 = prefs.getString("cfg_cat_4", "日用");
-            String cat5 = prefs.getString("cfg_cat_5", "收入");
-            String cat6 = prefs.getString("cfg_cat_6", "投資");
+            List<String> dynamicCats = getMainCategories(prefs);
 
-            views.setTextViewText(R.id.btn_cat_food, getCatIcon(cat1) + " " + cat1);
-            views.setTextViewText(R.id.btn_cat_ent, getCatIcon(cat2) + " " + cat2);
-            views.setTextViewText(R.id.btn_cat_trans, getCatIcon(cat3) + " " + cat3);
-            views.setTextViewText(R.id.btn_cat_daily, getCatIcon(cat4) + " " + cat4);
-            views.setTextViewText(R.id.btn_cat_inc, getCatIcon(cat5) + " " + cat5);
-            views.setTextViewText(R.id.btn_cat_inv, getCatIcon(cat6) + " " + cat6);
+            int[] catViewIds = new int[]{
+                R.id.btn_cat_food,
+                R.id.btn_cat_ent,
+                R.id.btn_cat_trans,
+                R.id.btn_cat_daily,
+                R.id.btn_cat_inc,
+                R.id.btn_cat_inv
+            };
 
-            views.setOnClickPendingIntent(R.id.btn_cat_food, createBroadcastIntent(context, ACTION_SELECT_MAIN, cat1, null, null, 0, 10));
-            views.setOnClickPendingIntent(R.id.btn_cat_ent, createBroadcastIntent(context, ACTION_SELECT_MAIN, cat2, null, null, 0, 11));
-            views.setOnClickPendingIntent(R.id.btn_cat_trans, createBroadcastIntent(context, ACTION_SELECT_MAIN, cat3, null, null, 0, 12));
-            views.setOnClickPendingIntent(R.id.btn_cat_daily, createBroadcastIntent(context, ACTION_SELECT_MAIN, cat4, null, null, 0, 13));
-            views.setOnClickPendingIntent(R.id.btn_cat_inc, createBroadcastIntent(context, ACTION_SELECT_MAIN, cat5, null, null, 0, 14));
-            views.setOnClickPendingIntent(R.id.btn_cat_inv, createBroadcastIntent(context, ACTION_SELECT_MAIN, cat6, null, null, 0, 15));
+            for (int i = 0; i < catViewIds.length; i++) {
+                String cName = i < dynamicCats.size() ? dynamicCats.get(i) : getDefaultCatName(i);
+                views.setTextViewText(catViewIds[i], getCatIcon(cName) + " " + cName);
+                views.setOnClickPendingIntent(catViewIds[i], createBroadcastIntent(context, ACTION_SELECT_MAIN, cName, null, null, 0, 10 + i));
+            }
 
         } else if (step == 1) {
             // STEP 2: Sub Category Selection
@@ -290,19 +265,20 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             views.setTextViewText(R.id.txt_step_hint, "第二步：【" + cat + "】選細類");
 
             String[] subList = getSubCategories(context, prefs, cat);
-            views.setTextViewText(R.id.btn_sub_1, subList[0]);
-            views.setTextViewText(R.id.btn_sub_2, subList[1]);
-            views.setTextViewText(R.id.btn_sub_3, subList[2]);
-            views.setTextViewText(R.id.btn_sub_4, subList[3]);
-            views.setTextViewText(R.id.btn_sub_5, subList[4]);
-            views.setTextViewText(R.id.btn_sub_6, subList[5]);
+            int[] subViewIds = new int[]{
+                R.id.btn_sub_1,
+                R.id.btn_sub_2,
+                R.id.btn_sub_3,
+                R.id.btn_sub_4,
+                R.id.btn_sub_5,
+                R.id.btn_sub_6
+            };
 
-            views.setOnClickPendingIntent(R.id.btn_sub_1, createBroadcastIntent(context, ACTION_SELECT_SUB, cat, subList[0], null, 0, 20));
-            views.setOnClickPendingIntent(R.id.btn_sub_2, createBroadcastIntent(context, ACTION_SELECT_SUB, cat, subList[1], null, 0, 21));
-            views.setOnClickPendingIntent(R.id.btn_sub_3, createBroadcastIntent(context, ACTION_SELECT_SUB, cat, subList[2], null, 0, 22));
-            views.setOnClickPendingIntent(R.id.btn_sub_4, createBroadcastIntent(context, ACTION_SELECT_SUB, cat, subList[3], null, 0, 23));
-            views.setOnClickPendingIntent(R.id.btn_sub_5, createBroadcastIntent(context, ACTION_SELECT_SUB, cat, subList[4], null, 0, 24));
-            views.setOnClickPendingIntent(R.id.btn_sub_6, createBroadcastIntent(context, ACTION_SELECT_SUB, cat, subList[5], null, 0, 25));
+            for (int i = 0; i < subViewIds.length; i++) {
+                String sName = i < subList.length ? subList[i] : ("細項" + (i + 1));
+                views.setTextViewText(subViewIds[i], sName);
+                views.setOnClickPendingIntent(subViewIds[i], createBroadcastIntent(context, ACTION_SELECT_SUB, cat, sName, null, 0, 20 + i));
+            }
 
         } else if (step == 2) {
             // STEP 3: Amount Keypad Input
@@ -334,6 +310,37 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         }
 
         appWidgetManager.updateAppWidget(appWidgetId, views);
+    }
+
+    private List<String> getMainCategories(SharedPreferences prefs) {
+        List<String> list = new ArrayList<>();
+        try {
+            String allCatsJson = prefs.getString("all_categories_json", "[]");
+            JSONArray arr = new JSONArray(allCatsJson);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                String name = obj.optString("name", "");
+                if (!name.isEmpty() && !list.contains(name)) {
+                    list.add(name);
+                }
+            }
+        } catch (Exception ignored) {}
+
+        if (list.isEmpty()) {
+            list.add("飲食");
+            list.add("娛樂");
+            list.add("交通");
+            list.add("日用");
+            list.add("收入");
+            list.add("投資");
+        }
+        return list;
+    }
+
+    private String getDefaultCatName(int index) {
+        String[] defaults = new String[]{"飲食", "娛樂", "交通", "日用", "收入", "投資"};
+        if (index >= 0 && index < defaults.length) return defaults[index];
+        return "自訂";
     }
 
     private int calculateTodayExpense(SharedPreferences prefs, String todayStr) {
@@ -368,19 +375,41 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
         if ("教育".equals(cat)) return "📚";
         if ("收入".equals(cat)) return "💰";
         if ("投資".equals(cat)) return "🚀";
-        if ("稅金".equals(cat)) return "🏛️";
+        if ("稅金".equals(cat) || "稅費".equals(cat)) return "🏛️";
         return "🏷️";
     }
 
     private String[] getSubCategories(Context context, SharedPreferences prefs, String cat) {
+        // 1. Try parsing from all_categories_json
+        try {
+            String allCatsJson = prefs.getString("all_categories_json", "[]");
+            JSONArray arr = new JSONArray(allCatsJson);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                if (cat.equals(obj.optString("name", ""))) {
+                    JSONArray subs = obj.optJSONArray("subCategories");
+                    if (subs != null && subs.length() > 0) {
+                        int len = Math.min(6, subs.length());
+                        String[] res = new String[len];
+                        for (int s = 0; s < len; s++) {
+                            res[s] = subs.getString(s);
+                        }
+                        return res;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // 2. Try parsing from custom_subs_json
         try {
             String customSubsJson = prefs.getString("custom_subs_json", "{}");
             JSONObject obj = new JSONObject(customSubsJson);
             if (obj.has(cat)) {
                 JSONArray arr = obj.getJSONArray(cat);
-                if (arr.length() >= 6) {
-                    String[] res = new String[6];
-                    for (int i = 0; i < 6; i++) {
+                if (arr.length() > 0) {
+                    int len = Math.min(6, arr.length());
+                    String[] res = new String[len];
+                    for (int i = 0; i < len; i++) {
                         res[i] = arr.getString(i);
                     }
                     return res;
@@ -388,6 +417,7 @@ public class QuickLogWidgetProvider extends AppWidgetProvider {
             }
         } catch (Exception ignored) {}
 
+        // 3. Fallback defaults
         if ("娛樂".equals(cat)) return new String[]{"電影", "遊戲", "聚會", "戶外", "訂閱", "旅遊"};
         if ("交通".equals(cat)) return new String[]{"捷運", "加油", "公車", "高鐵", "叫車", "停車"};
         if ("日用".equals(cat)) return new String[]{"耗材", "清潔", "廚房", "家電", "雜貨", "個人"};

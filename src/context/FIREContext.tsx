@@ -46,6 +46,8 @@ import { calculateFIRE } from '../utils/fireCalculator';
 import { applyThemeToCSSVariables } from '../utils/theme';
 import { WidgetBridge } from '../services/widgetBridge';
 import { fetchLiveUsdRate } from '../services/exchangeRateService';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 
 interface FIREContextType {
   // State
@@ -187,8 +189,72 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     applyThemeToCSSVariables(fireConfig.themeColor);
   }, [fireConfig.themeColor]);
 
-  // 4. Pure Read Cloud Fetcher (Never pushes back)
+  // 4. Ingest any Android Widget recorded transactions (Consumes from dedicated native queue)
+  const ingestPendingWidgetTransactions = useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    try {
+      const res = await WidgetBridge.consumePendingWidgetTransactions();
+      if (res && res.pending_transactions_json) {
+        const parsed = JSON.parse(res.pending_transactions_json);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          lastUserEditTimeRef.current = Date.now();
+          let cashDelta = 0;
+          const validNewItems: Transaction[] = [];
+
+          parsed.forEach((t: any) => {
+            if (t && t.id && t.amount > 0) {
+              const formatted: Transaction = {
+                id: t.id,
+                type: t.type || 'expense',
+                amount: Number(t.amount),
+                mainCategory: t.mainCategory || '飲食',
+                subCategory: t.subCategory || '',
+                date: t.date || new Date().toISOString().slice(0, 10),
+                note: t.note || '來自 Android 桌面小工具 1 秒速記',
+                isQuickPreset: true,
+                tags: t.tags || ['Widget'],
+              };
+              validNewItems.push(formatted);
+
+              if (formatted.type === 'income') {
+                cashDelta += formatted.amount;
+              } else if (formatted.type === 'expense' || formatted.type === 'investment' || formatted.type === 'tax') {
+                cashDelta -= formatted.amount;
+              }
+            }
+          });
+
+          if (validNewItems.length > 0) {
+            setTransactions((prev) => {
+              const existingIds = new Set(prev.map((item) => item.id));
+              const deduplicated = validNewItems.filter((item) => !existingIds.has(item.id));
+              if (deduplicated.length > 0) {
+                const merged = [...deduplicated, ...prev];
+                saveTransactions(merged);
+                return merged;
+              }
+              return prev;
+            });
+
+            if (cashDelta !== 0) {
+              adjustCashSavings(cashDelta, 'TWD');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Ignored if not native
+    }
+  }, [adjustCashSavings]);
+
+  // 5. Pure Read Cloud Fetcher (Never pushes back)
   const refreshCloudData = useCallback(async (isManual = false): Promise<boolean> => {
+    // Ingest any Android Widget transactions first if on native platform
+    if (Capacitor.isNativePlatform()) {
+      await ingestPendingWidgetTransactions();
+    }
+
     if (storageModeState === 'local') return false;
 
     // Skip background auto-refresh if user edited within last 4 seconds
@@ -200,26 +266,6 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsSyncing(true);
 
     try {
-      // Ingest any Android Widget recorded transactions locally
-      try {
-        const res = await WidgetBridge.loadWidgetAppData();
-        if (res && res.app_transactions_json) {
-          const parsed = JSON.parse(res.app_transactions_json);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setTransactions((prev) => {
-              const existingIds = new Set(prev.map((t) => t.id));
-              const newItems = parsed.filter((t: any) => !existingIds.has(t.id));
-              if (newItems.length > 0) {
-                const merged = [...newItems, ...prev];
-                saveTransactionsLocalOnly(merged);
-                return merged;
-              }
-              return prev;
-            });
-          }
-        }
-      } catch (e) {}
-
       // Fetch cloud records
       const cloudRes = await fetchCloudData(code);
       if (cloudRes && cloudRes.success && cloudRes.data) {
@@ -276,7 +322,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSyncing(false);
     }
     return false;
-  }, [storageModeState, syncCodeState, usdRate]);
+  }, [storageModeState, syncCodeState, usdRate, ingestPendingWidgetTransactions]);
 
   const restoreAllData = useCallback(() => {
     const tx = loadTransactions();
@@ -295,22 +341,37 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // 5. Initial App Load (Runs strictly once on mount)
+  // 6. Initial App Load (Runs strictly once on mount)
   useEffect(() => {
+    let isMounted = true;
+
     const initApp = async () => {
-      const mode = getStorageMode();
-      if (mode === 'cloud') {
-        await refreshCloudData(true);
-      }
-      setTimeout(() => {
+      try {
+        if (Capacitor.isNativePlatform()) {
+          await ingestPendingWidgetTransactions();
+        }
+      } catch (e) {}
+
+      try {
+        const mode = getStorageMode();
+        if (mode === 'cloud') {
+          await refreshCloudData(true);
+        }
+      } catch (e) {}
+
+      if (isMounted) {
         setIsAppLoading(false);
-      }, 250);
+      }
     };
 
     initApp();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // 6. Background Realtime & Sync Listeners
+  // 7. Background Realtime & Sync Listeners
   useEffect(() => {
     // Subscribe to Realtime WebSocket / Broadcast Channel
     const unsubscribe = subscribeToRealtimeSync(syncCodeState, () => {
@@ -328,11 +389,31 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Focus & Visibility change listener
     const handleFocus = () => {
+      if (Capacitor.isNativePlatform()) {
+        ingestPendingWidgetTransactions();
+      }
       if (storageModeState === 'cloud') {
         refreshCloudData(false);
       }
     };
     window.addEventListener('focus', handleFocus);
+
+    // Capacitor App State listener (handles mobile background -> foreground resume)
+    let appStateHandle: any = null;
+    if (Capacitor.isNativePlatform()) {
+      try {
+        CapApp.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) {
+            ingestPendingWidgetTransactions();
+            if (storageModeState === 'cloud') {
+              refreshCloudData(false);
+            }
+          }
+        }).then((handle) => {
+          appStateHandle = handle;
+        }).catch(() => {});
+      } catch (e) {}
+    }
 
     // 25s interval background refresh
     const interval = setInterval(() => {
@@ -345,9 +426,12 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubscribe();
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleFocus);
+      if (appStateHandle && typeof appStateHandle.remove === 'function') {
+        appStateHandle.remove();
+      }
       clearInterval(interval);
     };
-  }, [storageModeState, syncCodeState, refreshCloudData, restoreAllData]);
+  }, [storageModeState, syncCodeState, refreshCloudData, restoreAllData, ingestPendingWidgetTransactions]);
 
   // ================= MUTATION ACTIONS ================= //
 

@@ -14,6 +14,7 @@ import { CurrencyExchangeModal } from './components/CurrencyExchangeModal';
 import { AppLoadingSplash } from './components/AppLoadingSplash';
 import { WidgetBridge } from './services/widgetBridge';
 import { resetAllDataToDefault } from './utils/storage';
+import { Capacitor } from '@capacitor/core';
 
 function FIREAppContent() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'monthly' | 'yearly' | 'ledger' | 'analytics' | 'portfolio'>('dashboard');
@@ -56,7 +57,7 @@ function FIREAppContent() {
 
   // 1. Android Widget Bridge: Push live today's expense & transactions to Native Widget
   useEffect(() => {
-    if (transactions) {
+    if (Capacitor.isNativePlatform() && transactions) {
       const todayStr = new Date().toISOString().slice(0, 10);
       const todayTotal = transactions
         .filter((t) => t.date === todayStr && t.type !== 'income')
@@ -71,15 +72,16 @@ function FIREAppContent() {
 
   // 2. Android Widget Bridge: Sync Categories to Native Widget
   useEffect(() => {
-    if (categories.length > 0) {
+    if (Capacitor.isNativePlatform() && categories && categories.length > 0) {
       try {
         const subsMap: Record<string, string[]> = {};
         categories.forEach((c) => {
           if (c.subCategories && c.subCategories.length > 0) {
-            subsMap[c.name] = c.subCategories.slice(0, 6);
+            subsMap[c.name] = c.subCategories.slice(0, 8);
           }
         });
         WidgetBridge.saveWidgetCustomConfig({
+          categoriesJson: JSON.stringify(categories),
           subs: JSON.stringify(subsMap),
         }).catch(() => {});
       } catch (e) {}
@@ -137,13 +139,15 @@ function FIREAppContent() {
       }
     };
 
-    handleWidgetUrl(window.location.href);
+    if (Capacitor.isNativePlatform()) {
+      handleWidgetUrl(window.location.href);
 
-    import('@capacitor/app').then(({ App: CapApp }) => {
-      CapApp.addListener('appUrlOpen', (data) => {
-        handleWidgetUrl(data.url);
-      });
-    }).catch(() => {});
+      import('@capacitor/app').then(({ App: CapApp }) => {
+        CapApp.addListener('appUrlOpen', (data) => {
+          handleWidgetUrl(data.url);
+        });
+      }).catch(() => {});
+    }
   }, [quickPresets, addTransaction]);
 
   const handleResetDefaultData = () => {

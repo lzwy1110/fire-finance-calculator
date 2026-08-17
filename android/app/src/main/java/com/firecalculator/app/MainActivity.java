@@ -27,6 +27,28 @@ public class MainActivity extends BridgeActivity {
     public static class WidgetBridgePlugin extends Plugin {
 
         @PluginMethod
+        public void consumePendingWidgetTransactions(PluginCall call) {
+            SharedPreferences prefs = getContext().getSharedPreferences("widget_data", Context.MODE_PRIVATE);
+            String pendingTxsJson = prefs.getString("pending_widget_txs", "[]");
+            
+            // Atomically clear queue
+            prefs.edit().putString("pending_widget_txs", "[]").apply();
+
+            JSObject ret = new JSObject();
+            ret.put("pending_transactions_json", pendingTxsJson);
+            call.resolve(ret);
+        }
+
+        @PluginMethod
+        public void getPendingWidgetTransactions(PluginCall call) {
+            SharedPreferences prefs = getContext().getSharedPreferences("widget_data", Context.MODE_PRIVATE);
+            String pendingTxsJson = prefs.getString("pending_widget_txs", "[]");
+            JSObject ret = new JSObject();
+            ret.put("pending_txs", pendingTxsJson);
+            call.resolve(ret);
+        }
+
+        @PluginMethod
         public void loadWidgetAppData(PluginCall call) {
             SharedPreferences prefs = getContext().getSharedPreferences("widget_data", Context.MODE_PRIVATE);
             String txsJson = prefs.getString("app_transactions_json", "[]");
@@ -64,13 +86,27 @@ public class MainActivity extends BridgeActivity {
 
         @PluginMethod
         public void saveWidgetCustomConfig(PluginCall call) {
+            String categoriesJson = call.getString("categoriesJson");
             String catsJson = call.getString("cats");
             String subsJson = call.getString("subs");
             SharedPreferences prefs = getContext().getSharedPreferences("widget_data", Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
+            if (categoriesJson != null) editor.putString("all_categories_json", categoriesJson);
             if (catsJson != null) editor.putString("custom_cats_json", catsJson);
             if (subsJson != null) editor.putString("custom_subs_json", subsJson);
             editor.apply();
+
+            // Broadcast to update widget categories
+            try {
+                AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(getContext());
+                ComponentName componentName = new ComponentName(getContext(), QuickLogWidgetProvider.class);
+                int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
+                Intent intent = new Intent(getContext(), QuickLogWidgetProvider.class);
+                intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+                intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds);
+                getContext().sendBroadcast(intent);
+            } catch (Exception ignored) {}
+
             call.resolve();
         }
     }
