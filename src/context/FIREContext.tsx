@@ -372,7 +372,14 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const synced = stocks.map((s) => syncStockCalculations(s));
     setPortfolioStocks(synced);
     savePortfolioStocks(synced);
-  }, []);
+
+    if (storageModeState === 'cloud') {
+      const code = syncCodeState || getOrCreateSyncCode();
+      synced.forEach((s) => {
+        saveStockToCloud(code, s).catch(() => {});
+      });
+    }
+  }, [storageModeState, syncCodeState]);
 
   const saveSingleStock = useCallback(async (stock: PortfolioStock): Promise<{ success: boolean; error?: string }> => {
     lastUserEditTimeRef.current = Date.now();

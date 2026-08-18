@@ -209,6 +209,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
         avgCost,
         currentPrice,
         currency: s.currency || (s.market === 'TW' ? 'TWD' : 'USD'),
+        lastUpdated: s.updated_at || s.last_updated,
         transactions: txs,
       };
     });

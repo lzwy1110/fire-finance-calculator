@@ -116,6 +116,32 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const formatDec = (num: number) =>
     num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const formatUpdateTime = (isoStr?: string) => {
+    if (!isoStr) return null;
+    try {
+      const date = new Date(isoStr);
+      if (isNaN(date.getTime())) return null;
+      const now = new Date();
+      const isToday =
+        date.getFullYear() === now.getFullYear() &&
+        date.getMonth() === now.getMonth() &&
+        date.getDate() === now.getDate();
+
+      const hours = String(date.getHours()).padStart(2, '0');
+      const mins = String(date.getMinutes()).padStart(2, '0');
+      const timeStr = `${hours}:${mins}`;
+
+      if (isToday) {
+        return `🟢 今日 ${timeStr}`;
+      }
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `📅 ${month}/${day} ${timeStr}`;
+    } catch (e) {
+      return null;
+    }
+  };
+
   // Ensure all stock items are synced with proper calculations
   const syncedStocks = stocks.map((s) => syncStockCalculations(s));
 
@@ -154,20 +180,23 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const totalRoiPercent = totalCostTWD > 0 ? (totalUnrealizedProfitTWD / totalCostTWD) * 100 : 0;
 
   // Batch Refresh All Stock Quotes from Online Endpoints
-  const handleRefreshQuotes = async () => {
+  const handleRefreshQuotes = async (silent: boolean = false) => {
     if (syncedStocks.length === 0) return;
     setIsRefreshing(true);
-    setRefreshStatus('⚡ 正在連線交易所與行情中心同步最新股價...');
+    if (!silent) {
+      setRefreshStatus('⚡ 正在連線交易所與行情中心同步最新股價...');
+    }
 
     try {
       const stockList = syncedStocks.map((s) => ({ symbol: s.symbol, market: s.market }));
       const quotesMap = await batchFetchStockQuotes(stockList);
 
       let updatedCount = 0;
+      const nowIso = new Date().toISOString();
       const updatedStocks = syncedStocks.map((s) => {
         const symUpper = s.symbol.toUpperCase();
         const rawCode = symUpper.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
-        const quote = quotesMap[symUpper] || quotesMap[`${rawCode}.TW`] || quotesMap[rawCode];
+        const quote = quotesMap[symUpper] || quotesMap[`${rawCode}.TW`] || quotesMap[rawCode] || quotesMap[`${rawCode}.TWO`];
 
         if (quote && quote.currentPrice > 0) {
           updatedCount++;
@@ -176,7 +205,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             currentPrice: quote.currentPrice,
             name: quote.name || s.name,
             previousClose: quote.previousClose || s.previousClose,
-            lastUpdated: new Date().toISOString(),
+            lastUpdated: nowIso,
           };
           return syncStockCalculations(updatedStock);
         }
@@ -185,19 +214,36 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
       if (updatedCount > 0) {
         onUpdateStocks(updatedStocks);
-        setRefreshStatus(`✅ 已成功更新 ${updatedCount} 檔最新線上行情報價！`);
+        if (!silent) {
+          setRefreshStatus(`✅ 已成功更新 ${updatedCount} 檔最新線上行情報價！`);
+        }
       } else {
-        setRefreshStatus('⚠️ 數據源連線繁忙，現有持股價格已完好保留。');
+        if (!silent) {
+          setRefreshStatus('⚠️ 數據源連線繁忙，現有持股價格已完好保留。');
+        }
       }
     } catch (e) {
-      setRefreshStatus('⚠️ 線上服務連線失敗，現有資料已保留。');
+      if (!silent) {
+        setRefreshStatus('⚠️ 線上服務連線失敗，現有資料已保留。');
+      }
     } finally {
       setTimeout(() => {
         setIsRefreshing(false);
-        setRefreshStatus(null);
+        if (!silent) {
+          setRefreshStatus(null);
+        }
       }, 2500);
     }
   };
+
+  // Auto-fetch latest stock quotes in background on mount
+  const hasAutoFetchedRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (syncedStocks.length > 0 && !hasAutoFetchedRef.current) {
+      hasAutoFetchedRef.current = true;
+      handleRefreshQuotes(true);
+    }
+  }, [syncedStocks.length]);
 
   // Fast Live Search Input Change (Connected via /api/search Proxy on Web & CapacitorHttp on Mobile)
   const handleSymbolInputChange = (val: string, currentMarket: MarketType = marketInput) => {
@@ -918,9 +964,16 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     <strong className="text-white font-mono text-sm">{formatNum(metrics.shares)} 股</strong>
                   </div>
 
-                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
-                    <span className="text-gray-400 block text-[10px]">加權均價 vs 現在價格</span>
-                    <div className="font-mono text-xs font-bold text-gray-200">
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-gray-400 block text-[10px]">均價 ➜ 現價</span>
+                      {stock.lastUpdated && (
+                        <span className="text-[10px] text-gray-400 font-mono scale-95 origin-right">
+                          {formatUpdateTime(stock.lastUpdated)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-mono text-xs font-bold text-gray-200 mt-1">
                       <span className="text-gray-400">{currSymbol}{formatDec(metrics.avgCost)}</span> ➜{' '}
                       <span className="text-cyan-300 font-bold">{currSymbol}{formatDec(stock.currentPrice)}</span>
                     </div>
