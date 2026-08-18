@@ -145,6 +145,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   // Ensure all stock items are synced with proper calculations
   const syncedStocks = stocks.map((s) => syncStockCalculations(s));
 
+  const latestStockUpdate = syncedStocks
+    .map((s) => s.lastUpdated)
+    .filter((t): t is string => Boolean(t))
+    .sort()
+    .reverse()[0];
+
   const filteredStocks = syncedStocks.filter((s) => {
     if (filterMarket === 'US') return s.market === 'US';
     if (filterMarket === 'TW') return s.market === 'TW';
@@ -868,13 +874,18 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
           <button
-            onClick={handleRefreshQuotes}
+            onClick={() => handleRefreshQuotes(false)}
             disabled={isRefreshing}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
             title="從線上數據源自動更新價格"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            更新最新股價
+            <span>更新最新股價</span>
+            {latestStockUpdate && (
+              <span className="text-[11px] font-mono text-cyan-300/90 font-normal pl-2 border-l border-cyan-500/30">
+                {formatUpdateTime(latestStockUpdate)}
+              </span>
+            )}
           </button>
 
           <button
@@ -964,16 +975,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     <strong className="text-white font-mono text-sm">{formatNum(metrics.shares)} 股</strong>
                   </div>
 
-                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-gray-400 block text-[10px]">均價 ➜ 現價</span>
-                      {stock.lastUpdated && (
-                        <span className="text-[10px] text-gray-400 font-mono scale-95 origin-right">
-                          {formatUpdateTime(stock.lastUpdated)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="font-mono text-xs font-bold text-gray-200 mt-1">
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
+                    <span className="text-gray-400 block text-[10px]">加權均價 vs 現在價格</span>
+                    <div className="font-mono text-xs font-bold text-gray-200 mt-0.5">
                       <span className="text-gray-400">{currSymbol}{formatDec(metrics.avgCost)}</span> ➜{' '}
                       <span className="text-cyan-300 font-bold">{currSymbol}{formatDec(stock.currentPrice)}</span>
                     </div>
