@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Flame, LayoutDashboard, Calendar, ReceiptText, Cloud, Plus, Settings, TrendingUp, Lock } from 'lucide-react';
+import { Flame, LayoutDashboard, Calendar, ReceiptText, Cloud, Plus, Settings, TrendingUp, Lock, AlertTriangle } from 'lucide-react';
 import { getThemePreset } from '../utils/theme';
 import { checkBackendHealth } from '../services/api';
+import { isFrontendSupabaseReady } from '../services/supabaseFrontend';
 
 interface HeaderProps {
   activeTab: 'dashboard' | 'monthly' | 'yearly' | 'ledger' | 'analytics' | 'portfolio';
@@ -167,22 +168,33 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Cloud & Storage Mode Badge */}
           {storageMode === 'cloud' ? (
-            <button
-              onClick={onOpenCloudSync}
-              className="flex items-center gap-2 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-mono text-gray-300 transition cursor-pointer"
-              title="Supabase 雲端備份與多裝置同步"
-            >
-              <div className="relative flex items-center justify-center">
-                <Cloud className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
-                <span
-                  className={`absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full ${
-                    dbStatus === 'connected' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
-                  }`}
-                />
-              </div>
-              <span className="hidden lg:inline text-gray-400">同步碼:</span>
-              <span className="font-bold text-white">{syncCode.slice(0, 9)}</span>
-            </button>
+            !isFrontendSupabaseReady() ? (
+              <button
+                onClick={onOpenCloudSync}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl text-xs font-semibold text-amber-300 transition cursor-pointer"
+                title="雲端同步模式：尚未配置 Supabase 憑證 (點擊進行設定)"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                <span>未設定 Supabase</span>
+              </button>
+            ) : (
+              <button
+                onClick={onOpenCloudSync}
+                className="flex items-center gap-2 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-mono text-gray-300 transition cursor-pointer"
+                title="Supabase 雲端備份與多裝置同步"
+              >
+                <div className="relative flex items-center justify-center">
+                  <Cloud className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
+                  <span
+                    className={`absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full ${
+                      dbStatus === 'connected' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+                    }`}
+                  />
+                </div>
+                <span className="hidden lg:inline text-gray-400">同步碼:</span>
+                <span className="font-bold text-white">{syncCode.slice(0, 9)}</span>
+              </button>
+            )
           ) : (
             <button
               onClick={onOpenConfig}

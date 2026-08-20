@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock, Trash2, RefreshCw, Tag } from 'lucide-react';
+import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock, Trash2, RefreshCw, Tag, AlertTriangle } from 'lucide-react';
 import { FIREConfig } from '../types';
 import { THEME_PRESETS, CURRENCY_OPTIONS, getThemePreset } from '../utils/theme';
+import { isFrontendSupabaseReady } from '../services/supabaseFrontend';
 
 interface SystemSettingsModalProps {
   isOpen: boolean;
@@ -229,25 +230,39 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <Cloud className="w-4 h-4 text-emerald-400" />
                 數據存儲與同步模式 (Data Storage Mode)
               </label>
-              <span
-                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 ${
-                  storageMode === 'cloud'
-                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                    : 'bg-zinc-800 border-zinc-700 text-zinc-300'
-                }`}
-              >
-                {storageMode === 'cloud' ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    雲端多裝置即時同步中
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-3 h-3 text-zinc-400" />
-                    純本機離線保存
-                  </>
-                )}
-              </span>
+              {(() => {
+                const isSupabaseConfigured = isFrontendSupabaseReady();
+                return (
+                  <span
+                    className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1.5 ${
+                      storageMode === 'cloud'
+                        ? isSupabaseConfigured
+                          ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                          : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                        : 'bg-zinc-800 border-zinc-700 text-zinc-300'
+                    }`}
+                  >
+                    {storageMode === 'cloud' ? (
+                      isSupabaseConfigured ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          雲端多裝置即時同步中
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="w-3 h-3 text-amber-400" />
+                          雲端模式 (未配置 Supabase)
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <Lock className="w-3 h-3 text-zinc-400" />
+                        純本機離線保存
+                      </>
+                    )}
+                  </span>
+                );
+              })()}
             </div>
 
             {/* Mode Switch Cards */}
@@ -273,7 +288,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   {storageMode === 'cloud' && <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />}
                 </div>
                 <p className="text-[11px] text-gray-400 leading-relaxed">
-                  多裝置即時同步・雲端安全備份・WebSocket 毫秒級推播
+                  多裝置即時同步・雲端安全備份・支援自訂 Supabase 私有庫
                 </p>
               </button>
 
@@ -306,6 +321,24 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
             {/* Sync Code & Advanced Cloud Settings (Only in Cloud Mode) */}
             {storageMode === 'cloud' && (
               <div className="bg-black/50 border border-emerald-500/20 p-3.5 rounded-xl space-y-2.5 animate-fadeIn">
+                {!isFrontendSupabaseReady() && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-lg text-amber-300 text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      尚未填寫 Supabase URL 與金鑰
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenCloudSync();
+                      }}
+                      className="text-amber-200 hover:text-white underline font-bold transition cursor-pointer"
+                    >
+                      前往填寫 ➔
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-gray-400">目前雲端專屬同步碼:</span>
                   <span className="font-mono font-bold text-amber-300 text-xs">{syncCode}</span>

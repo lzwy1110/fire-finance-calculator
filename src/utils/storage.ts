@@ -14,7 +14,16 @@ const STORAGE_KEY_MODE = 'fire_planner_storage_mode_v1';
 
 export function getStorageMode(): 'cloud' | 'local' {
   const mode = localStorage.getItem(STORAGE_KEY_MODE);
-  return mode === 'local' ? 'local' : 'cloud';
+  if (mode === 'local' || mode === 'cloud') {
+    return mode;
+  }
+  // 預設判定：若未設定過模式，檢查是否已填寫自訂 Supabase 憑證；未填寫則 100% 預設為純本機模式
+  const rawUrl = localStorage.getItem('fire_supabase_url');
+  const anonKey = localStorage.getItem('fire_supabase_anon_key');
+  if (rawUrl && anonKey && !rawUrl.includes('xyzcompany.supabase.co')) {
+    return 'cloud';
+  }
+  return 'local';
 }
 
 export function setStorageMode(mode: 'cloud' | 'local'): void {
