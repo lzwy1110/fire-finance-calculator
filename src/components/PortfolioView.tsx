@@ -789,201 +789,188 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
-      {/* Top Banner: Total Portfolio Metrics */}
+    <div className="space-y-5 animate-fadeIn pb-12">
+      {/* 🌟 Unified Pro Hero Dashboard Card (Robinhood / Revolut / Apple Stocks Style) */}
       <div
-        className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden space-y-6"
+        className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl relative overflow-hidden space-y-5"
         style={{
-          boxShadow: `0 0 35px rgba(${currentTheme.bgGlowRgb}, 0.15)`,
+          boxShadow: `0 0 40px rgba(${currentTheme.bgGlowRgb}, 0.12)`,
         }}
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
-          <div className="flex items-center gap-3">
+        {/* Top Header Row: Portfolio Title & Quick Currency Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2.5">
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold shadow-lg"
+              className="w-9 h-9 rounded-2xl flex items-center justify-center font-bold shadow-md shrink-0"
               style={{ backgroundColor: currentTheme.primaryHex, color: '#000' }}
             >
-              <TrendingUp className="w-6 h-6 stroke-[2.5]" />
+              <TrendingUp className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                美股 🇺🇸 / 台股 🇹🇼 投資庫存估值
+              <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                投資庫存總覽 <span className="text-xs font-mono font-bold text-gray-400 font-normal">Portfolio</span>
               </h2>
-              <p className="text-xs text-gray-400">
-                追蹤美股與台股持股、加權買入均價、最新股價、已實現損益與未實現 ROI%
-              </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* USD Exchange Rate Badge */}
-            <div className="flex items-center gap-1.5 bg-black/60 border border-white/10 rounded-2xl px-3 py-1.5 text-xs text-gray-300">
+          <div className="flex items-center gap-2">
+            {/* USD Exchange Rate */}
+            <div className="flex items-center gap-1.5 bg-black/60 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-gray-300">
               <Coins className="w-3.5 h-3.5 text-amber-400" />
-              <span>匯率: <strong className="font-mono text-amber-300">1 USD = {usdRate.toFixed(2)} TWD</strong></span>
+              <span className="font-mono text-[11px] text-amber-300">1 USD = {usdRate.toFixed(2)} TWD</span>
             </div>
 
-            {/* Currency Exchange Button */}
+            {/* Currency Exchange Modal Trigger */}
             {onOpenCurrencyExchange && (
               <button
                 type="button"
                 onClick={onOpenCurrencyExchange}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold rounded-2xl transition cursor-pointer shadow-sm active:scale-95"
-                title="開啟雙幣現金池換匯轉帳"
+                className="flex items-center gap-1 px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold rounded-xl transition cursor-pointer active:scale-95 shadow-sm"
+                title="雙幣現金池換匯轉帳"
               >
-                <ArrowRightLeft className="w-3.5 h-3.5" />
-                <span>💱 雙幣換匯</span>
+                <ArrowRightLeft className="w-3 h-3" />
+                <span>💱 換匯</span>
               </button>
             )}
-
-            {/* Available Cash Savings Balance (Dual Currency) */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-bold rounded-2xl">
-              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-              <span>🇹🇼 NT$ <strong className="font-mono">{formatNum(currentTWD)}</strong></span>
-              <span className="text-emerald-500/40">|</span>
-              <span>🇺🇸 US$ <strong className="font-mono">{formatNum(currentUSD)}</strong></span>
-            </div>
-
-            {/* Auto-sync Indicator */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-500/15 text-pink-300 border border-pink-500/30 text-xs font-bold rounded-2xl shadow-sm">
-              <Flame className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
-              <span>✨ 股票市值已連動 FIRE 總資產</span>
-            </div>
           </div>
         </div>
 
-        {/* Summary Metric Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-          {/* Card 1: Total Market Value */}
-          <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
-            <span className="text-[11px] text-gray-400 font-medium block">目前投資總市值 (Market Value)</span>
-            <div className="text-xl font-black text-white font-mono">
+        {/* Main Big Number Row (Robinhood Style) */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <span className="text-xs font-bold text-gray-400 block tracking-wider uppercase">
+              目前投資總市值 (Market Value)
+            </span>
+            <div className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight mt-0.5">
               {sym} {formatNum(totalMarketValueTWD)}
             </div>
-            <div className="text-[10px] text-gray-400 flex items-center justify-between pt-1 border-t border-white/5">
-              <span>🇺🇸 美股: <strong className="text-cyan-400 font-mono">${formatNum(usMarketValueUSD)} USD</strong></span>
-              <span>🇹🇼 台股: <strong className="text-emerald-400 font-mono">${formatNum(twMarketValueTWD)}</strong></span>
+            <div className="flex items-center gap-3 text-xs text-gray-400 font-mono mt-1">
+              <span>🇺🇸 美股: <strong className="text-cyan-400">${formatNum(usMarketValueUSD)} USD</strong></span>
+              <span>•</span>
+              <span>🇹🇼 台股: <strong className="text-emerald-400">${formatNum(twMarketValueTWD)}</strong></span>
             </div>
           </div>
 
-          {/* Card 2: Total Cost */}
-          <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
-            <span className="text-[11px] text-gray-400 font-medium block">投入總成本 (Principal)</span>
-            <div className="text-xl font-black text-gray-200 font-mono">
-              {sym} {formatNum(totalCostTWD)}
+          {/* P&L Badges (All-Time + Today) */}
+          <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 shrink-0">
+            {/* Total Cumulative Unrealized Gain */}
+            <div
+              className={`px-3 py-1.5 rounded-2xl font-mono text-xs sm:text-sm font-black flex items-center gap-1.5 shadow-md ${
+                totalUnrealizedProfitTWD >= 0
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+              }`}
+            >
+              {totalUnrealizedProfitTWD >= 0 ? <ArrowUpRight className="w-4 h-4 stroke-[3]" /> : <ArrowDownRight className="w-4 h-4 stroke-[3]" />}
+              <span>
+                {totalUnrealizedProfitTWD >= 0 ? '+' : ''}{sym} {formatNum(totalUnrealizedProfitTWD)} ({totalUnrealizedProfitTWD >= 0 ? '+' : ''}{formatDec(totalRoiPercent)}%)
+              </span>
             </div>
-            <p className="text-[10px] text-gray-500 pt-1 border-t border-white/5">未賣出持股成本</p>
-          </div>
 
-          {/* Card 3: Realized PnL */}
-          <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
-            <span className="text-[11px] text-gray-400 font-medium block">已實現總損益 (Realized P&L)</span>
-            <div className={`text-xl font-black font-mono flex items-center gap-1 ${totalRealizedPnLTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {totalRealizedPnLTWD >= 0 ? '+' : ''}{sym} {formatNum(totalRealizedPnLTWD)}
-            </div>
-            <p className="text-[10px] text-gray-400 pt-1 border-t border-white/5">賣出賣掉落袋為安利潤</p>
-          </div>
-
-          {/* Card 4: Unrealized Profit/Loss with Today's PnL */}
-          <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
-            <span className="text-[11px] text-gray-400 font-medium block">未實現總損益 (Unrealized)</span>
-            <div className={`text-xl font-black font-mono flex items-center gap-1 ${totalUnrealizedProfitTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {totalUnrealizedProfitTWD >= 0 ? <ArrowUpRight className="w-5 h-5 stroke-[3]" /> : <ArrowDownRight className="w-5 h-5 stroke-[3]" />}
-              {totalUnrealizedProfitTWD >= 0 ? '+' : ''}{sym} {formatNum(totalUnrealizedProfitTWD)}
-            </div>
-            <div className="text-[10px] flex items-center justify-between pt-1 border-t border-white/5">
-              <span className="text-gray-400">今日估算:</span>
-              <strong className={`font-mono font-bold ${totalTodayChangeTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {totalTodayChangeTWD >= 0 ? '+' : ''}{sym} {formatNum(totalTodayChangeTWD)} ({totalTodayChangeTWD >= 0 ? '+' : ''}{totalTodayRoiPercent.toFixed(2)}%)
-              </strong>
-            </div>
-          </div>
-
-          {/* Card 5: Total ROI % */}
-          <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
-            <span className="text-[11px] text-gray-400 font-medium block">投資未實現 ROI%</span>
-            <div className={`text-xl font-black font-mono flex items-center gap-1.5 ${totalRoiPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              {totalRoiPercent >= 0 ? '+' : ''}{formatDec(totalRoiPercent)} %
-            </div>
-            <p className="text-[10px] text-gray-400 pt-1 border-t border-white/5">目前持股未實現投報率</p>
+            {/* Today's Estimated Gain */}
+            {syncedStocks.length > 0 && (
+              <div className={`text-xs font-mono font-bold flex items-center gap-1 ${totalTodayChangeTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <span>今日估算:</span>
+                <span>
+                  {totalTodayChangeTWD >= 0 ? '+' : ''}{sym} {formatNum(totalTodayChangeTWD)} ({totalTodayChangeTWD >= 0 ? '+' : ''}{totalTodayRoiPercent.toFixed(2)}%)
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Asset Allocation Breakdown Bar */}
+        {/* 3 Key Metric Columns Row (Revolut Style) */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-3 border-t border-white/10 text-xs">
+          {/* Col 1: Cost */}
+          <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 sm:p-3">
+            <span className="text-[10px] sm:text-[11px] text-gray-400 block font-medium">投入成本</span>
+            <div className="text-sm sm:text-base font-black text-gray-200 font-mono mt-0.5">
+              {sym} {formatNum(totalCostTWD)}
+            </div>
+          </div>
+
+          {/* Col 2: Cash Reserves */}
+          <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 sm:p-3">
+            <span className="text-[10px] sm:text-[11px] text-emerald-400/90 block font-medium">雙幣現金儲備</span>
+            <div className="text-xs sm:text-sm font-black text-emerald-300 font-mono mt-0.5 truncate">
+              NT$ {formatNum(currentTWD)} <span className="text-[10px] text-gray-400 font-normal">(${formatNum(currentUSD)})</span>
+            </div>
+          </div>
+
+          {/* Col 3: Realized P&L */}
+          <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 sm:p-3">
+            <span className="text-[10px] sm:text-[11px] text-gray-400 block font-medium">已實現總損益</span>
+            <div className={`text-sm sm:text-base font-black font-mono mt-0.5 ${totalRealizedPnLTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {totalRealizedPnLTWD >= 0 ? '+' : ''}{sym} {formatNum(totalRealizedPnLTWD)}
+            </div>
+          </div>
+        </div>
+
+        {/* Embedded Asset Allocation Bar (Seamlessly integrated into Hero) */}
         {totalAllocatedValue > 0 && (
-          <div className="bg-black/40 border border-white/5 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-cyan-400" />
-                <span className="text-xs font-bold text-gray-200">資產配置權重分佈 (Asset Allocation)</span>
-                <span className="text-[11px] text-gray-400 font-mono hidden sm:inline">
-                  總資產池: {sym} {formatNum(totalAllocatedValue)}
-                </span>
+          <div className="pt-2 space-y-2 border-t border-white/5">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 text-gray-300 font-bold text-[11px]">
+                <PieChart className="w-3.5 h-3.5 text-cyan-400" />
+                <span>資產配置權重分佈</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAllocationBar(!showAllocationBar)}
-                className="text-[11px] text-gray-400 hover:text-white transition cursor-pointer"
-              >
-                {showAllocationBar ? '收起' : '展開'}
-              </button>
+              <span className="text-[10px] text-gray-500 font-mono">
+                總資產池: {sym} {formatNum(totalAllocatedValue)}
+              </span>
             </div>
 
-            {showAllocationBar && (
-              <div className="space-y-3">
-                {/* Horizontal Segmented Bar (100% Full Width Guaranteed) */}
-                <div className="w-full h-3 bg-black/60 rounded-full flex overflow-hidden border border-white/10">
-                  {allocationSegments.map((st) => (
-                    <div
-                      key={st.id}
-                      className="h-full transition-all duration-300 relative group"
-                      style={{
-                        width: `${st.pct}%`,
-                        backgroundColor: st.color,
-                      }}
-                      title={`${st.symbol} (${st.name}): ${st.pct.toFixed(1)}%`}
-                    />
-                  ))}
-                  {cashPct > 0 && (
-                    <div
-                      className="h-full bg-emerald-500/80 transition-all duration-300"
-                      style={{ width: `${cashPct}%` }}
-                      title={`現金儲備 (TWD+USD): ${cashPct.toFixed(1)}%`}
-                    />
-                  )}
-                </div>
+            {/* Horizontal Segmented Bar (100% Full Width) */}
+            <div className="w-full h-2.5 bg-black/60 rounded-full flex overflow-hidden border border-white/10">
+              {allocationSegments.map((st) => (
+                <div
+                  key={st.id}
+                  className="h-full transition-all duration-300 relative group"
+                  style={{
+                    width: `${st.pct}%`,
+                    backgroundColor: st.color,
+                  }}
+                  title={`${st.symbol} (${st.name}): ${st.pct.toFixed(1)}%`}
+                />
+              ))}
+              {cashPct > 0 && (
+                <div
+                  className="h-full bg-emerald-500/80 transition-all duration-300"
+                  style={{ width: `${cashPct}%` }}
+                  title={`現金儲備 (TWD+USD): ${cashPct.toFixed(1)}%`}
+                />
+              )}
+            </div>
 
-                {/* Legend Chips */}
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {allocationSegments.slice(0, 7).map((st) => (
-                    <div key={st.id} className="flex items-center gap-1.5 bg-white/5 border border-white/5 px-2.5 py-1 rounded-xl">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: st.color }}
-                      />
-                      <span className="font-mono font-bold text-white text-[11px]">{st.symbol}</span>
-                      <span className="text-gray-400 text-[10px]">{st.pct.toFixed(1)}%</span>
-                    </div>
-                  ))}
-                  {cashPct > 0 && (
-                    <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
-                      <span className="font-bold text-emerald-300 text-[11px]">現金</span>
-                      <span className="text-emerald-400 text-[10px]">{cashPct.toFixed(1)}%</span>
-                    </div>
-                  )}
+            {/* Legend Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1">
+              {allocationSegments.slice(0, 6).map((st) => (
+                <div key={st.id} className="flex items-center gap-1 bg-white/5 border border-white/5 px-2 py-0.5 rounded-lg">
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: st.color }}
+                  />
+                  <span className="font-mono font-bold text-white text-[10px]">{st.symbol}</span>
+                  <span className="text-gray-400 text-[10px]">{st.pct.toFixed(1)}%</span>
                 </div>
-              </div>
-            )}
+              ))}
+              {cashPct > 0 && (
+                <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                  <span className="font-bold text-emerald-300 text-[10px]">現金</span>
+                  <span className="text-emerald-400 text-[10px]">{cashPct.toFixed(1)}%</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Control Bar: Filter Tabs, Sort Dropdown & Layout Switcher */}
-      <div className="bg-[#0c0c0c] border border-white/5 p-4 rounded-3xl flex flex-col lg:flex-row items-center justify-between gap-4">
-        {/* Left: Market Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          <div className="flex items-center gap-1.5 bg-black/60 border border-white/10 p-1.5 rounded-2xl">
+      {/* 🛠️ Symmetrically Aligned Clean Control Toolbar */}
+      <div className="bg-[#0c0c0c] border border-white/5 p-3.5 sm:p-4 rounded-3xl space-y-3">
+        {/* Row 1: Market Filter Tabs (Left) + Sort Dropdown & Layout Mode (Right) */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Market Filter Tabs */}
+          <div className="flex items-center gap-1 bg-black/60 border border-white/10 p-1 rounded-2xl">
             <button
               onClick={() => setFilterMarket('ALL')}
               className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
@@ -1024,57 +1011,60 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             </button>
           </div>
 
-          {/* Sort Dropdown */}
-          <div className="flex items-center gap-1.5 bg-black/60 border border-white/10 rounded-2xl px-3 py-1.5">
-            <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
-            <select
-              value={sortBy}
-              onChange={(e: any) => setSortBy(e.target.value)}
-              className="bg-transparent text-xs font-bold text-gray-200 focus:outline-none cursor-pointer"
-            >
-              <option value="value_desc" className="bg-[#111] text-white">💎 市值最高</option>
-              <option value="roi_desc" className="bg-[#111] text-white">🚀 ROI% 最高</option>
-              <option value="roi_asc" className="bg-[#111] text-white">📉 ROI% 最低</option>
-              <option value="today_desc" className="bg-[#111] text-white">⏱️ 今日漲幅最高</option>
-              <option value="symbol_asc" className="bg-[#111] text-white">🔤 代號 A-Z</option>
-            </select>
-          </div>
+          {/* Sort & View Mode Tools */}
+          <div className="flex items-center gap-2">
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-1 bg-black/60 border border-white/10 rounded-2xl px-2.5 py-1.5">
+              <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+              <select
+                value={sortBy}
+                onChange={(e: any) => setSortBy(e.target.value)}
+                className="bg-transparent text-xs font-bold text-gray-200 focus:outline-none cursor-pointer"
+              >
+                <option value="value_desc" className="bg-[#111] text-white">💎 市值最高</option>
+                <option value="roi_desc" className="bg-[#111] text-white">🚀 ROI% 最高</option>
+                <option value="roi_asc" className="bg-[#111] text-white">📉 ROI% 最低</option>
+                <option value="today_desc" className="bg-[#111] text-white">⏱️ 今日漲幅最高</option>
+                <option value="symbol_asc" className="bg-[#111] text-white">🔤 代號 A-Z</option>
+              </select>
+            </div>
 
-          {/* Layout Mode Switcher */}
-          <div className="flex items-center p-1 bg-black/60 border border-white/10 rounded-2xl">
-            <button
-              onClick={() => setViewLayout('cards')}
-              className={`p-1.5 rounded-xl transition cursor-pointer ${
-                viewLayout === 'cards' ? 'bg-white/20 text-white shadow' : 'text-gray-400 hover:text-gray-200'
-              }`}
-              title="卡片檢視"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewLayout('list')}
-              className={`p-1.5 rounded-xl transition cursor-pointer ${
-                viewLayout === 'list' ? 'bg-white/20 text-white shadow' : 'text-gray-400 hover:text-gray-200'
-              }`}
-              title="精簡清單"
-            >
-              <List className="w-4 h-4" />
-            </button>
+            {/* Layout Mode Switcher */}
+            <div className="flex items-center p-1 bg-black/60 border border-white/10 rounded-2xl">
+              <button
+                onClick={() => setViewLayout('cards')}
+                className={`p-1.5 rounded-xl transition cursor-pointer ${
+                  viewLayout === 'cards' ? 'bg-white/20 text-white shadow' : 'text-gray-400 hover:text-gray-200'
+                }`}
+                title="卡片檢視"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewLayout('list')}
+                className={`p-1.5 rounded-xl transition cursor-pointer ${
+                  viewLayout === 'list' ? 'bg-white/20 text-white shadow' : 'text-gray-400 hover:text-gray-200'
+                }`}
+                title="精簡清單"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Right: Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
+        {/* Row 2: 2 Equal Primary Action Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
           <button
             onClick={() => handleRefreshQuotes(false)}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-3.5 py-2 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
+            className="w-full py-2.5 px-4 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
             title="從線上數據源自動更新價格"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>更新最新股價</span>
             {latestStockUpdate && (
-              <span className="text-[11px] font-mono text-cyan-300/90 font-normal pl-2 border-l border-cyan-500/30 hidden sm:inline">
+              <span className="text-[11px] font-mono text-cyan-300/90 font-normal pl-2 border-l border-cyan-500/30">
                 {formatUpdateTime(latestStockUpdate)}
               </span>
             )}
@@ -1082,14 +1072,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
           <button
             onClick={() => handleOpenAddModal()}
-            className="flex items-center gap-1.5 px-4 py-2 text-black font-extrabold text-xs rounded-2xl transition cursor-pointer shadow-lg active:scale-95"
+            className="w-full py-2.5 px-4 text-black font-extrabold text-xs rounded-2xl transition cursor-pointer shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
             style={{
               backgroundColor: currentTheme.primaryHex,
               boxShadow: `0 0 15px rgba(${currentTheme.bgGlowRgb}, 0.3)`,
             }}
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            記一筆交易 (買入/賣出)
+            <span>記一筆交易 (買入 / 賣出)</span>
           </button>
         </div>
       </div>
