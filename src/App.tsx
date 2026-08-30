@@ -12,6 +12,7 @@ import { CategoryManagerModal } from './components/CategoryManagerModal';
 import { SystemSettingsModal } from './components/SystemSettingsModal';
 import { CurrencyExchangeModal } from './components/CurrencyExchangeModal';
 import { AppLoadingSplash } from './components/AppLoadingSplash';
+import { BottomTabBar } from './components/BottomTabBar';
 import { WidgetBridge } from './services/widgetBridge';
 import { resetAllDataToDefault } from './utils/storage';
 import { Capacitor } from '@capacitor/core';
@@ -195,7 +196,43 @@ function FIREAppContent() {
       />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-28 md:pb-8">
+        {/* Reports Sub-Navigation Switcher on Mobile */}
+        {(activeTab === 'analytics' || activeTab === 'monthly' || activeTab === 'yearly') && (
+          <div className="md:hidden flex items-center p-1 bg-[#111114] border border-white/10 rounded-2xl mb-5 shadow-lg">
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+                activeTab === 'analytics'
+                  ? 'bg-white/15 text-white shadow'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              📊 圖表分析
+            </button>
+            <button
+              onClick={() => setActiveTab('monthly')}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+                activeTab === 'monthly'
+                  ? 'bg-white/15 text-white shadow'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              📅 每月總結
+            </button>
+            <button
+              onClick={() => setActiveTab('yearly')}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+                activeTab === 'yearly'
+                  ? 'bg-white/15 text-white shadow'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              🗓️ 年度結算
+            </button>
+          </div>
+        )}
+
         {/* Tab 1: Dashboard Overview */}
         {activeTab === 'dashboard' && (
           <DashboardOverview
@@ -217,8 +254,8 @@ function FIREAppContent() {
           />
         )}
 
-        {/* Tab 2: Unified Investment Portfolio & Analytics */}
-        {(activeTab === 'portfolio' || activeTab === 'analytics') && (
+        {/* Tab 2: Unified Investment Portfolio */}
+        {activeTab === 'portfolio' && (
           <div className="space-y-8 animate-fadeIn">
             <PortfolioView
               stocks={portfolioStocks}
@@ -236,9 +273,13 @@ function FIREAppContent() {
               onAdjustCashSavings={adjustCashSavings}
               onOpenCurrencyExchange={() => setIsCurrencyExchangeOpen(true)}
             />
+          </div>
+        )}
 
-            {/* Integrated Investment Analytics & Category Distribution Section */}
-            <div className="border-t border-white/10 pt-8">
+        {/* Tab 2b: Financial Statistics & Charts */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-8 animate-fadeIn">
+            <div className="pt-2">
               <h2 className="text-xl font-black text-white mb-4 flex items-center gap-2">
                 <span>📊 財務統計分析與類別圖表</span>
               </h2>
@@ -282,11 +323,11 @@ function FIREAppContent() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-zinc-800/80 bg-zinc-950 py-6 text-center text-xs text-zinc-500 mt-auto">
+      {/* Footer (Desktop Only) */}
+      <footer className="hidden md:block border-t border-zinc-800/80 bg-zinc-950 py-6 text-center text-xs text-zinc-500 mt-auto">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-zinc-300">FIRE Planner</span>
+            <span className="font-bold text-zinc-300">FIRE Flow</span>
             <span>• 整合美股與台股庫存、收支細類、稅金、投資與 FIRE 退休估算</span>
           </div>
           <div className="flex items-center gap-4 text-zinc-400">
@@ -299,6 +340,14 @@ function FIREAppContent() {
           </div>
         </div>
       </footer>
+
+      {/* Mobile Native Bottom Tab Bar with Elevated Center Quick Add FAB */}
+      <BottomTabBar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenAddModal={() => setIsQuickAddOpen(true)}
+        themeColor={fireConfig.themeColor}
+      />
 
       {/* Modals */}
       <QuickAddModal

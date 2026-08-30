@@ -95,10 +95,13 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
+      <div className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-8 max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl space-y-5 animate-slideUp sm:animate-none">
+        {/* Mobile Drag Indicator Handle */}
+        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
+
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 sm:pb-4">
           <div className="flex items-center space-x-2">
             <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
               <Plus className="w-5 h-5 stroke-[3]" />

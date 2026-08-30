@@ -103,10 +103,13 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
+      <div className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-8 max-w-2xl w-full shadow-2xl space-y-5 sm:space-y-6 max-h-[92vh] overflow-y-auto animate-slideUp sm:animate-none">
+        {/* Mobile Drag Indicator Handle */}
+        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
+
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 sm:pb-4">
           <div className="flex items-center space-x-2.5">
             <div
               className="p-2 rounded-xl"

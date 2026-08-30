@@ -118,15 +118,18 @@ export const CurrencyExchangeModal: React.FC<CurrencyExchangeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div
-        className="bg-[#0e0e0e] border border-white/10 w-full max-w-lg rounded-3xl p-6 sm:p-7 space-y-5 shadow-2xl overflow-y-auto max-h-[90vh] text-gray-200"
+        className="bg-[#0e0e0e] border-t sm:border border-white/10 w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-7 space-y-5 shadow-2xl overflow-y-auto max-h-[92vh] text-gray-200 animate-slideUp sm:animate-none"
         style={{
           boxShadow: `0 0 35px rgba(${currentTheme.bgGlowRgb}, 0.2)`,
         }}
       >
+        {/* Mobile Drag Indicator Handle */}
+        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
+
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3 sm:pb-4">
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-2xl flex items-center justify-center font-bold"

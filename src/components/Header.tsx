@@ -80,17 +80,45 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Mobile Right Controls */}
           <div className="flex md:hidden items-center gap-2">
-            <button
-              onClick={onOpenQuickAdd}
-              className="p-1.5 text-black rounded-xl font-bold active:scale-95 transition"
-              style={{
-                backgroundColor: currentTheme.primaryHex,
-                boxShadow: `0 0 15px rgba(${currentTheme.bgGlowRgb}, 0.4)`,
-              }}
-              title="快速記帳"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+            {/* Mobile Cloud Status Badge */}
+            {storageMode === 'cloud' ? (
+              !isFrontendSupabaseReady() ? (
+                <button
+                  onClick={onOpenCloudSync}
+                  className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] font-bold text-amber-300 transition cursor-pointer"
+                  title="未設定 Supabase (點擊設定)"
+                >
+                  <AlertTriangle className="w-3 h-3 text-amber-400" />
+                  <span>未配置雲端</span>
+                </button>
+              ) : (
+                <button
+                  onClick={onOpenCloudSync}
+                  className="flex items-center gap-1.5 px-2 py-1 bg-white/5 border border-white/10 rounded-xl text-[11px] font-mono text-gray-300 transition cursor-pointer"
+                  title="雲端同步中"
+                >
+                  <div className="relative flex items-center justify-center">
+                    <Cloud className="w-3 h-3" style={{ color: currentTheme.primaryHex }} />
+                    <span
+                      className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${
+                        dbStatus === 'connected' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+                      }`}
+                    />
+                  </div>
+                  <span className="font-bold text-white">{syncCode.slice(0, 6)}</span>
+                </button>
+              )
+            ) : (
+              <button
+                onClick={onOpenConfig}
+                className="flex items-center gap-1 px-2 py-1 bg-zinc-900 border border-zinc-700 rounded-xl text-[11px] font-medium text-zinc-300 transition cursor-pointer"
+                title="純本機模式"
+              >
+                <Lock className="w-3 h-3 text-zinc-400" />
+                <span>離線</span>
+              </button>
+            )}
+
             <button
               onClick={onOpenConfig}
               className="p-1.5 bg-white/10 text-gray-300 rounded-xl hover:bg-white/20 transition cursor-pointer"
@@ -101,8 +129,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Unified 4 Navigation Tabs Bar (Ultra-clean, zero crowding layout) */}
-        <nav className="flex items-center gap-1 bg-[#111111] p-1.5 px-2 rounded-2xl border border-white/10 overflow-x-auto w-full md:w-auto justify-start md:justify-center scrollbar-none">
+        {/* Unified Desktop Navigation Tabs Bar (Hidden on Mobile) */}
+        <nav className="hidden md:flex items-center gap-1 bg-[#111111] p-1.5 px-2 rounded-2xl border border-white/10 overflow-x-auto w-full md:w-auto justify-center scrollbar-none">
           {[
             { id: 'dashboard', label: '儀表板', icon: LayoutDashboard },
             { id: 'portfolio', label: '投資與分析', icon: TrendingUp },
