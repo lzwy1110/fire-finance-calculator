@@ -206,8 +206,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       ? (totalTodayChangeTWD / (totalMarketValueTWD - totalTodayChangeTWD)) * 100
       : 0;
 
-  // Asset Allocation Calculations
-  const totalLiquidPool = totalMarketValueTWD + currentTWD + currentUSD * usdRate;
+  // Asset Allocation Calculations (100% full-width guaranteed)
+  const currentCashTWDVal = Math.max(0, currentTWD + currentUSD * usdRate);
 
   const allocationPalette = [
     '#06b6d4', // Cyan
@@ -219,6 +219,33 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     '#f97316', // Orange
     '#14b8a6', // Teal
   ];
+
+  // All stocks with positive market value across the entire portfolio
+  const allStockAllocations = syncedStocks
+    .map((s) => {
+      const valTWD = s.market === 'US' ? s.shares * s.currentPrice * usdRate : s.shares * s.currentPrice;
+      return {
+        id: s.id,
+        symbol: s.symbol,
+        name: s.name,
+        market: s.market,
+        valTWD: Math.max(0, valTWD),
+      };
+    })
+    .filter((it) => it.valTWD > 0)
+    .sort((a, b) => b.valTWD - a.valTWD);
+
+  const totalAllocatedValue =
+    allStockAllocations.reduce((acc, it) => acc + it.valTWD, 0) + currentCashTWDVal;
+
+  const allocationSegments = allStockAllocations.map((st, idx) => ({
+    ...st,
+    pct: totalAllocatedValue > 0 ? (st.valTWD / totalAllocatedValue) * 100 : 0,
+    color: allocationPalette[idx % allocationPalette.length],
+  }));
+
+  const cashPct =
+    totalAllocatedValue > 0 && currentCashTWDVal > 0 ? (currentCashTWDVal / totalAllocatedValue) * 100 : 0;
 
   const sortedStocks = [...filteredStocks].sort((a, b) => {
     const valA = a.market === 'US' ? a.shares * a.currentPrice * usdRate : a.shares * a.currentPrice;
@@ -880,14 +907,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         </div>
 
         {/* Asset Allocation Breakdown Bar */}
-        {syncedStocks.length > 0 && totalLiquidPool > 0 && (
+        {totalAllocatedValue > 0 && (
           <div className="bg-black/40 border border-white/5 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-cyan-400" />
                 <span className="text-xs font-bold text-gray-200">資產配置權重分佈 (Asset Allocation)</span>
                 <span className="text-[11px] text-gray-400 font-mono hidden sm:inline">
-                  總資產池: {sym} {formatNum(totalLiquidPool)}
+                  總資產池: {sym} {formatNum(totalAllocatedValue)}
                 </span>
               </div>
               <button
@@ -901,67 +928,45 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
             {showAllocationBar && (
               <div className="space-y-3">
-                {/* Horizontal Segmented Bar */}
+                {/* Horizontal Segmented Bar (100% Full Width Guaranteed) */}
                 <div className="w-full h-3 bg-black/60 rounded-full flex overflow-hidden border border-white/10">
-                  {sortedStocks
-                    .map((s) => {
-                      const valTWD = s.market === 'US' ? s.shares * s.currentPrice * usdRate : s.shares * s.currentPrice;
-                      const pct = totalLiquidPool > 0 ? (valTWD / totalLiquidPool) * 100 : 0;
-                      return { id: s.id, symbol: s.symbol, name: s.name, pct };
-                    })
-                    .filter((it) => it.pct > 0)
-                    .map((st, idx) => (
-                      <div
-                        key={st.id}
-                        className="h-full transition-all duration-300 relative group"
-                        style={{
-                          width: `${st.pct}%`,
-                          backgroundColor: allocationPalette[idx % allocationPalette.length],
-                        }}
-                        title={`${st.symbol}: ${st.pct.toFixed(1)}%`}
-                      />
-                    ))}
-                  {currentTWD + currentUSD * usdRate > 0 && (
+                  {allocationSegments.map((st) => (
+                    <div
+                      key={st.id}
+                      className="h-full transition-all duration-300 relative group"
+                      style={{
+                        width: `${st.pct}%`,
+                        backgroundColor: st.color,
+                      }}
+                      title={`${st.symbol} (${st.name}): ${st.pct.toFixed(1)}%`}
+                    />
+                  ))}
+                  {cashPct > 0 && (
                     <div
                       className="h-full bg-emerald-500/80 transition-all duration-300"
-                      style={{
-                        width: `${((currentTWD + currentUSD * usdRate) / totalLiquidPool) * 100}%`,
-                      }}
-                      title={`現金儲備 (TWD+USD): ${(
-                        ((currentTWD + currentUSD * usdRate) / totalLiquidPool) *
-                        100
-                      ).toFixed(1)}%`}
+                      style={{ width: `${cashPct}%` }}
+                      title={`現金儲備 (TWD+USD): ${cashPct.toFixed(1)}%`}
                     />
                   )}
                 </div>
 
                 {/* Legend Chips */}
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {sortedStocks
-                    .map((s) => {
-                      const valTWD = s.market === 'US' ? s.shares * s.currentPrice * usdRate : s.shares * s.currentPrice;
-                      const pct = totalLiquidPool > 0 ? (valTWD / totalLiquidPool) * 100 : 0;
-                      return { id: s.id, symbol: s.symbol, pct };
-                    })
-                    .filter((it) => it.pct > 0)
-                    .slice(0, 6)
-                    .map((st, idx) => (
-                      <div key={st.id} className="flex items-center gap-1.5 bg-white/5 border border-white/5 px-2.5 py-1 rounded-xl">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: allocationPalette[idx % allocationPalette.length] }}
-                        />
-                        <span className="font-mono font-bold text-white text-[11px]">{st.symbol}</span>
-                        <span className="text-gray-400 text-[10px]">{st.pct.toFixed(1)}%</span>
-                      </div>
-                    ))}
-                  {currentTWD + currentUSD * usdRate > 0 && (
+                  {allocationSegments.slice(0, 7).map((st) => (
+                    <div key={st.id} className="flex items-center gap-1.5 bg-white/5 border border-white/5 px-2.5 py-1 rounded-xl">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: st.color }}
+                      />
+                      <span className="font-mono font-bold text-white text-[11px]">{st.symbol}</span>
+                      <span className="text-gray-400 text-[10px]">{st.pct.toFixed(1)}%</span>
+                    </div>
+                  ))}
+                  {cashPct > 0 && (
                     <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
                       <span className="font-bold text-emerald-300 text-[11px]">現金</span>
-                      <span className="text-emerald-400 text-[10px]">
-                        {(((currentTWD + currentUSD * usdRate) / totalLiquidPool) * 100).toFixed(1)}%
-                      </span>
+                      <span className="text-emerald-400 text-[10px]">{cashPct.toFixed(1)}%</span>
                     </div>
                   )}
                 </div>
