@@ -196,7 +196,7 @@ function FIREAppContent() {
       />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-28 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-20 md:pb-8">
         {/* Reports Sub-Navigation Switcher on Mobile */}
         {(activeTab === 'analytics' || activeTab === 'monthly' || activeTab === 'yearly') && (
           <div className="md:hidden flex items-center p-1 bg-[#111114] border border-white/10 rounded-2xl mb-5 shadow-lg">

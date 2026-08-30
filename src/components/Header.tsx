@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/10 px-3 lg:px-8 py-2.5 transition-all">
+    <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10 px-3.5 lg:px-8 pt-[max(0.6rem,env(safe-area-inset-top))] pb-2.5 transition-all">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5">
         {/* Logo & App Name */}
         <div className="flex items-center justify-between w-full md:w-auto">

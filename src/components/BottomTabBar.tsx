@@ -24,7 +24,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0c0c0e]/95 backdrop-blur-xl border-t border-white/10 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl transition-all"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0c0c0e]/95 backdrop-blur-xl border-t border-white/10 px-2 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] shadow-2xl transition-all"
       style={{
         boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.6)',
       }}
