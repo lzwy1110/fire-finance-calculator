@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, CalendarRange, Wallet, ArrowDownRight, ReceiptText, TrendingUp, ShieldCheck, PieChart, ChevronRight } from 'lucide-react';
 import { FIREConfig, Transaction } from '../types';
 import { calculateMonthlyStats, calculateYearlyStats } from '../utils/fireCalculator';
@@ -17,6 +17,10 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>(initialMode);
   const currentTheme = getThemePreset(fireConfig.themeColor);
+
+  useEffect(() => {
+    setViewMode(initialMode);
+  }, [initialMode]);
   
   // Available Months & Years extracted from transactions
   const availableMonths = Array.from(
@@ -43,7 +47,7 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
-      {/* Header & View Mode Switcher */}
+      {/* Header & View Date Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0c0c0c] border border-white/5 p-5 rounded-3xl">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -64,38 +68,8 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
           </p>
         </div>
 
-        {/* View Toggle & Selector */}
+        {/* Date Dropdown */}
         <div className="flex items-center gap-3">
-          <div className="flex p-1 bg-black rounded-2xl border border-white/10">
-            <button
-              onClick={() => setViewMode('monthly')}
-              className={`px-4 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
-                viewMode === 'monthly'
-                  ? 'text-black font-extrabold shadow-md'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-              style={{
-                backgroundColor: viewMode === 'monthly' ? currentTheme.primaryHex : undefined,
-              }}
-            >
-              月總結
-            </button>
-            <button
-              onClick={() => setViewMode('yearly')}
-              className={`px-4 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
-                viewMode === 'yearly'
-                  ? 'text-black font-extrabold shadow-md'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-              style={{
-                backgroundColor: viewMode === 'yearly' ? currentTheme.primaryHex : undefined,
-              }}
-            >
-              年總結
-            </button>
-          </div>
-
-          {/* Date Dropdown */}
           {viewMode === 'monthly' ? (
             <select
               value={selectedMonth}

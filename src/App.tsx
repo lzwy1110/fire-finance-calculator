@@ -197,38 +197,38 @@ function FIREAppContent() {
 
       {/* Main Content Viewport */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-20 md:pb-8">
-        {/* Reports Sub-Navigation Switcher on Mobile */}
+        {/* Reports Sub-Navigation Switcher (📊 圖表分析 | 📅 每月總結 | 🗓️ 年度結算) */}
         {(activeTab === 'analytics' || activeTab === 'monthly' || activeTab === 'yearly') && (
-          <div className="md:hidden flex items-center p-1 bg-[#111114] border border-white/10 rounded-2xl mb-5 shadow-lg">
+          <div className="flex items-center p-1 bg-[#111114] border border-white/10 rounded-2xl mb-6 shadow-xl max-w-lg mx-auto">
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'analytics'
-                  ? 'bg-white/15 text-white shadow'
+                  ? 'bg-white/15 text-white shadow-md'
                   : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              📊 圖表分析
+              <span>📊 圖表分析</span>
             </button>
             <button
               onClick={() => setActiveTab('monthly')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'monthly'
-                  ? 'bg-white/15 text-white shadow'
+                  ? 'bg-white/15 text-white shadow-md'
                   : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              📅 每月總結
+              <span>📅 每月總結</span>
             </button>
             <button
               onClick={() => setActiveTab('yearly')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'yearly'
-                  ? 'bg-white/15 text-white shadow'
+                  ? 'bg-white/15 text-white shadow-md'
                   : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              🗓️ 年度結算
+              <span>🗓️ 年度結算</span>
             </button>
           </div>
         )}
