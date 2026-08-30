@@ -218,22 +218,22 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-xs text-gray-400 pt-2 border-t border-white/5 flex items-center justify-between flex-wrap gap-x-4 gap-y-1.5">
-                    <span className="flex items-center gap-1.5 font-mono whitespace-nowrap">
+                  <div className="text-xs text-gray-400 pt-2 border-t border-white/5 flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2 py-1 rounded-xl">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
                       <span className="text-gray-300">現金:</span>
-                      <strong className="text-emerald-400 font-bold text-xs sm:text-sm flex items-center gap-1.5">
+                      <strong className="text-emerald-400 font-bold flex items-center gap-1">
                         <span>NT$ {formatNumber(twdCash)}</span>
-                        {usdCash > 0 && <span className="text-xs text-emerald-300 font-normal">| US$ {formatNumber(usdCash)}</span>}
+                        {usdCash > 0 && <span className="text-[10px] text-emerald-300 font-normal">| ${formatNumber(usdCash)}</span>}
                       </strong>
-                      <span className="text-[11px] text-gray-500 font-semibold">({cashPct}%)</span>
-                    </span>
-                    <span className="flex items-center gap-1.5 font-mono whitespace-nowrap">
+                      <span className="text-[10px] text-gray-500 font-semibold">({cashPct}%)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2 py-1 rounded-xl">
                       <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
-                      <span className="text-gray-300">股票市值:</span>
-                      <strong className="text-cyan-400 font-bold text-xs sm:text-sm">{sym} {formatNumber(stockAmt)}</strong>
-                      <span className="text-[11px] text-gray-500 font-semibold">({stockPct}%)</span>
-                    </span>
+                      <span className="text-gray-300">股票:</span>
+                      <strong className="text-cyan-400 font-bold">{sym} {formatNumber(stockAmt)}</strong>
+                      <span className="text-[10px] text-gray-500 font-semibold">({stockPct}%)</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -253,9 +253,9 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
               <div className="text-2xl sm:text-3xl font-black font-mono leading-tight tracking-tight whitespace-nowrap overflow-x-auto scrollbar-none my-1" style={{ color: currentTheme.primaryHex }}>
                 {sym} {formatNumber(result.targetFIREAmount)}
               </div>
-              <div className="text-xs text-gray-400 pt-1.5 border-t border-white/5 flex items-center justify-between">
+              <div className="text-[11px] sm:text-xs text-gray-400 pt-1.5 border-t border-white/5 flex flex-wrap items-center justify-between gap-1.5">
                 <span>以 4% 安全提領率計算 (退休年支出 × 25)</span>
-                <span className="text-gray-400 font-mono">尚需 {sym} {formatNumber(Math.max(0, result.targetFIREAmount - config.currentNetWorth))}</span>
+                <span className="text-amber-300 font-mono font-bold">尚需 {sym} {formatNumber(Math.max(0, result.targetFIREAmount - config.currentNetWorth))}</span>
               </div>
             </div>
 

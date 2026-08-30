@@ -188,10 +188,11 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
                           {subCategoriesForMain.map((sub) => (
                             <span
                               key={sub.subName}
-                              className="px-2.5 py-1 bg-black/40 text-gray-300 text-xs rounded-xl border border-white/5 flex items-center gap-1.5"
+                              className="px-2.5 py-1 bg-black/40 text-gray-300 text-xs rounded-xl border border-white/5 flex items-center gap-1.5 max-w-full"
+                              title={`${sub.subName}: ${sym} ${formatNum(sub.subAmt)}`}
                             >
-                              <span className="text-gray-400">{sub.subName}:</span>
-                              <strong className="font-mono" style={{ color: currentTheme.primaryHex }}>{sym} {formatNum(sub.subAmt)}</strong>
+                              <span className="text-gray-400 truncate max-w-[140px] sm:max-w-[200px]">{sub.subName}:</span>
+                              <strong className="font-mono whitespace-nowrap" style={{ color: currentTheme.primaryHex }}>{sym} {formatNum(sub.subAmt)}</strong>
                             </span>
                           ))}
                         </div>

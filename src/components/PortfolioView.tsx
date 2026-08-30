@@ -890,10 +890,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           </div>
 
           {/* Col 2: Cash Reserves */}
-          <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 sm:p-3">
+          <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 sm:p-3 min-w-0">
             <span className="text-[10px] sm:text-[11px] text-emerald-400/90 block font-medium">雙幣現金儲備</span>
-            <div className="text-xs sm:text-sm font-black text-emerald-300 font-mono mt-0.5 truncate">
-              NT$ {formatNum(currentTWD)} <span className="text-[10px] text-gray-400 font-normal">(${formatNum(currentUSD)})</span>
+            <div className="text-xs sm:text-sm font-black text-emerald-300 font-mono mt-0.5 truncate" title={`NT$ ${formatNum(currentTWD)} ($${formatNum(currentUSD)})`}>
+              NT$ {formatNum(currentTWD)} {currentUSD > 0 && <span className="text-[10px] text-gray-400 font-normal">(${formatNum(currentUSD)})</span>}
             </div>
           </div>
 
@@ -1121,13 +1121,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     {isUS ? '🇺🇸' : '🇹🇼'}
                   </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-mono font-black text-white text-base tracking-tight">{stock.symbol}</span>
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300">
                         {isUS ? '美股' : '台股'}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-400 truncate max-w-[130px] sm:max-w-[220px]">
+                    <div className="text-xs text-gray-400 truncate max-w-[160px] xs:max-w-[200px] sm:max-w-[320px] md:max-w-[400px]" title={stock.name}>
                       {stock.name}
                     </div>
                     <div className="text-[11px] font-mono text-gray-500 mt-0.5">
@@ -1198,13 +1198,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                       {isUS ? '🇺🇸' : '🇹🇼'}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <h3 className="text-lg font-black text-white font-mono tracking-tight">{stock.symbol}</h3>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300">
                           {isUS ? '美股' : '台股'}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-400 truncate max-w-[140px] sm:max-w-[180px]">{stock.name}</p>
+                      <p className="text-xs text-gray-400 truncate max-w-[160px] xs:max-w-[200px] sm:max-w-[240px]" title={stock.name}>{stock.name}</p>
                     </div>
                   </div>
 

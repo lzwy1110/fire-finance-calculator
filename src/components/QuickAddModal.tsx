@@ -207,7 +207,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                   key={cat.id}
                   type="button"
                   onClick={() => handleMainCatChange(cat.name)}
-                  className={`px-2.5 py-2 rounded-xl text-xs font-semibold text-left transition truncate ${
+                  className={`px-2.5 py-2 rounded-xl text-[11px] sm:text-xs font-semibold text-left transition leading-snug break-words flex items-center ${
                     mainCategory === cat.name
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
                       : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800/80 hover:text-zinc-200'
