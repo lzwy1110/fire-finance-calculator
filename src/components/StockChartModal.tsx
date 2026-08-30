@@ -332,7 +332,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
-    const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+    const isMobile = width < 640;
+    const padding = { top: 20, right: isMobile ? 44 : 52, bottom: 25, left: isMobile ? 6 : 10 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
@@ -345,14 +346,6 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       if (visibleCandles.length <= 1) return padding.left + chartW / 2;
       return padding.left + (idx / (visibleCandles.length - 1)) * chartW;
     };
-
-    // Draw Y-axis background highlight for draggable area
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-    ctx.fillRect(padding.left + chartW, padding.top, padding.right, chartH);
-
-    // Draw X-axis background highlight for draggable area
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
-    ctx.fillRect(padding.left, padding.top + chartH, chartW, padding.bottom);
 
     // Draw grid lines
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
@@ -367,10 +360,10 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       ctx.stroke();
 
       // Price labels on right
-      ctx.fillStyle = '#6b7280';
-      ctx.font = '10px Inter, system-ui, sans-serif';
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = `${isMobile ? '9px' : '10px'} Inter, system-ui, sans-serif`;
       ctx.textAlign = 'left';
-      ctx.fillText(priceVal.toFixed(2), padding.left + chartW + 8, y + 3);
+      ctx.fillText(priceVal.toFixed(2), padding.left + chartW + 3, y + 3);
     }
 
     // Draw Your Avg Cost Line (Orange/Amber Dashed Line)
@@ -387,14 +380,15 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
         ctx.stroke();
 
         // Avg Cost Badge
-        ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
-        ctx.fillRect(padding.left + chartW + 4, costY - 9, 62, 18);
-        ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
-        ctx.strokeRect(padding.left + chartW + 4, costY - 9, 62, 18);
+        const badgeW = isMobile ? 44 : 50;
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
+        ctx.fillRect(padding.left + chartW + 2, costY - 8, badgeW, 16);
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+        ctx.strokeRect(padding.left + chartW + 2, costY - 8, badgeW, 16);
         ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 9px Inter, sans-serif';
+        ctx.font = 'bold 8.5px Inter, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(`成本 ${stock.avgCost.toFixed(1)}`, padding.left + chartW + 7, costY + 3);
+        ctx.fillText(`成本 ${stock.avgCost.toFixed(1)}`, padding.left + chartW + 4, costY + 3);
         ctx.restore();
       }
     }
@@ -574,7 +568,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       const slice = allCandles.slice(s, e + 1);
       if (slice.length === 0) return;
 
-      const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+      const isMobile = canvas.clientWidth < 640;
+      const padding = { top: 20, right: isMobile ? 44 : 52, bottom: 25, left: isMobile ? 6 : 10 };
       const chartW = canvas.clientWidth - padding.left - padding.right;
 
       if (x >= padding.left && x <= padding.left + chartW) {
@@ -593,7 +588,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       e.preventDefault();
       e.stopPropagation();
 
-      const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+      const isMobile = canvas.clientWidth < 640;
+      const padding = { top: 20, right: isMobile ? 44 : 52, bottom: 25, left: isMobile ? 6 : 10 };
       const chartW = canvas.clientWidth - padding.left - padding.right;
       const chartH = canvas.clientHeight - padding.top - padding.bottom;
 
@@ -648,7 +644,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       e.stopPropagation();
 
       const allCandles = candlesRef.current;
-      const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+      const isMobile = canvas.clientWidth < 640;
+      const padding = { top: 20, right: isMobile ? 44 : 52, bottom: 25, left: isMobile ? 6 : 10 };
       const chartW = canvas.clientWidth - padding.left - padding.right;
       const chartH = canvas.clientHeight - padding.top - padding.bottom;
 
@@ -799,7 +796,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       isMouseDown = true;
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+      const isMobile = canvas.clientWidth < 640;
+      const padding = { top: 20, right: isMobile ? 44 : 52, bottom: 25, left: isMobile ? 6 : 10 };
       const chartW = canvas.clientWidth - padding.left - padding.right;
 
       mouseStartX = e.clientX;
@@ -818,7 +816,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const padding = { top: 25, right: 70, bottom: 35, left: 15 };
+      const isMobile = canvas.clientWidth < 640;
+      const padding = { top: 20, right: isMobile ? 44 : 52, bottom: 25, left: isMobile ? 6 : 10 };
       const chartW = canvas.clientWidth - padding.left - padding.right;
       const chartH = canvas.clientHeight - padding.top - padding.bottom;
       const allCandles = candlesRef.current;
