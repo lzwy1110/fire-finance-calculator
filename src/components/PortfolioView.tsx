@@ -96,6 +96,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   // Stock Chart & K-Line Modal State
   const [activeChartStock, setActiveChartStock] = useState<PortfolioStock | null>(null);
 
+  // Quick Action Sheet Modal for Compact List
+  const [activeActionStock, setActiveActionStock] = useState<PortfolioStock | null>(null);
+
   // Insufficient Cash Warning Dialog State
   const [cashAlertModal, setCashAlertModal] = useState<{
     isOpen: boolean;
@@ -1105,7 +1108,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           目前此分類下沒有持股紀錄，點擊「記一筆交易」新增買入或賣出紀錄！
         </div>
       ) : viewLayout === 'list' ? (
-        /* Compact List View Mode (Modern Financial App Style) */
+        /* Compact List View Mode (Ultra-clean Apple Stocks / Robinhood Style) */
         <div className="bg-[#0e0e0e] border border-white/10 rounded-3xl overflow-hidden shadow-xl divide-y divide-white/5">
           {sortedStocks.map((stock) => {
             const isUS = stock.market === 'US';
@@ -1119,90 +1122,62 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             return (
               <div
                 key={stock.id}
-                className="p-3.5 sm:p-4 hover:bg-white/[0.03] transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                onClick={() => setActiveActionStock(stock)}
+                className="p-3.5 sm:p-4 hover:bg-white/[0.04] active:bg-white/[0.08] transition cursor-pointer flex items-center justify-between gap-3 group"
               >
-                {/* Left Info: Flag + Symbol + Name + Position */}
+                {/* Left: Flag Badge + Symbol + Name & Position */}
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-xl shrink-0">{isUS ? '🇺🇸' : '🇹🇼'}</span>
+                  <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+                    {isUS ? '🇺🇸' : '🇹🇼'}
+                  </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-black font-mono text-white text-sm sm:text-base">{stock.symbol}</span>
-                      <span className="text-xs text-gray-400 truncate max-w-[120px] sm:max-w-[180px]">
-                        {stock.name}
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-black text-white text-base tracking-tight">{stock.symbol}</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300">
+                        {isUS ? '美股' : '台股'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] text-gray-400 font-mono mt-0.5">
-                      <span>{formatNum(metrics.shares)} 股</span>
-                      <span>•</span>
-                      <span>均價 {currSymbol}{formatDec(metrics.avgCost)}</span>
+                    <div className="text-xs text-gray-400 truncate max-w-[130px] sm:max-w-[220px]">
+                      {stock.name}
+                    </div>
+                    <div className="text-[11px] font-mono text-gray-500 mt-0.5">
+                      {formatNum(metrics.shares)} 股 • 均價 {currSymbol}{formatDec(metrics.avgCost)}
                     </div>
                   </div>
                 </div>
 
-                {/* Right Info: Price, Market Value, ROI Pill, Actions */}
-                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0">
-                  {/* Price & Market Value */}
-                  <div className="text-left sm:text-right">
-                    <div className="font-mono font-bold text-white text-xs sm:text-sm">
+                {/* Right: Current Price + Market Value + ROI Pill */}
+                <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                  <div className="text-right">
+                    <div className="font-mono font-black text-white text-sm sm:text-base">
                       {currSymbol}{formatDec(stock.currentPrice)}
                     </div>
                     <div className="text-[11px] font-mono text-gray-400">
-                      市值: {currSymbol}{formatNum(metrics.marketValue)}
-                    </div>
-                  </div>
-
-                  {/* ROI & Today Gain Badge */}
-                  <div className="flex flex-col items-end gap-1">
-                    <div
-                      className={`px-2.5 py-1 rounded-xl font-mono text-xs font-black flex items-center gap-1 ${
-                        metrics.unrealizedPnL >= 0
-                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
-                      }`}
-                    >
-                      <span>{metrics.unrealizedPnL >= 0 ? '+' : ''}{formatDec(metrics.unrealizedRoiPercent)}%</span>
+                      市值 {currSymbol}{formatNum(metrics.marketValue)}
                     </div>
                     {stock.previousClose && stock.previousClose > 0 && (
-                      <span
-                        className={`text-[10px] font-mono font-bold ${
+                      <div
+                        className={`text-[10px] font-mono font-semibold ${
                           todayChangeVal >= 0 ? 'text-emerald-400' : 'text-rose-400'
                         }`}
                       >
                         今日 {todayChangeVal >= 0 ? '+' : ''}{todayChangePct.toFixed(2)}%
-                      </span>
+                      </div>
                     )}
                   </div>
 
-                  {/* Quick Actions */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setActiveChartStock(stock)}
-                      className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl transition cursor-pointer"
-                      title="走勢圖"
-                    >
-                      <TrendingUp className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleOpenAddModal(stock)}
-                      className="p-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-xl transition cursor-pointer"
-                      title="加碼/減碼"
-                    >
-                      <PlusCircle className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setActiveHistoryStock(stock)}
-                      className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl transition cursor-pointer"
-                      title="交易明細"
-                    >
-                      <History className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteStockEntirely(stock.id)}
-                      className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
-                      title="刪除"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Big ROI Capsule Badge */}
+                  <div
+                    className={`min-w-[76px] sm:min-w-[88px] py-1.5 px-2.5 rounded-2xl font-mono text-xs font-black text-center shadow-md ${
+                      metrics.unrealizedPnL >= 0
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                    }`}
+                  >
+                    <div>{metrics.unrealizedPnL >= 0 ? '+' : ''}{formatDec(metrics.unrealizedRoiPercent)}%</div>
+                    <div className="text-[10px] opacity-80 font-normal">
+                      {metrics.unrealizedPnL >= 0 ? '+' : ''}{currSymbol}{formatNum(metrics.unrealizedPnL)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1210,7 +1185,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           })}
         </div>
       ) : (
-        /* Detailed Grid Cards View Mode */
+        /* Detailed Grid Cards View Mode (Sleek 3-tier Financial Card) */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedStocks.map((stock) => {
             const isUS = stock.market === 'US';
@@ -1226,118 +1201,255 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 key={stock.id}
                 className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl hover:border-white/20 transition group relative overflow-hidden"
               >
-                {/* Badge Header */}
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                {/* Card Header: Symbol + Name + Large Price & Today Change */}
+                <div className="flex items-start justify-between border-b border-white/10 pb-3.5">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-xl">{isUS ? '🇺🇸' : '🇹🇼'}</span>
-                    <div>
-                      <h3 className="text-base font-black text-white flex items-center gap-2 font-mono">
-                        {stock.symbol}
-                      </h3>
-                      <p className="text-xs text-gray-400 truncate max-w-[170px]">{stock.name}</p>
+                    <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0">
+                      {isUS ? '🇺🇸' : '🇹🇼'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-lg font-black text-white font-mono tracking-tight">{stock.symbol}</h3>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300">
+                          {isUS ? '美股' : '台股'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 truncate max-w-[140px] sm:max-w-[180px]">{stock.name}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setActiveChartStock(stock)}
-                      className="px-2.5 py-1 text-[11px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl transition cursor-pointer flex items-center gap-1 shadow-sm"
-                      title="檢視歷史走勢與 K 線圖"
-                    >
-                      <TrendingUp className="w-3.5 h-3.5" />
-                      <span>走勢</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveHistoryStock(stock)}
-                      className="px-2.5 py-1 text-[11px] font-bold bg-white/5 hover:bg-white/10 text-cyan-300 border border-cyan-500/30 rounded-xl transition cursor-pointer flex items-center gap-1"
-                      title="檢視此股票所有買賣交易明細"
-                    >
-                      <History className="w-3.5 h-3.5" />
-                      <span>明細 ({stock.transactions?.length || 0})</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleDeleteStockEntirely(stock.id)}
-                      className="p-1.5 text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
-                      title="整檔刪除"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Large Current Price on Top Right */}
+                  <div className="text-right">
+                    <div className="text-lg font-black font-mono text-white">
+                      {currSymbol}{formatDec(stock.currentPrice)}
+                    </div>
+                    {stock.previousClose && stock.previousClose > 0 ? (
+                      <span
+                        className={`text-[11px] font-mono font-bold ${
+                          todayChangeVal >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {todayChangeVal >= 0 ? '▲ +' : '▼ '}{todayChangePct.toFixed(2)}% 今日
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-gray-500">最新即時價</span>
+                    )}
                   </div>
                 </div>
 
-                {/* Price & ROI Grid */}
+                {/* Card Body: Structured Metrics 2x2 Grid */}
                 <div className="grid grid-cols-2 gap-2.5 text-xs">
-                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
-                    <span className="text-gray-400 block text-[10px]">持有股數</span>
-                    <strong className="text-white font-mono text-sm">{formatNum(metrics.shares)} 股</strong>
-                  </div>
-
-                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
-                    <span className="text-gray-400 block text-[10px]">加權均價 vs 現在價格</span>
-                    <div className="font-mono text-xs font-bold text-gray-200 mt-0.5">
-                      <span className="text-gray-400">{currSymbol}{formatDec(metrics.avgCost)}</span> ➜{' '}
-                      <span className="text-cyan-300 font-bold">{currSymbol}{formatDec(stock.currentPrice)}</span>
+                  {/* Metric 1: Market Value vs Cost */}
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-3 space-y-1">
+                    <span className="text-[10px] text-gray-400 block font-medium">💎 目前市值 / 投入成本</span>
+                    <div className="text-sm font-black font-mono text-white">
+                      {currSymbol}{formatNum(metrics.marketValue)}
+                    </div>
+                    <div className="text-[11px] font-mono text-gray-500">
+                      成本: {currSymbol}{formatNum(metrics.totalCost)}
                     </div>
                   </div>
 
-                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
-                    <span className="text-gray-400 block text-[10px]">現值市值 (Market Value)</span>
-                    <strong className="text-white font-mono text-xs sm:text-sm">
-                      {currSymbol} {formatNum(metrics.marketValue)}
-                    </strong>
-                  </div>
-
+                  {/* Metric 2: Unrealized PnL & ROI% */}
                   <div
-                    className={`bg-black/40 border rounded-2xl p-2.5 ${
+                    className={`bg-black/40 border rounded-2xl p-3 space-y-1 ${
                       metrics.unrealizedPnL >= 0
-                        ? 'border-emerald-500/20 text-emerald-400'
-                        : 'border-rose-500/20 text-rose-400'
+                        ? 'border-emerald-500/20 text-emerald-300 bg-emerald-500/[0.03]'
+                        : 'border-rose-500/20 text-rose-300 bg-rose-500/[0.03]'
                     }`}
                   >
-                    <span className="text-gray-400 block text-[10px]">未實現損益 & ROI%</span>
-                    <strong className="font-mono text-xs font-extrabold">
-                      {metrics.unrealizedPnL >= 0 ? '+' : ''}
-                      {currSymbol}
-                      {formatNum(metrics.unrealizedPnL)} ({metrics.unrealizedPnL >= 0 ? '+' : ''}
-                      {formatDec(metrics.unrealizedRoiPercent)}%)
-                    </strong>
-                    {stock.previousClose && stock.previousClose > 0 && (
-                      <div className="text-[10px] font-mono mt-0.5 opacity-80">
-                        今日: {todayChangeVal >= 0 ? '+' : ''}{todayChangePct.toFixed(2)}%
-                      </div>
-                    )}
+                    <span className="text-[10px] text-gray-400 block font-medium">📈 未實現損益 / ROI%</span>
+                    <div className="text-sm font-black font-mono flex items-center gap-1">
+                      {metrics.unrealizedPnL >= 0 ? '+' : ''}{currSymbol}{formatNum(metrics.unrealizedPnL)}
+                    </div>
+                    <div className="text-[11px] font-mono font-bold">
+                      {metrics.unrealizedPnL >= 0 ? '+' : ''}{formatDec(metrics.unrealizedRoiPercent)}%
+                    </div>
                   </div>
 
-                  {/* Realized PnL Row if any sell transaction exists */}
+                  {/* Metric 3: Position Shares */}
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
+                    <span className="text-[10px] text-gray-400 block font-medium">📦 持有股數</span>
+                    <div className="text-xs sm:text-sm font-mono font-bold text-gray-200 mt-0.5">
+                      {formatNum(metrics.shares)} 股
+                    </div>
+                  </div>
+
+                  {/* Metric 4: Avg Cost vs Current Price */}
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
+                    <span className="text-[10px] text-gray-400 block font-medium">⚖️ 加權平均持股成本</span>
+                    <div className="text-xs sm:text-sm font-mono font-bold text-gray-200 mt-0.5">
+                      {currSymbol}{formatDec(metrics.avgCost)} / 股
+                    </div>
+                  </div>
+
+                  {/* Realized Profit/Loss if any */}
                   {metrics.realizedPnL !== 0 && (
                     <div className="col-span-2 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-2.5 flex items-center justify-between text-xs">
-                      <span className="text-amber-300 text-[11px] font-bold">已實現獲利/虧損 (Realized PnL):</span>
+                      <span className="text-amber-300 text-[11px] font-bold">已實現損益 (Realized PnL):</span>
                       <strong
                         className={`font-mono font-bold ${
                           metrics.realizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'
                         }`}
                       >
-                        {metrics.realizedPnL >= 0 ? '+' : ''}
-                        {currSymbol}
-                        {formatNum(metrics.realizedPnL)}
+                        {metrics.realizedPnL >= 0 ? '+' : ''}{currSymbol}{formatNum(metrics.realizedPnL)}
                       </strong>
                     </div>
                   )}
                 </div>
 
-                {/* Bottom Quick Action: Add Trade */}
-                <button
-                  onClick={() => handleOpenAddModal(stock)}
-                  className="w-full py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <PlusCircle className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>對此個股加碼/減碼 (新增買賣紀錄)</span>
-                </button>
+                {/* Card Footer: 4 Equal-Width Clean Action Buttons */}
+                <div className="grid grid-cols-4 gap-1.5 pt-1">
+                  <button
+                    onClick={() => setActiveChartStock(stock)}
+                    className="py-2 px-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-sm"
+                    title="歷史走勢與 K 線圖"
+                  >
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>走勢</span>
+                  </button>
+                  <button
+                    onClick={() => handleOpenAddModal(stock)}
+                    className="py-2 px-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/25 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-sm"
+                    title="加碼/減碼交易"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>交易</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveHistoryStock(stock)}
+                    className="py-2 px-1 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                    title="買賣交易明細"
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span>明細</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteStockEntirely(stock.id)}
+                    className="py-2 px-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/25 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                    title="刪除此股票"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>刪除</span>
+                  </button>
+                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal: Quick Action Sheet for Compact List Row Tap */}
+      {activeActionStock && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
+          onClick={() => setActiveActionStock(null)}
+        >
+          <div
+            className="bg-[#0e0e0e] border border-white/10 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 space-y-4 shadow-2xl text-gray-200 relative animate-slideUp sm:animate-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Drag Indicator Handle */}
+            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-2 sm:hidden" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">{activeActionStock.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
+                <div>
+                  <h3 className="text-lg font-black font-mono text-white tracking-tight">
+                    {activeActionStock.symbol}
+                  </h3>
+                  <p className="text-xs text-gray-400 truncate max-w-[220px]">{activeActionStock.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveActionStock(null)}
+                className="p-2 text-gray-400 hover:text-white bg-white/5 rounded-2xl cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 4 Large Action Buttons */}
+            <div className="grid grid-cols-1 gap-2.5 pt-1">
+              <button
+                onClick={() => {
+                  const s = activeActionStock;
+                  setActiveActionStock(null);
+                  setActiveChartStock(s);
+                }}
+                className="p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-black text-white">查看歷史走勢與 K 線圖</div>
+                    <div className="text-xs text-emerald-400 font-normal">即時報價、分時與均線分析</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  const s = activeActionStock;
+                  setActiveActionStock(null);
+                  handleOpenAddModal(s);
+                }}
+                className="p-3.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+                    <PlusCircle className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-black text-white">記錄買入 / 賣出交易</div>
+                    <div className="text-xs text-cyan-400 font-normal">加碼存股或獲利減碼</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  const s = activeActionStock;
+                  setActiveActionStock(null);
+                  setActiveHistoryStock(s);
+                }}
+                className="p-3.5 bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-gray-300">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-black text-white">檢視歷史交易明細</div>
+                    <div className="text-xs text-gray-400 font-normal">共 {activeActionStock.transactions?.length || 0} 筆過往買賣紀錄</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  const s = activeActionStock;
+                  setActiveActionStock(null);
+                  handleDeleteStockEntirely(s.id);
+                }}
+                className="p-3.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/20 flex items-center justify-center">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-black text-white">刪除此股票持股</div>
+                    <div className="text-xs text-rose-400 font-normal">從庫存中完整移除</div>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
