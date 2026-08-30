@@ -85,4 +85,41 @@
   animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Comprehensive Recharts & SVG Focus/Border/Selection Outline Removal */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-layer,
+.recharts-pie,
+.recharts-sector,
+.recharts-bar-rectangle,
+.recharts-bar-rectangles,
+.recharts-curve,
+.recharts-dot,
+.recharts-rectangle,
+.recharts-tooltip-cursor,
+.recharts-legend-wrapper,
+.recharts-responsive-container {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.recharts-wrapper *:focus,
+.recharts-wrapper *:active,
+.recharts-wrapper *::selection {
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+svg:focus,
+path:focus,
+rect:focus,
+g:focus,
+text:focus,
+circle:focus {
+  outline: none !important;
+}
+
 

@@ -123,14 +123,15 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     outerRadius={95}
                     paddingAngle={4}
                     dataKey="value"
+                    stroke="none"
                   >
                     {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={themeColors[index % themeColors.length]} />
+                      <Cell key={`cell-${index}`} fill={themeColors[index % themeColors.length]} stroke="none" />
                     ))}
                   </Pie>
                   <Tooltip
                     formatter={(val: number) => [`${sym} ${formatNum(val)}`, '總額']}
-                    contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#222', borderRadius: '12px', color: '#fff' }}
+                    contentStyle={{ backgroundColor: '#0c0c0e', borderColor: '#262626', borderRadius: '14px', color: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.6)', outline: 'none' }}
                   />
                   <Legend formatter={(val) => <span className="text-xs text-gray-300">{val}</span>} />
                 </PieChart>
@@ -158,11 +159,19 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyTrendData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                  <XAxis dataKey="month" stroke="#888" fontSize={11} />
-                  <YAxis stroke="#888" fontSize={11} tickFormatter={(v) => `${v / 1000}k`} />
+                  <XAxis
+                    dataKey="month"
+                    stroke="#888"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: '#222' }}
+                    tickFormatter={(m) => m.slice(5) + '月'}
+                  />
+                  <YAxis stroke="#888" fontSize={11} tickLine={false} axisLine={{ stroke: '#222' }} tickFormatter={(v) => `${v / 1000}k`} />
                   <Tooltip
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                     formatter={(val: number) => [`${sym} ${formatNum(val)}`, '']}
-                    contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#222', borderRadius: '12px', color: '#fff' }}
+                    contentStyle={{ backgroundColor: '#0c0c0e', borderColor: '#262626', borderRadius: '14px', color: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.6)', outline: 'none' }}
                   />
                   <Legend formatter={(val) => <span className="text-xs text-gray-300">{val === 'income' ? '收入' : val === 'expense' ? '支出' : val === 'tax' ? '稅金' : '投資'}</span>} />
                   <Bar dataKey="income" name="income" fill={currentTheme.primaryHex} radius={[6, 6, 0, 0]} />
@@ -206,11 +215,30 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="yearLabel" stroke="#888" fontSize={11} />
-              <YAxis stroke="#888" fontSize={11} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
+              <XAxis
+                dataKey="yearIndex"
+                stroke="#888"
+                fontSize={11}
+                tickLine={false}
+                axisLine={{ stroke: '#222' }}
+                tickFormatter={(idx) => {
+                  const pt = fireCurveData[idx];
+                  return pt ? `${new Date().getFullYear() + idx}年` : '';
+                }}
+                interval={3}
+                minTickGap={20}
+              />
+              <YAxis stroke="#888" fontSize={11} tickLine={false} axisLine={{ stroke: '#222' }} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
               <Tooltip
-                formatter={(val: number) => [`${sym} ${formatNum(val)}`, '']}
-                contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#222', borderRadius: '12px', color: '#fff' }}
+                formatter={(val: number, name: string) => [
+                  `${sym} ${formatNum(val)}`,
+                  name === 'netWorth' ? '預估總淨資產' : 'FIRE 目標門檻',
+                ]}
+                labelFormatter={(idx: any) => {
+                  const pt = fireCurveData[idx];
+                  return pt ? `${pt.yearLabel}` : '';
+                }}
+                contentStyle={{ backgroundColor: '#0c0c0e', borderColor: '#262626', borderRadius: '14px', color: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.6)', outline: 'none' }}
               />
               <Legend formatter={(val) => <span className="text-xs text-gray-300">{val === 'netWorth' ? '預估資產累積' : 'FIRE 標準目標線'}</span>} />
               <Area type="monotone" dataKey="netWorth" name="netWorth" stroke={currentTheme.primaryHex} strokeWidth={3} fillOpacity={1} fill="url(#colorNW)" />
