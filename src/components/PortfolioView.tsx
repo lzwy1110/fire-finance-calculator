@@ -18,6 +18,10 @@ import {
   PlusCircle,
   AlertTriangle,
   ArrowRightLeft,
+  LayoutGrid,
+  List,
+  ArrowUpDown,
+  PieChart,
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -157,33 +161,84 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     return true;
   });
 
-  // Aggregate Portfolio Totals
+  // View Layout & Sorting State
+  const [viewLayout, setViewLayout] = useState<'cards' | 'list'>('cards');
+  const [sortBy, setSortBy] = useState<'value_desc' | 'roi_desc' | 'roi_asc' | 'today_desc' | 'symbol_asc'>('value_desc');
+  const [showAllocationBar, setShowAllocationBar] = useState(true);
+
+  // Aggregate Portfolio Totals & Today's PnL
   let totalCostTWD = 0;
   let totalMarketValueTWD = 0;
   let usMarketValueUSD = 0;
   let twMarketValueTWD = 0;
   let totalRealizedPnLTWD = 0;
+  let totalTodayChangeTWD = 0;
 
   syncedStocks.forEach((s) => {
     const cost = s.shares * s.avgCost;
     const value = s.shares * s.currentPrice;
     const realized = s.realizedPnL || 0;
 
+    let todayStockChange = 0;
+    if (s.shares > 0 && s.currentPrice > 0 && s.previousClose && s.previousClose > 0) {
+      todayStockChange = (s.currentPrice - s.previousClose) * s.shares;
+    }
+
     if (s.market === 'US') {
       totalCostTWD += cost * usdRate;
       totalMarketValueTWD += value * usdRate;
       usMarketValueUSD += value;
       totalRealizedPnLTWD += realized * usdRate;
+      totalTodayChangeTWD += todayStockChange * usdRate;
     } else {
       totalCostTWD += cost;
       totalMarketValueTWD += value;
       twMarketValueTWD += value;
       totalRealizedPnLTWD += realized;
+      totalTodayChangeTWD += todayStockChange;
     }
   });
 
   const totalUnrealizedProfitTWD = totalMarketValueTWD - totalCostTWD;
   const totalRoiPercent = totalCostTWD > 0 ? (totalUnrealizedProfitTWD / totalCostTWD) * 100 : 0;
+  const totalTodayRoiPercent =
+    totalMarketValueTWD > 0 && totalMarketValueTWD - totalTodayChangeTWD > 0
+      ? (totalTodayChangeTWD / (totalMarketValueTWD - totalTodayChangeTWD)) * 100
+      : 0;
+
+  // Asset Allocation Calculations
+  const totalLiquidPool = totalMarketValueTWD + currentTWD + currentUSD * usdRate;
+
+  const allocationPalette = [
+    '#06b6d4', // Cyan
+    '#10b981', // Emerald
+    '#f59e0b', // Amber
+    '#8b5cf6', // Violet
+    '#ec4899', // Pink
+    '#3b82f6', // Blue
+    '#f97316', // Orange
+    '#14b8a6', // Teal
+  ];
+
+  const sortedStocks = [...filteredStocks].sort((a, b) => {
+    const valA = a.market === 'US' ? a.shares * a.currentPrice * usdRate : a.shares * a.currentPrice;
+    const valB = b.market === 'US' ? b.shares * b.currentPrice * usdRate : b.shares * b.currentPrice;
+    const metricsA = calculateStockMetrics(a.transactions, a.currentPrice);
+    const metricsB = calculateStockMetrics(b.transactions, b.currentPrice);
+
+    if (sortBy === 'value_desc') return valB - valA;
+    if (sortBy === 'roi_desc') return metricsB.unrealizedRoiPercent - metricsA.unrealizedRoiPercent;
+    if (sortBy === 'roi_asc') return metricsA.unrealizedRoiPercent - metricsB.unrealizedRoiPercent;
+    if (sortBy === 'today_desc') {
+      const changePctA =
+        a.previousClose && a.previousClose > 0 ? ((a.currentPrice - a.previousClose) / a.previousClose) * 100 : -999;
+      const changePctB =
+        b.previousClose && b.previousClose > 0 ? ((b.currentPrice - b.previousClose) / b.previousClose) * 100 : -999;
+      return changePctB - changePctA;
+    }
+    if (sortBy === 'symbol_asc') return a.symbol.localeCompare(b.symbol);
+    return 0;
+  });
 
   // Batch Refresh All Stock Quotes from Online Endpoints
   const handleRefreshQuotes = async (silent: boolean = false) => {
@@ -798,14 +853,19 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             <p className="text-[10px] text-gray-400 pt-1 border-t border-white/5">賣出賣掉落袋為安利潤</p>
           </div>
 
-          {/* Card 4: Unrealized Profit/Loss */}
+          {/* Card 4: Unrealized Profit/Loss with Today's PnL */}
           <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
             <span className="text-[11px] text-gray-400 font-medium block">未實現總損益 (Unrealized)</span>
             <div className={`text-xl font-black font-mono flex items-center gap-1 ${totalUnrealizedProfitTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               {totalUnrealizedProfitTWD >= 0 ? <ArrowUpRight className="w-5 h-5 stroke-[3]" /> : <ArrowDownRight className="w-5 h-5 stroke-[3]" />}
               {totalUnrealizedProfitTWD >= 0 ? '+' : ''}{sym} {formatNum(totalUnrealizedProfitTWD)}
             </div>
-            <p className="text-[10px] text-gray-400 pt-1 border-t border-white/5">持股未賣出估算盈虧</p>
+            <div className="text-[10px] flex items-center justify-between pt-1 border-t border-white/5">
+              <span className="text-gray-400">今日估算:</span>
+              <strong className={`font-mono font-bold ${totalTodayChangeTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {totalTodayChangeTWD >= 0 ? '+' : ''}{sym} {formatNum(totalTodayChangeTWD)} ({totalTodayChangeTWD >= 0 ? '+' : ''}{totalTodayRoiPercent.toFixed(2)}%)
+              </strong>
+            </div>
           </div>
 
           {/* Card 5: Total ROI % */}
@@ -818,71 +878,195 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             <p className="text-[10px] text-gray-400 pt-1 border-t border-white/5">目前持股未實現投報率</p>
           </div>
         </div>
+
+        {/* Asset Allocation Breakdown Bar */}
+        {syncedStocks.length > 0 && totalLiquidPool > 0 && (
+          <div className="bg-black/40 border border-white/5 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-bold text-gray-200">資產配置權重分佈 (Asset Allocation)</span>
+                <span className="text-[11px] text-gray-400 font-mono hidden sm:inline">
+                  總資產池: {sym} {formatNum(totalLiquidPool)}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllocationBar(!showAllocationBar)}
+                className="text-[11px] text-gray-400 hover:text-white transition cursor-pointer"
+              >
+                {showAllocationBar ? '收起' : '展開'}
+              </button>
+            </div>
+
+            {showAllocationBar && (
+              <div className="space-y-3">
+                {/* Horizontal Segmented Bar */}
+                <div className="w-full h-3 bg-black/60 rounded-full flex overflow-hidden border border-white/10">
+                  {sortedStocks
+                    .map((s) => {
+                      const valTWD = s.market === 'US' ? s.shares * s.currentPrice * usdRate : s.shares * s.currentPrice;
+                      const pct = totalLiquidPool > 0 ? (valTWD / totalLiquidPool) * 100 : 0;
+                      return { id: s.id, symbol: s.symbol, name: s.name, pct };
+                    })
+                    .filter((it) => it.pct > 0)
+                    .map((st, idx) => (
+                      <div
+                        key={st.id}
+                        className="h-full transition-all duration-300 relative group"
+                        style={{
+                          width: `${st.pct}%`,
+                          backgroundColor: allocationPalette[idx % allocationPalette.length],
+                        }}
+                        title={`${st.symbol}: ${st.pct.toFixed(1)}%`}
+                      />
+                    ))}
+                  {currentTWD + currentUSD * usdRate > 0 && (
+                    <div
+                      className="h-full bg-emerald-500/80 transition-all duration-300"
+                      style={{
+                        width: `${((currentTWD + currentUSD * usdRate) / totalLiquidPool) * 100}%`,
+                      }}
+                      title={`現金儲備 (TWD+USD): ${(
+                        ((currentTWD + currentUSD * usdRate) / totalLiquidPool) *
+                        100
+                      ).toFixed(1)}%`}
+                    />
+                  )}
+                </div>
+
+                {/* Legend Chips */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {sortedStocks
+                    .map((s) => {
+                      const valTWD = s.market === 'US' ? s.shares * s.currentPrice * usdRate : s.shares * s.currentPrice;
+                      const pct = totalLiquidPool > 0 ? (valTWD / totalLiquidPool) * 100 : 0;
+                      return { id: s.id, symbol: s.symbol, pct };
+                    })
+                    .filter((it) => it.pct > 0)
+                    .slice(0, 6)
+                    .map((st, idx) => (
+                      <div key={st.id} className="flex items-center gap-1.5 bg-white/5 border border-white/5 px-2.5 py-1 rounded-xl">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: allocationPalette[idx % allocationPalette.length] }}
+                        />
+                        <span className="font-mono font-bold text-white text-[11px]">{st.symbol}</span>
+                        <span className="text-gray-400 text-[10px]">{st.pct.toFixed(1)}%</span>
+                      </div>
+                    ))}
+                  {currentTWD + currentUSD * usdRate > 0 && (
+                    <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span className="font-bold text-emerald-300 text-[11px]">現金</span>
+                      <span className="text-emerald-400 text-[10px]">
+                        {(((currentTWD + currentUSD * usdRate) / totalLiquidPool) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Control Bar: Filter Tabs & Batch Refresh */}
-      <div className="bg-[#0c0c0c] border border-white/5 p-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Market Filter Tabs */}
-        <div className="flex items-center gap-2 bg-black/60 border border-white/10 p-1.5 rounded-2xl w-full sm:w-auto">
-          <button
-            onClick={() => setFilterMarket('ALL')}
-            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
-              filterMarket === 'ALL'
-                ? 'bg-white/15 text-white border border-white/20 shadow-md'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            全部標的 ({syncedStocks.length})
-          </button>
+      {/* Control Bar: Filter Tabs, Sort Dropdown & Layout Switcher */}
+      <div className="bg-[#0c0c0c] border border-white/5 p-4 rounded-3xl flex flex-col lg:flex-row items-center justify-between gap-4">
+        {/* Left: Market Filter Tabs */}
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="flex items-center gap-1.5 bg-black/60 border border-white/10 p-1.5 rounded-2xl">
+            <button
+              onClick={() => setFilterMarket('ALL')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                filterMarket === 'ALL'
+                  ? 'bg-white/15 text-white border border-white/20 shadow-md'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              全部 ({syncedStocks.length})
+            </button>
 
-          <button
-            onClick={() => setFilterMarket('US')}
-            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              filterMarket === 'US'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-md'
-                : 'text-gray-400 hover:text-cyan-300'
-            }`}
-          >
-            <span>🇺🇸 美股</span>
-            <span className="text-[10px] font-mono opacity-80">
-              ({syncedStocks.filter((s) => s.market === 'US').length})
-            </span>
-          </button>
+            <button
+              onClick={() => setFilterMarket('US')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
+                filterMarket === 'US'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-md'
+                  : 'text-gray-400 hover:text-cyan-300'
+              }`}
+            >
+              <span>🇺🇸 美股</span>
+              <span className="text-[10px] font-mono opacity-80">
+                ({syncedStocks.filter((s) => s.market === 'US').length})
+              </span>
+            </button>
 
-          <button
-            onClick={() => setFilterMarket('TW')}
-            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              filterMarket === 'TW'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-md'
-                : 'text-gray-400 hover:text-emerald-300'
-            }`}
-          >
-            <span>🇹🇼 台股</span>
-            <span className="text-[10px] font-mono opacity-80">
-              ({syncedStocks.filter((s) => s.market === 'TW').length})
-            </span>
-          </button>
+            <button
+              onClick={() => setFilterMarket('TW')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
+                filterMarket === 'TW'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-md'
+                  : 'text-gray-400 hover:text-emerald-300'
+              }`}
+            >
+              <span>🇹🇼 台股</span>
+              <span className="text-[10px] font-mono opacity-80">
+                ({syncedStocks.filter((s) => s.market === 'TW').length})
+              </span>
+            </button>
+          </div>
 
-          {/* US Market 15-minute Delay Notice */}
-          {filterMarket === 'US' && (
-            <div className="hidden md:flex items-center gap-1 text-[11px] font-semibold text-amber-400/90 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20 animate-fadeIn">
-              <span>⏱️ 美股報價與走勢約延遲 15 分鐘</span>
-            </div>
-          )}
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-1.5 bg-black/60 border border-white/10 rounded-2xl px-3 py-1.5">
+            <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+            <select
+              value={sortBy}
+              onChange={(e: any) => setSortBy(e.target.value)}
+              className="bg-transparent text-xs font-bold text-gray-200 focus:outline-none cursor-pointer"
+            >
+              <option value="value_desc" className="bg-[#111] text-white">💎 市值最高</option>
+              <option value="roi_desc" className="bg-[#111] text-white">🚀 ROI% 最高</option>
+              <option value="roi_asc" className="bg-[#111] text-white">📉 ROI% 最低</option>
+              <option value="today_desc" className="bg-[#111] text-white">⏱️ 今日漲幅最高</option>
+              <option value="symbol_asc" className="bg-[#111] text-white">🔤 代號 A-Z</option>
+            </select>
+          </div>
+
+          {/* Layout Mode Switcher */}
+          <div className="flex items-center p-1 bg-black/60 border border-white/10 rounded-2xl">
+            <button
+              onClick={() => setViewLayout('cards')}
+              className={`p-1.5 rounded-xl transition cursor-pointer ${
+                viewLayout === 'cards' ? 'bg-white/20 text-white shadow' : 'text-gray-400 hover:text-gray-200'
+              }`}
+              title="卡片檢視"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewLayout('list')}
+              className={`p-1.5 rounded-xl transition cursor-pointer ${
+                viewLayout === 'list' ? 'bg-white/20 text-white shadow' : 'text-gray-400 hover:text-gray-200'
+              }`}
+              title="精簡清單"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+        {/* Right: Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
           <button
             onClick={() => handleRefreshQuotes(false)}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
+            className="flex items-center gap-2 px-3.5 py-2 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
             title="從線上數據源自動更新價格"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>更新最新股價</span>
             {latestStockUpdate && (
-              <span className="text-[11px] font-mono text-cyan-300/90 font-normal pl-2 border-l border-cyan-500/30">
+              <span className="text-[11px] font-mono text-cyan-300/90 font-normal pl-2 border-l border-cyan-500/30 hidden sm:inline">
                 {formatUpdateTime(latestStockUpdate)}
               </span>
             )}
@@ -910,17 +1094,127 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         </div>
       )}
 
-      {/* Stock Holdings Cards List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredStocks.length === 0 ? (
-          <div className="col-span-full bg-[#0c0c0c] border border-white/5 rounded-3xl p-12 text-center text-gray-500 text-sm">
-            目前此分類下沒有持股紀錄，點擊「記一筆交易」新增買入或賣出紀錄！
-          </div>
-        ) : (
-          filteredStocks.map((stock) => {
+      {/* Stock Holdings Rendering: Compact List vs Grid Cards */}
+      {sortedStocks.length === 0 ? (
+        <div className="bg-[#0c0c0c] border border-white/5 rounded-3xl p-12 text-center text-gray-500 text-sm">
+          目前此分類下沒有持股紀錄，點擊「記一筆交易」新增買入或賣出紀錄！
+        </div>
+      ) : viewLayout === 'list' ? (
+        /* Compact List View Mode (Modern Financial App Style) */
+        <div className="bg-[#0e0e0e] border border-white/10 rounded-3xl overflow-hidden shadow-xl divide-y divide-white/5">
+          {sortedStocks.map((stock) => {
             const isUS = stock.market === 'US';
             const metrics = calculateStockMetrics(stock.transactions, stock.currentPrice);
             const currSymbol = isUS ? '$' : 'NT$';
+            const todayChangeVal =
+              stock.previousClose && stock.previousClose > 0 ? stock.currentPrice - stock.previousClose : 0;
+            const todayChangePct =
+              stock.previousClose && stock.previousClose > 0 ? (todayChangeVal / stock.previousClose) * 100 : 0;
+
+            return (
+              <div
+                key={stock.id}
+                className="p-3.5 sm:p-4 hover:bg-white/[0.03] transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+              >
+                {/* Left Info: Flag + Symbol + Name + Position */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-xl shrink-0">{isUS ? '🇺🇸' : '🇹🇼'}</span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black font-mono text-white text-sm sm:text-base">{stock.symbol}</span>
+                      <span className="text-xs text-gray-400 truncate max-w-[120px] sm:max-w-[180px]">
+                        {stock.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-gray-400 font-mono mt-0.5">
+                      <span>{formatNum(metrics.shares)} 股</span>
+                      <span>•</span>
+                      <span>均價 {currSymbol}{formatDec(metrics.avgCost)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Info: Price, Market Value, ROI Pill, Actions */}
+                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0">
+                  {/* Price & Market Value */}
+                  <div className="text-left sm:text-right">
+                    <div className="font-mono font-bold text-white text-xs sm:text-sm">
+                      {currSymbol}{formatDec(stock.currentPrice)}
+                    </div>
+                    <div className="text-[11px] font-mono text-gray-400">
+                      市值: {currSymbol}{formatNum(metrics.marketValue)}
+                    </div>
+                  </div>
+
+                  {/* ROI & Today Gain Badge */}
+                  <div className="flex flex-col items-end gap-1">
+                    <div
+                      className={`px-2.5 py-1 rounded-xl font-mono text-xs font-black flex items-center gap-1 ${
+                        metrics.unrealizedPnL >= 0
+                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                      }`}
+                    >
+                      <span>{metrics.unrealizedPnL >= 0 ? '+' : ''}{formatDec(metrics.unrealizedRoiPercent)}%</span>
+                    </div>
+                    {stock.previousClose && stock.previousClose > 0 && (
+                      <span
+                        className={`text-[10px] font-mono font-bold ${
+                          todayChangeVal >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        今日 {todayChangeVal >= 0 ? '+' : ''}{todayChangePct.toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setActiveChartStock(stock)}
+                      className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl transition cursor-pointer"
+                      title="走勢圖"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleOpenAddModal(stock)}
+                      className="p-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-xl transition cursor-pointer"
+                      title="加碼/減碼"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setActiveHistoryStock(stock)}
+                      className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl transition cursor-pointer"
+                      title="交易明細"
+                    >
+                      <History className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteStockEntirely(stock.id)}
+                      className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
+                      title="刪除"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Detailed Grid Cards View Mode */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedStocks.map((stock) => {
+            const isUS = stock.market === 'US';
+            const metrics = calculateStockMetrics(stock.transactions, stock.currentPrice);
+            const currSymbol = isUS ? '$' : 'NT$';
+            const todayChangeVal =
+              stock.previousClose && stock.previousClose > 0 ? stock.currentPrice - stock.previousClose : 0;
+            const todayChangePct =
+              stock.previousClose && stock.previousClose > 0 ? (todayChangeVal / stock.previousClose) * 100 : 0;
 
             return (
               <div
@@ -1004,6 +1298,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                       {formatNum(metrics.unrealizedPnL)} ({metrics.unrealizedPnL >= 0 ? '+' : ''}
                       {formatDec(metrics.unrealizedRoiPercent)}%)
                     </strong>
+                    {stock.previousClose && stock.previousClose > 0 && (
+                      <div className="text-[10px] font-mono mt-0.5 opacity-80">
+                        今日: {todayChangeVal >= 0 ? '+' : ''}{todayChangePct.toFixed(2)}%
+                      </div>
+                    )}
                   </div>
 
                   {/* Realized PnL Row if any sell transaction exists */}
@@ -1033,9 +1332,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 </button>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
 
       {/* Modal 1: Add / Record Transaction Form */}
       {isAddModalOpen && (
