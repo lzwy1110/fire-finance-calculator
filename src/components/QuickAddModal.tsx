@@ -256,6 +256,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
               <input
                 type="date"
                 required
+                max={todayStr}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-zinc-200 focus:outline-none"

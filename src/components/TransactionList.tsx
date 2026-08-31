@@ -99,6 +99,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       setSelectedMonth(availableMonths[0] || currentMonthStr);
       return;
     }
+    if (selectedMonth >= currentMonthStr) {
+      return;
+    }
     const [yStr, mStr] = selectedMonth.split('-');
     let y = parseInt(yStr, 10);
     let m = parseInt(mStr, 10) + 1;
@@ -107,7 +110,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       y += 1;
     }
     const newMonth = `${y}-${String(m).padStart(2, '0')}`;
-    setSelectedMonth(newMonth);
+    if (newMonth <= currentMonthStr) {
+      setSelectedMonth(newMonth);
+    }
   };
 
   // Filter transactions
@@ -320,13 +325,13 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
           <button
             onClick={handleNextMonth}
-            disabled={selectedMonth === 'all'}
+            disabled={selectedMonth === 'all' || selectedMonth >= currentMonthStr}
             className={`p-2 rounded-xl border border-white/5 transition flex items-center justify-center ${
-              selectedMonth === 'all'
+              selectedMonth === 'all' || selectedMonth >= currentMonthStr
                 ? 'opacity-30 cursor-not-allowed'
                 : 'hover:bg-white/10 text-gray-300 hover:text-white cursor-pointer active:scale-95'
             }`}
-            title="下一個月"
+            title={selectedMonth >= currentMonthStr ? '已是當前月份' : '下一個月'}
           >
             <ChevronRight className="w-4 h-4" />
           </button>

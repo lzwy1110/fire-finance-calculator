@@ -1661,6 +1661,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   </label>
                   <input
                     type="date"
+                    max={new Date().toISOString().slice(0, 10)}
                     value={dateInput}
                     onChange={(e) => setDateInput(e.target.value)}
                     className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
