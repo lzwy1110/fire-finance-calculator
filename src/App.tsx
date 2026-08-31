@@ -261,6 +261,8 @@ function FIREAppContent() {
             }}
             fireResult={fireResult}
             stockMarketValue={liveStockMarketValue}
+            portfolioStocks={portfolioStocks}
+            usdRate={usdRate}
             onUpdateFIREConfig={updateFIREConfig}
             onAddTransaction={addTransaction}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
