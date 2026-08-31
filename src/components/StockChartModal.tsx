@@ -333,7 +333,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     ctx.clearRect(0, 0, width, height);
 
     const isMobile = width < 640;
-    const padding = { top: 20, right: isMobile ? 44 : 52, bottom: 25, left: isMobile ? 6 : 10 };
+    const padding = { top: 20, right: isMobile ? 44 : 52, bottom: 25, left: isMobile ? 12 : 16 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
@@ -480,10 +480,9 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       ctx.restore();
     }
 
-    // Smart Adaptive Time Axis Labels (Show ~5 dates)
+    // Smart Adaptive Time Axis Labels with Boundary Alignment
     ctx.fillStyle = '#9ca3af';
-    ctx.font = '10px Inter, system-ui, sans-serif';
-    ctx.textAlign = 'center';
+    ctx.font = `${isMobile ? '9.5px' : '10px'} Inter, system-ui, sans-serif`;
 
     if (visibleCandles.length > 0) {
       const firstTime = visibleCandles[0].time;
@@ -509,7 +508,17 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
           dateStr = `${d.getFullYear()}`;
         }
 
-        ctx.fillText(dateStr, getX(i), height - 10);
+        // Boundary Alignment: First item left-aligned, Last item right-aligned, middle items centered
+        if (i === 0) {
+          ctx.textAlign = 'left';
+          ctx.fillText(dateStr, padding.left + 2, height - 10);
+        } else if (i + dateInterval >= visibleCandles.length) {
+          ctx.textAlign = 'right';
+          ctx.fillText(dateStr, padding.left + chartW - 2, height - 10);
+        } else {
+          ctx.textAlign = 'center';
+          ctx.fillText(dateStr, getX(i), height - 10);
+        }
       }
     }
   }, [visibleCandles, minPrice, maxPrice, chartType, activeUpColor, activeDownColor, stock, hoverData, queryInterval]);
