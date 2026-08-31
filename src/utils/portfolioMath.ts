@@ -3,6 +3,7 @@ import { PortfolioStock, StockTransaction } from '../types/portfolio';
 export interface CalculatedStockMetrics {
   shares: number;
   avgCost: number;
+  totalCost: number;
   realizedPnL: number;
   marketValue: number;
   unrealizedPnL: number;
@@ -20,6 +21,7 @@ export function calculateStockMetrics(
     return {
       shares: 0,
       avgCost: 0,
+      totalCost: 0,
       realizedPnL: 0,
       marketValue: 0,
       unrealizedPnL: 0,
@@ -69,6 +71,7 @@ export function calculateStockMetrics(
   return {
     shares: currentShares,
     avgCost,
+    totalCost: costBasis,
     realizedPnL,
     marketValue,
     unrealizedPnL,

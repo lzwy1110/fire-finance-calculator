@@ -1087,7 +1087,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     className="fixed inset-0 z-[60]"
                     onClick={() => setIsSortDropdownOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-1.5 z-[70] w-44 bg-[#141418] border border-white/15 rounded-2xl p-1.5 shadow-2xl space-y-0.5 animate-fadeIn">
+                  <div className="absolute left-0 top-full mt-1.5 z-[70] w-48 bg-[#141418] border border-white/15 rounded-2xl p-1.5 shadow-2xl space-y-0.5 animate-fadeIn">
                     {[
                       { id: 'value_desc', label: '市值最高', icon: '💎' },
                       { id: 'roi_desc', label: 'ROI% 最高', icon: '🚀' },
