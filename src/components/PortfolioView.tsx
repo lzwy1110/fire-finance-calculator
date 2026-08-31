@@ -22,6 +22,8 @@ import {
   List,
   ArrowUpDown,
   PieChart,
+  Check,
+  ChevronDown,
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -167,6 +169,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   // View Layout & Sorting State
   const [viewLayout, setViewLayout] = useState<'cards' | 'list'>('cards');
   const [sortBy, setSortBy] = useState<'value_desc' | 'roi_desc' | 'roi_asc' | 'today_desc' | 'symbol_asc'>('value_desc');
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [showAllocationBar, setShowAllocationBar] = useState(true);
 
   // Aggregate Portfolio Totals & Today's PnL
@@ -856,82 +859,98 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               <button
                 type="button"
                 onClick={onOpenCurrencyExchange}
-                className="flex items-center gap-1 px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold rounded-xl transition cursor-pointer active:scale-95 shadow-sm"
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold rounded-xl transition cursor-pointer active:scale-95 shadow-sm"
                 title="雙幣現金池換匯轉帳"
               >
-                <ArrowRightLeft className="w-3 h-3" />
-                <span>💱 換匯</span>
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>換匯轉帳</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Main Big Number Row (Robinhood Style) */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            <span className="text-xs font-bold text-gray-400 block tracking-wider uppercase">
-              目前投資總市值 (Market Value)
-            </span>
-            <div className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight mt-0.5">
-              {sym} {formatNum(totalMarketValueTWD)}
-            </div>
-            <div className="flex items-center gap-3 text-xs text-gray-400 font-mono mt-1">
-              <span>🇺🇸 美股: <strong className="text-cyan-400">${formatNum(usMarketValueUSD)} USD</strong></span>
-              <span>•</span>
-              <span>🇹🇼 台股: <strong className="text-emerald-400">${formatNum(twMarketValueTWD)}</strong></span>
-            </div>
-          </div>
-
-          {/* P&L Badges (All-Time + Today) */}
-          <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 shrink-0">
-            {/* Total Cumulative Unrealized Gain */}
-            <div
-              className={`px-3 py-1.5 rounded-2xl font-mono text-xs sm:text-sm font-black flex items-center gap-1.5 shadow-md ${
-                totalUnrealizedProfitTWD >= 0
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-              }`}
-            >
-              {totalUnrealizedProfitTWD >= 0 ? <ArrowUpRight className="w-4 h-4 stroke-[3]" /> : <ArrowDownRight className="w-4 h-4 stroke-[3]" />}
-              <span>
-                {totalUnrealizedProfitTWD >= 0 ? '+' : ''}{sym} {formatNum(totalUnrealizedProfitTWD)} ({totalUnrealizedProfitTWD >= 0 ? '+' : ''}{formatDec(totalRoiPercent)}%)
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold text-gray-400 block tracking-wider uppercase">
+                目前投資總市值 (Market Value)
               </span>
+              <div className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight mt-0.5">
+                {sym} {formatNum(totalMarketValueTWD)}
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-400 font-mono mt-1">
+                <span>🇺🇸 美股: <strong className="text-cyan-400">${formatNum(usMarketValueUSD)} USD</strong></span>
+                <span>•</span>
+                <span>🇹🇼 台股: <strong className="text-emerald-400">${formatNum(twMarketValueTWD)}</strong></span>
+              </div>
             </div>
 
-            {/* Today's Estimated Gain */}
-            {syncedStocks.length > 0 && (
-              <div className={`text-xs font-mono font-bold flex items-center gap-1 ${totalTodayChangeTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                <span>今日估算:</span>
-                <span>
-                  {totalTodayChangeTWD >= 0 ? '+' : ''}{sym} {formatNum(totalTodayChangeTWD)} ({totalTodayChangeTWD >= 0 ? '+' : ''}{totalTodayRoiPercent.toFixed(2)}%)
+            {/* P&L Badges (All-Time + Today) Responsive Grid */}
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:flex sm:flex-col gap-2 shrink-0">
+              {/* Total Cumulative Unrealized Gain */}
+              <div
+                className={`px-3 py-1.5 rounded-2xl font-mono text-xs sm:text-sm font-black flex items-center justify-between sm:justify-start gap-1.5 shadow-md ${
+                  totalUnrealizedProfitTWD >= 0
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  {totalUnrealizedProfitTWD >= 0 ? <ArrowUpRight className="w-4 h-4 stroke-[3]" /> : <ArrowDownRight className="w-4 h-4 stroke-[3]" />}
+                  <span className="font-sans text-[11px] text-gray-300">總損益</span>
+                </div>
+                <span className="whitespace-nowrap">
+                  {totalUnrealizedProfitTWD >= 0 ? '+' : ''}{sym} {formatNum(totalUnrealizedProfitTWD)} ({totalUnrealizedProfitTWD >= 0 ? '+' : ''}{formatDec(totalRoiPercent)}%)
                 </span>
               </div>
-            )}
+
+              {/* Today's Estimated Gain */}
+              {syncedStocks.length > 0 && (
+                <div
+                  className={`px-3 py-1.5 rounded-2xl font-mono text-xs font-bold flex items-center justify-between sm:justify-end gap-1.5 border ${
+                    totalTodayChangeTWD >= 0
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                  }`}
+                >
+                  <span className="font-sans text-[11px] text-gray-400">今日估算:</span>
+                  <span className="whitespace-nowrap">
+                    {totalTodayChangeTWD >= 0 ? '+' : ''}{sym} {formatNum(totalTodayChangeTWD)} ({totalTodayChangeTWD >= 0 ? '+' : ''}{totalTodayRoiPercent.toFixed(2)}%)
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* 3 Key Metric Columns Row (Revolut Style) */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-3 border-t border-white/10 text-xs">
+        {/* 3 Key Metric Columns Row (Zero Truncation Guaranteed) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-3 border-t border-white/10 text-xs">
           {/* Col 1: Cost */}
-          <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 sm:p-3">
-            <span className="text-[10px] sm:text-[11px] text-gray-400 block font-medium">投入成本</span>
-            <div className="text-sm sm:text-base font-black text-gray-200 font-mono mt-0.5">
+          <div className="bg-[#121216] border border-white/5 rounded-2xl p-3 flex sm:flex-col items-center sm:items-start justify-between">
+            <span className="text-[11px] text-gray-400 block font-medium">投入成本 (Cost)</span>
+            <div className="text-sm sm:text-base font-black text-gray-200 font-mono mt-0.5 whitespace-nowrap">
               {sym} {formatNum(totalCostTWD)}
             </div>
           </div>
 
-          {/* Col 2: Cash Reserves */}
-          <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 sm:p-3 min-w-0">
-            <span className="text-[10px] sm:text-[11px] text-emerald-400/90 block font-medium">雙幣現金儲備</span>
-            <div className="text-xs sm:text-sm font-black text-emerald-300 font-mono mt-0.5 truncate" title={`NT$ ${formatNum(currentTWD)} ($${formatNum(currentUSD)})`}>
-              NT$ {formatNum(currentTWD)} {currentUSD > 0 && <span className="text-[10px] text-gray-400 font-normal">(${formatNum(currentUSD)})</span>}
+          {/* Col 2: Cash Reserves (Full Dual-Currency Display, NEVER truncated) */}
+          <div className="bg-[#121216] border border-white/5 rounded-2xl p-3 flex sm:flex-col items-center sm:items-start justify-between">
+            <span className="text-[11px] text-emerald-400/90 block font-medium">雙幣現金儲備</span>
+            <div className="text-sm sm:text-base font-black text-emerald-300 font-mono mt-0.5 whitespace-nowrap flex items-center gap-1.5">
+              <span>NT$ {formatNum(currentTWD)}</span>
+              {currentUSD > 0 && (
+                <span className="text-xs text-gray-400 font-mono font-normal">
+                  (${formatNum(currentUSD)} USD)
+                </span>
+              )}
             </div>
           </div>
 
           {/* Col 3: Realized P&L */}
-          <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5 sm:p-3">
-            <span className="text-[10px] sm:text-[11px] text-gray-400 block font-medium">已實現總損益</span>
-            <div className={`text-sm sm:text-base font-black font-mono mt-0.5 ${totalRealizedPnLTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <div className="bg-[#121216] border border-white/5 rounded-2xl p-3 flex sm:flex-col items-center sm:items-start justify-between">
+            <span className="text-[11px] text-gray-400 block font-medium">已實現總損益</span>
+            <div className={`text-sm sm:text-base font-black font-mono mt-0.5 whitespace-nowrap ${totalRealizedPnLTWD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               {totalRealizedPnLTWD >= 0 ? '+' : ''}{sym} {formatNum(totalRealizedPnLTWD)}
             </div>
           </div>
@@ -1044,20 +1063,61 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
           {/* Sort & View Mode Tools */}
           <div className="flex items-center gap-2">
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-1 bg-black/60 border border-white/10 rounded-2xl px-2.5 py-1.5">
-              <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
-              <select
-                value={sortBy}
-                onChange={(e: any) => setSortBy(e.target.value)}
-                className="bg-transparent text-xs font-bold text-gray-200 focus:outline-none cursor-pointer"
+            {/* Custom Glassmorphic Sort Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+                className="flex items-center gap-1.5 bg-black/60 hover:bg-white/10 border border-white/10 rounded-2xl px-3 py-1.5 text-xs font-bold text-gray-200 transition cursor-pointer active:scale-95 shadow-sm"
               >
-                <option value="value_desc" className="bg-[#111] text-white">💎 市值最高</option>
-                <option value="roi_desc" className="bg-[#111] text-white">🚀 ROI% 最高</option>
-                <option value="roi_asc" className="bg-[#111] text-white">📉 ROI% 最低</option>
-                <option value="today_desc" className="bg-[#111] text-white">⏱️ 今日漲幅最高</option>
-                <option value="symbol_asc" className="bg-[#111] text-white">🔤 代號 A-Z</option>
-              </select>
+                <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+                <span>
+                  {sortBy === 'value_desc' && '💎 市值最高'}
+                  {sortBy === 'roi_desc' && '🚀 ROI% 最高'}
+                  {sortBy === 'roi_asc' && '📉 ROI% 最低'}
+                  {sortBy === 'today_desc' && '⏱️ 今日漲幅最高'}
+                  {sortBy === 'symbol_asc' && '🔤 代號 A-Z'}
+                </span>
+                <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${isSortDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isSortDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-[60]"
+                    onClick={() => setIsSortDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1.5 z-[70] w-44 bg-[#141418] border border-white/15 rounded-2xl p-1.5 shadow-2xl space-y-0.5 animate-fadeIn">
+                    {[
+                      { id: 'value_desc', label: '市值最高', icon: '💎' },
+                      { id: 'roi_desc', label: 'ROI% 最高', icon: '🚀' },
+                      { id: 'roi_asc', label: 'ROI% 最低', icon: '📉' },
+                      { id: 'today_desc', label: '今日漲幅最高', icon: '⏱️' },
+                      { id: 'symbol_asc', label: '代號 A-Z', icon: '🔤' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setSortBy(opt.id as any);
+                          setIsSortDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                          sortBy === opt.id
+                            ? 'bg-cyan-500/20 text-cyan-300'
+                            : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>{opt.icon}</span>
+                          <span>{opt.label}</span>
+                        </div>
+                        {sortBy === opt.id && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Layout Mode Switcher */}
