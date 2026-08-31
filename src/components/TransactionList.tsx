@@ -16,12 +16,14 @@ import {
   Folder,
   ChevronDown,
 } from 'lucide-react';
-import { CategoryItem, FIREConfig, Transaction } from '../types';
+import { CategoryItem, FIREConfig, Transaction, PortfolioStock } from '../types';
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
 
 interface TransactionListProps {
   transactions: Transaction[];
+  portfolioStocks?: PortfolioStock[];
+  usdRate?: number;
   categories: CategoryItem[];
   fireConfig: FIREConfig;
   onDeleteTransaction: (id: string) => void;
@@ -32,6 +34,8 @@ interface TransactionListProps {
 
 export const TransactionList: React.FC<TransactionListProps> = ({
   transactions,
+  portfolioStocks,
+  usdRate = 32.0,
   categories,
   fireConfig,
   onDeleteTransaction,
@@ -50,33 +54,69 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [tempSelectedCategories, setTempSelectedCategories] = useState<string[]>([]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [selectedDetailTransaction, setSelectedDetailTransaction] = useState<Transaction | null>(null);
+  const [selectedDetailTransaction, setSelectedDetailTransaction] = useState<any | null>(null);
 
   // Deletion Confirm Modal state
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; amount: number } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; amount: number; isStock?: boolean } | null>(null);
   const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState(false);
+
+  // Unified list combining ledger + portfolio stock trades
+  const allTransactions = useMemo(() => {
+    const list: (Transaction & { isStockTrade?: boolean; stockOriginalAmount?: number; stockOriginalCurrency?: string })[] = [...transactions];
+
+    (portfolioStocks || []).forEach((stock) => {
+      const isUS = stock.market === 'US';
+      const stockCurrency = isUS ? '$' : 'NT$';
+
+      (stock.transactions || []).forEach((st) => {
+        const totalTradeVal = st.shares * st.price;
+        const amountTWD = isUS ? Math.round(totalTradeVal * (usdRate || 32.0)) : totalTradeVal;
+
+        const isBuy = st.type === 'BUY';
+        const isSell = st.type === 'SELL';
+        const txType = isBuy ? 'investment' : 'income';
+        const actionLabel = isBuy ? '買入' : isSell ? '賣出' : '股利發放';
+
+        list.push({
+          id: `stock-${st.id}`,
+          date: st.date,
+          type: txType,
+          amount: amountTWD,
+          mainCategory: '證券投資',
+          subCategory: `${stock.symbol} ${actionLabel}`,
+          note: `${formatNum(st.shares)} 股 @ ${stockCurrency}${st.price}${st.note ? ` • ${st.note}` : ''}`,
+          tags: [isUS ? '美股' : '台股', '證券交易'],
+          isStockTrade: true,
+          stockOriginalAmount: totalTradeVal,
+          stockOriginalCurrency: stockCurrency,
+        });
+      });
+    });
+
+    return list;
+  }, [transactions, portfolioStocks, usdRate]);
 
   // Count items per category under current month
   const categoryCounts = useMemo(() => {
     const map: { [name: string]: number } = {};
-    transactions.forEach((t) => {
+    allTransactions.forEach((t) => {
       if (selectedMonth !== 'all' && !t.date.startsWith(selectedMonth)) return;
       map[t.mainCategory] = (map[t.mainCategory] || 0) + 1;
     });
     return map;
-  }, [transactions, selectedMonth]);
+  }, [allTransactions, selectedMonth]);
 
   // Available unique months list sorted descending
   const availableMonths = useMemo(() => {
     const monthsSet = new Set<string>();
     monthsSet.add(currentMonthStr);
-    transactions.forEach((t) => {
+    allTransactions.forEach((t) => {
       if (t.date && t.date.length >= 7) {
         monthsSet.add(t.date.slice(0, 7));
       }
     });
     return Array.from(monthsSet).sort().reverse();
-  }, [transactions, currentMonthStr]);
+  }, [allTransactions, currentMonthStr]);
 
   // Stepper handlers for month
   const handlePrevMonth = () => {
@@ -118,7 +158,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
   // Filter transactions
   const filtered = useMemo(() => {
-    return transactions.filter((t) => {
+    return allTransactions.filter((t) => {
       if (selectedMonth !== 'all' && !t.date.startsWith(selectedMonth)) return false;
       if (selectedType !== 'all' && t.type !== selectedType) return false;
       if (selectedCategories.length > 0 && !selectedCategories.includes(t.mainCategory)) return false;
@@ -132,7 +172,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       }
       return true;
     });
-  }, [transactions, selectedMonth, selectedType, selectedCategories, search]);
+  }, [allTransactions, selectedMonth, selectedType, selectedCategories, search]);
 
   // Calculate statistics on filtered transactions
   const stats = useMemo(() => {
@@ -610,6 +650,15 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (t.isStockTrade || t.id.startsWith('stock-')) {
+                              setDeleteTarget({
+                                id: t.id,
+                                name: `${t.mainCategory} (${t.subCategory})`,
+                                amount: t.amount,
+                                isStock: true,
+                              });
+                              return;
+                            }
                             setDeleteTarget({ id: t.id, name: `${t.mainCategory} (${t.subCategory})`, amount: t.amount });
                           }}
                           className="p-1.5 text-gray-600 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
@@ -630,15 +679,20 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       {/* Styled Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
-        title="確定要刪除這筆收支紀錄？"
-        message={`確定要刪除紀錄「${deleteTarget?.name} - ${sym} ${formatNum(deleteTarget?.amount || 0)}」嗎？刪除後資料將無法復原。`}
-        confirmText="確定刪除"
-        cancelText="取消"
-        type="danger"
+        title={deleteTarget?.isStock ? '證券股票交易管理說明' : '確定要刪除這筆收支紀錄？'}
+        message={
+          deleteTarget?.isStock
+            ? `「${deleteTarget?.name}」為股票庫存之買賣紀錄。為確保您的持股均價與未實現損益統計準確無誤，如需修改或刪除此筆交易，請前往「投資」頁面進行操作！`
+            : `確定要刪除紀錄「${deleteTarget?.name} - ${sym} ${formatNum(deleteTarget?.amount || 0)}」嗎？刪除後資料將無法復原。`
+        }
+        confirmText={deleteTarget?.isStock ? '前往「投資」頁面' : '確定刪除'}
+        cancelText={deleteTarget?.isStock ? '關閉' : '取消'}
+        type={deleteTarget?.isStock ? 'info' : 'danger'}
         onConfirm={() => {
-          if (deleteTarget) {
+          if (deleteTarget && !deleteTarget.isStock) {
             onDeleteTransaction(deleteTarget.id);
           }
+          setDeleteTarget(null);
         }}
         onClose={() => setDeleteTarget(null)}
       />
@@ -811,11 +865,18 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                     <span className="text-[11px] text-gray-400 font-mono">
                       {selectedDetailTransaction.id.startsWith('t-widget-')
                         ? `憑證 #W-${selectedDetailTransaction.id.slice(-6).toUpperCase()}`
+                        : selectedDetailTransaction.id.startsWith('stock-')
+                        ? `證券 #${selectedDetailTransaction.id.replace('stock-', '').slice(-6).toUpperCase()}`
                         : `憑證 #TX-${selectedDetailTransaction.id.replace(/^t-/, '').slice(-6).toUpperCase()}`}
                     </span>
                     {selectedDetailTransaction.id.startsWith('t-widget-') && (
                       <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
                         ⚡ WIDGET
+                      </span>
+                    )}
+                    {selectedDetailTransaction.id.startsWith('stock-') && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold font-mono">
+                        📈 STOCK
                       </span>
                     )}
                   </div>
@@ -860,7 +921,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                     borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.3)`,
                   }}
                 >
-                  {selectedDetailTransaction.type === 'income'
+                  {selectedDetailTransaction.isStockTrade
+                    ? '📈 證券股票交易'
+                    : selectedDetailTransaction.type === 'income'
                     ? '💰 收入紀錄'
                     : selectedDetailTransaction.type === 'tax'
                     ? '🏛️ 稅金與規費'
@@ -892,11 +955,19 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                 <span className="text-gray-400">交易日期</span>
                 <span className="font-mono font-bold text-white">{selectedDetailTransaction.date}</span>
               </div>
+              {selectedDetailTransaction.stockOriginalAmount && (
+                <div className="flex items-center justify-between py-1 border-b border-white/5">
+                  <span className="text-gray-400">原始幣別金額</span>
+                  <span className="font-mono font-bold text-cyan-300">
+                    {selectedDetailTransaction.stockOriginalCurrency}{formatNum(selectedDetailTransaction.stockOriginalAmount)}
+                  </span>
+                </div>
+              )}
               {selectedDetailTransaction.tags && selectedDetailTransaction.tags.length > 0 && (
                 <div className="flex items-center justify-between py-1">
                   <span className="text-gray-400">專屬標籤</span>
                   <div className="flex items-center gap-1 flex-wrap justify-end">
-                    {selectedDetailTransaction.tags.map((tag, idx) => (
+                    {selectedDetailTransaction.tags.map((tag: string, idx: number) => (
                       <span
                         key={idx}
                         className="px-2 py-0.5 bg-white/5 text-gray-300 border border-white/10 rounded-md text-[10px]"
@@ -933,12 +1004,13 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                     id: target.id,
                     name: `${target.mainCategory} (${target.subCategory})`,
                     amount: target.amount,
+                    isStock: target.isStockTrade || target.id.startsWith('stock-'),
                   });
                 }}
                 className="flex items-center gap-1 px-3 py-2 text-rose-400 hover:bg-rose-500/10 rounded-xl transition text-xs font-bold cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>刪除紀錄</span>
+                <span>{selectedDetailTransaction.isStockTrade ? '管理股票紀錄' : '刪除紀錄'}</span>
               </button>
 
               <button

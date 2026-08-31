@@ -328,6 +328,8 @@ function FIREAppContent() {
         {activeTab === 'ledger' && (
           <TransactionList
             transactions={transactions}
+            portfolioStocks={portfolioStocks}
+            usdRate={usdRate}
             categories={categories}
             fireConfig={{
               ...fireConfig,
