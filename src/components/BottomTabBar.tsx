@@ -68,15 +68,6 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
             tabs[0].isActive ? 'scale-105' : 'opacity-40 hover:opacity-90'
           }`}
         >
-          {tabs[0].isActive && (
-            <span
-              className="absolute -top-1 w-1.5 h-1.5 rounded-full animate-fadeIn"
-              style={{
-                backgroundColor: currentTheme.primaryHex,
-                boxShadow: `0 0 8px ${currentTheme.primaryHex}`,
-              }}
-            />
-          )}
           <Flame
             className={`w-5 h-5 transition-transform ${tabs[0].isActive ? 'stroke-[2.5]' : 'stroke-2'}`}
             style={{
@@ -99,15 +90,6 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
             tabs[1].isActive ? 'scale-105' : 'opacity-40 hover:opacity-90'
           }`}
         >
-          {tabs[1].isActive && (
-            <span
-              className="absolute -top-1 w-1.5 h-1.5 rounded-full animate-fadeIn"
-              style={{
-                backgroundColor: currentTheme.primaryHex,
-                boxShadow: `0 0 8px ${currentTheme.primaryHex}`,
-              }}
-            />
-          )}
           <ReceiptText
             className={`w-5 h-5 transition-transform ${tabs[1].isActive ? 'stroke-[2.5]' : 'stroke-2'}`}
             style={{
@@ -148,15 +130,6 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
             tabs[2].isActive ? 'scale-105' : 'opacity-40 hover:opacity-90'
           }`}
         >
-          {tabs[2].isActive && (
-            <span
-              className="absolute -top-1 w-1.5 h-1.5 rounded-full animate-fadeIn"
-              style={{
-                backgroundColor: currentTheme.primaryHex,
-                boxShadow: `0 0 8px ${currentTheme.primaryHex}`,
-              }}
-            />
-          )}
           <TrendingUp
             className={`w-5 h-5 transition-transform ${tabs[2].isActive ? 'stroke-[2.5]' : 'stroke-2'}`}
             style={{
@@ -179,15 +152,6 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
             tabs[3].isActive ? 'scale-105' : 'opacity-40 hover:opacity-90'
           }`}
         >
-          {tabs[3].isActive && (
-            <span
-              className="absolute -top-1 w-1.5 h-1.5 rounded-full animate-fadeIn"
-              style={{
-                backgroundColor: currentTheme.primaryHex,
-                boxShadow: `0 0 8px ${currentTheme.primaryHex}`,
-              }}
-            />
-          )}
           <BarChart3
             className={`w-5 h-5 transition-transform ${tabs[3].isActive ? 'stroke-[2.5]' : 'stroke-2'}`}
             style={{
