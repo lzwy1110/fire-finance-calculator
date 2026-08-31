@@ -155,14 +155,14 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                   </div>
                   {config.targetRetirementAge > 0 && (
                     <div className="flex items-center">
-                      <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ${
+                      <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold whitespace-nowrap ${
                         result.ageAtFIRE <= config.targetRetirementAge
                           ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
                           : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
                       }`}>
                         {result.ageAtFIRE <= config.targetRetirementAge
-                          ? `🎉 比期望目標 ${config.targetRetirementAge} 歲提前 ${(config.targetRetirementAge - result.ageAtFIRE).toFixed(1)} 年`
-                          : `⏱️ 距期望目標 ${config.targetRetirementAge} 歲落後 ${(result.ageAtFIRE - config.targetRetirementAge).toFixed(1)} 年`}
+                          ? `🎉 比期望 ${config.targetRetirementAge} 歲提前 ${(config.targetRetirementAge - result.ageAtFIRE).toFixed(1)} 年`
+                          : `⏱️ 距期望 ${config.targetRetirementAge} 歲落後 ${(result.ageAtFIRE - config.targetRetirementAge).toFixed(1)} 年`}
                       </span>
                     </div>
                   )}

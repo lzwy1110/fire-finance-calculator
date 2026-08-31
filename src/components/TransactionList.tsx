@@ -30,6 +30,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
   // Deletion Confirm Modal state
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; amount: number } | null>(null);
+  const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState(false);
 
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
@@ -96,11 +97,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             </button>
 
             <button
-              onClick={() => {
-                if (window.confirm('⚠️ 確定要清空所有本機資料（包含記帳明細、持股庫存與現金）嗎？')) {
-                  onClearAllData?.();
-                }
-              }}
+              onClick={() => setIsClearAllConfirmOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 transition cursor-pointer"
               title="清空所有本機資料"
             >
@@ -258,12 +255,27 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         message={`確定要刪除紀錄「${deleteTarget?.name} - ${sym} ${formatNum(deleteTarget?.amount || 0)}」嗎？刪除後資料將無法復原。`}
         confirmText="確定刪除"
         cancelText="取消"
+        type="danger"
         onConfirm={() => {
           if (deleteTarget) {
             onDeleteTransaction(deleteTarget.id);
           }
         }}
         onClose={() => setDeleteTarget(null)}
+      />
+
+      {/* Styled Clear All Data Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isClearAllConfirmOpen}
+        title="確定清空所有本機資料？"
+        message="⚠️ 警告：確定要清空所有本機資料（包含記帳明細、持股庫存與現金儲備）嗎？\n\n清空後資料將被完全重置，請確認是否已備份。"
+        confirmText="確定清空"
+        cancelText="取消"
+        type="danger"
+        onConfirm={() => {
+          onClearAllData?.();
+        }}
+        onClose={() => setIsClearAllConfirmOpen(false)}
       />
     </div>
   );

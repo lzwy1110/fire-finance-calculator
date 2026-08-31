@@ -471,7 +471,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
 
     if (!cleanSym || parsedShares <= 0 || parsedCost <= 0) {
-      alert('請填寫有效的股票代號、股數（需大於 0）與買入單價（需大於 0）！');
+      setConfirmModal({
+        isOpen: true,
+        title: '請確認填寫內容',
+        message: '請填寫有效的股票代號、股數（需大於 0）與買入單價（需大於 0）！',
+        type: 'warning',
+        isAlert: true,
+        confirmText: '我知道了',
+      });
       return;
     }
 
@@ -552,7 +559,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         if (onSaveSingleStock) {
           const res = await onSaveSingleStock(updatedStockObj);
           if (!res.success) {
-            alert(`❌ 雲端同步失敗: ${res.error || '無法寫入 Supabase 資料庫'}\n請檢查網路或 Supabase 資料表設定！`);
+            setConfirmModal({
+              isOpen: true,
+              title: '雲端同步失敗',
+              message: `❌ 雲端同步失敗: ${res.error || '無法寫入 Supabase 資料庫'}\n請檢查網路或 Supabase 資料表設定！`,
+              type: 'danger',
+              isAlert: true,
+              confirmText: '確定',
+            });
             return;
           }
         } else {
@@ -638,7 +652,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       if (onSaveSingleStock) {
         const res = await onSaveSingleStock(targetStockObj);
         if (!res.success) {
-          alert(`❌ 雲端同步失敗: ${res.error || '無法寫入 Supabase 資料庫'}\n請檢查網路或 Supabase 資料表設定！`);
+          setConfirmModal({
+            isOpen: true,
+            title: '雲端同步失敗',
+            message: `❌ 雲端同步失敗: ${res.error || '無法寫入 Supabase 資料庫'}\n請檢查網路或 Supabase 資料表設定！`,
+            type: 'danger',
+            isAlert: true,
+            confirmText: '確定',
+          });
           return;
         }
       } else {
@@ -695,7 +716,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     isOpen: boolean;
     title: string;
     message: string;
-    onConfirm: () => void;
+    type?: 'danger' | 'warning' | 'info' | 'success';
+    isAlert?: boolean;
+    confirmText?: string;
+    onConfirm?: () => void;
   } | null>(null);
 
   // Delete Single Transaction Record with Styled Confirmation
@@ -774,7 +798,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         if (onDeleteSingleStock) {
           const res = await onDeleteSingleStock(id);
           if (!res.success) {
-            alert(`❌ 刪除失敗: ${res.error || '無法從雲端刪除'}`);
+            setConfirmModal({
+              isOpen: true,
+              title: '刪除失敗',
+              message: `❌ 刪除失敗: ${res.error || '無法從雲端刪除'}`,
+              type: 'danger',
+              isAlert: true,
+              confirmText: '確定',
+            });
             return;
           }
         } else {
@@ -1963,10 +1994,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       {/* Styled Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={Boolean(confirmModal?.isOpen)}
-        title={confirmModal?.title || '確定要刪除？'}
+        title={confirmModal?.title || '確定要執行？'}
         message={confirmModal?.message || ''}
-        confirmText="確定刪除"
-        cancelText="取消"
+        type={confirmModal?.type || 'danger'}
+        isAlert={confirmModal?.isAlert}
+        confirmText={confirmModal?.confirmText || '確定'}
+        cancelText={confirmModal?.isAlert ? null : '取消'}
         onConfirm={() => {
           if (confirmModal?.onConfirm) {
             confirmModal.onConfirm();

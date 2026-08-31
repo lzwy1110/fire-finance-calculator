@@ -13,6 +13,7 @@ import { SystemSettingsModal } from './components/SystemSettingsModal';
 import { CurrencyExchangeModal } from './components/CurrencyExchangeModal';
 import { AppLoadingSplash } from './components/AppLoadingSplash';
 import { BottomTabBar } from './components/BottomTabBar';
+import { ConfirmModal } from './components/ConfirmModal';
 import { WidgetBridge } from './services/widgetBridge';
 import { resetAllDataToDefault } from './utils/storage';
 import { Capacitor } from '@capacitor/core';
@@ -26,6 +27,14 @@ function FIREAppContent() {
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [isSystemSettingsOpen, setIsSystemSettingsOpen] = useState(false);
   const [isCurrencyExchangeOpen, setIsCurrencyExchangeOpen] = useState(false);
+  const [appConfirmModal, setAppConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'success';
+    confirmText?: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Consume from centralized single-source-of-truth FIREContext
   const {
@@ -171,10 +180,17 @@ function FIREAppContent() {
   }, [quickPresets, addTransaction]);
 
   const handleResetDefaultData = () => {
-    if (window.confirm('確定要將財務資料重設為預設範例資料嗎？')) {
-      resetAllDataToDefault();
-      restoreAllData();
-    }
+    setAppConfirmModal({
+      isOpen: true,
+      title: '確定重設為範例資料？',
+      message: '確定要將財務資料重設為預設範例資料（包含美股/台股範例與收支範例）嗎？',
+      type: 'warning',
+      confirmText: '確定載入範例',
+      onConfirm: () => {
+        resetAllDataToDefault();
+        restoreAllData();
+      },
+    });
   };
 
   if (isAppLoading) {
@@ -405,6 +421,18 @@ function FIREAppContent() {
         themeColor={fireConfig.themeColor}
         onExchange={exchangeCurrency}
       />
+
+      {appConfirmModal && (
+        <ConfirmModal
+          isOpen={appConfirmModal.isOpen}
+          title={appConfirmModal.title}
+          message={appConfirmModal.message}
+          type={appConfirmModal.type || 'warning'}
+          confirmText={appConfirmModal.confirmText || '確定'}
+          onConfirm={appConfirmModal.onConfirm}
+          onClose={() => setAppConfirmModal(null)}
+        />
+      )}
     </div>
   );
 }

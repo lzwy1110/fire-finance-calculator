@@ -141,8 +141,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="text-2xl font-black text-white font-mono">
               {sym} {formatNum(monthlyTax)}
             </div>
-            <div className="text-xs text-purple-400 mt-1 font-medium">
-              所得稅・補充保費・車輛稅
+            <div className="text-xs text-purple-400 mt-1 font-medium truncate">
+              所得稅・補充保費・車輛規費
             </div>
           </div>
         </div>
@@ -166,9 +166,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="text-2xl font-black font-mono" style={{ color: currentTheme.primaryHex }}>
               {savingsRate}%
             </div>
-            <div className="text-xs text-gray-400 mt-1 flex items-center justify-between">
+            <div className="text-xs text-gray-400 mt-1 flex flex-wrap items-center justify-between gap-1">
               <span>{healthDesc}</span>
-              <span className="text-emerald-400 font-mono font-bold">淨存 {sym}{formatNum(Math.max(0, netSavings))}</span>
+              <span className="text-emerald-400 font-mono font-bold whitespace-nowrap">淨存 {sym}{formatNum(Math.max(0, netSavings))}</span>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Settings, Plus, Trash2, X, Tag, Sparkles, Check, AlertCircle } from 'lucide-react';
 import { CategoryItem } from '../types';
 import { getThemePreset } from '../utils/theme';
+import { ConfirmModal } from './ConfirmModal';
 
 interface CategoryManagerModalProps {
   isOpen: boolean;
@@ -25,28 +26,47 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   const [newSubCatName, setNewSubCatName] = useState('');
   const [newMainCatName, setNewMainCatName] = useState('');
   const [newMainCatType, setNewMainCatType] = useState<'expense' | 'income' | 'investment' | 'tax'>('expense');
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'success';
+    isAlert?: boolean;
+    confirmText?: string;
+    onConfirm?: () => void;
+  } | null>(null);
 
   const selectedCat = categories.find((c) => c.id === selectedCatId) || categories[0];
 
   const handleDeleteMainCategory = (catId: string) => {
     if (categories.length <= 1) {
-      alert('⚠️ 系統至少需保留一個記帳大類！');
+      setConfirmModal({
+        isOpen: true,
+        title: '無法刪除分類',
+        message: '⚠️ 系統至少需保留一個記帳大類，無法將全部大類刪除！',
+        type: 'warning',
+        isAlert: true,
+        confirmText: '我知道了',
+      });
       return;
     }
     const targetCat = categories.find((c) => c.id === catId);
     if (!targetCat) return;
 
-    if (
-      window.confirm(
-        `⚠️ 確定要刪除大類「${targetCat.name}」及其底下的所有細分項目嗎？\n\n（提示：已記錄的歷史交易明細仍會保留文字紀錄，但未來將無法從快捷分類選取）`
-      )
-    ) {
-      const updated = categories.filter((c) => c.id !== catId);
-      onUpdateCategories(updated);
-      if (selectedCatId === catId) {
-        setSelectedCatId(updated[0]?.id || '');
-      }
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: `確定刪除「${targetCat.name}」？`,
+      message: `確定要刪除大類「${targetCat.name}」及其底下的所有細分項目嗎？\n\n（提示：已記錄的歷史交易仍會保留文字紀錄，但未來將無法從快捷分類中選取）`,
+      type: 'danger',
+      confirmText: '確定刪除',
+      onConfirm: () => {
+        const updated = categories.filter((c) => c.id !== catId);
+        onUpdateCategories(updated);
+        if (selectedCatId === catId) {
+          setSelectedCatId(updated[0]?.id || '');
+        }
+      },
+    });
   };
 
   const handleAddSubCategory = (e: React.FormEvent) => {
@@ -314,6 +334,19 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
           </button>
         </div>
       </div>
+
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          type={confirmModal.type || 'danger'}
+          isAlert={confirmModal.isAlert}
+          confirmText={confirmModal.confirmText || '確定'}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   );
 };

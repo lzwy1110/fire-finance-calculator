@@ -4,6 +4,7 @@ import { createFullBackupJSON, restoreFromBackupJSON, syncWithCloudCodeAsync, au
 import { checkBackendHealth, HealthCheckResponse } from '../services/api';
 import { getCustomCredentials, saveCustomCredentials, testSupabaseDirectConnection } from '../services/supabaseFrontend';
 import { getThemePreset } from '../utils/theme';
+import { ConfirmModal } from './ConfirmModal';
 
 interface CloudSyncModalProps {
   isOpen: boolean;
@@ -28,6 +29,14 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   const [inputSyncCode, setInputSyncCode] = useState('');
   const [syncStatusMsg, setSyncStatusMsg] = useState<{ text: string; isError?: boolean } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'success';
+    confirmText?: string;
+    onConfirm?: () => void;
+  } | null>(null);
 
   // Custom Supabase Credentials state
   const [customUrl, setCustomUrl] = useState('');
@@ -102,23 +111,28 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
 
 
-  const handleClearCloudDatabase = async () => {
-    if (!window.confirm(`⚠️ 警告：確定要將同步碼 [${syncCode}] 的雲端所有記帳、股票與設定「全部清空清零」嗎？\n\n執行後雲端將重置為 0，方便您從本裝置建立乾淨基準重新出發。`)) {
-      return;
-    }
+  const handleClearCloudDatabase = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: '確定清空雲端資料庫？',
+      message: `⚠️ 警告：確定要將同步碼 [${syncCode}] 的雲端所有記帳、股票與設定「全部清空清零」嗎？\n\n執行後雲端將重置為 0，方便您從本裝置建立乾淨基準重新出發。`,
+      type: 'danger',
+      confirmText: '確定清空雲端',
+      onConfirm: async () => {
+        setIsSyncing(true);
+        setSyncStatusMsg({ text: '⏳ 正在清空雲端資料庫中...' });
 
-    setIsSyncing(true);
-    setSyncStatusMsg({ text: '⏳ 正在清空雲端資料庫中...' });
+        const success = await clearLocalAndCloudData(syncCode);
+        setIsSyncing(false);
 
-    const success = await clearLocalAndCloudData(syncCode);
-    setIsSyncing(false);
-
-    if (success) {
-      setSyncStatusMsg({ text: `🗑️ 雲端同步碼 [${syncCode}] 資料庫已成功清空清零！` });
-      onDataRestored();
-    } else {
-      setSyncStatusMsg({ text: '⚠️ 清空雲端資料失敗，請檢查網路連線。', isError: true });
-    }
+        if (success) {
+          setSyncStatusMsg({ text: `🗑️ 雲端同步碼 [${syncCode}] 資料庫已成功清空清零！` });
+          onDataRestored();
+        } else {
+          setSyncStatusMsg({ text: '⚠️ 清空雲端資料失敗，請檢查網路連線。', isError: true });
+        }
+      },
+    });
   };
 
   const handleDownloadBackup = () => {
@@ -442,6 +456,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           </button>
         </div>
       </div>
+
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          type={confirmModal.type || 'danger'}
+          confirmText={confirmModal.confirmText || '確定'}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   );
 };

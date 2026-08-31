@@ -3,6 +3,7 @@ import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, 
 import { FIREConfig } from '../types';
 import { THEME_PRESETS, CURRENCY_OPTIONS, getThemePreset } from '../utils/theme';
 import { isFrontendSupabaseReady } from '../services/supabaseFrontend';
+import { ConfirmModal } from './ConfirmModal';
 
 interface SystemSettingsModalProps {
   isOpen: boolean;
@@ -40,6 +41,14 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   const [customColorHex, setCustomColorHex] = useState('#ff69b4');
   const [copied, setCopied] = useState(false);
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'success';
+    confirmText?: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Dedicated string states for numeric inputs to avoid premature 0 resets during typing
   const [cashInput, setCashInput] = useState<string>('');
@@ -158,33 +167,41 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleModeSwitch = async (targetMode: 'cloud' | 'local') => {
+  const handleModeSwitch = (targetMode: 'cloud' | 'local') => {
     if (targetMode === storageMode || isSwitchingMode) return;
 
     if (targetMode === 'cloud') {
-      const confirmed = window.confirm(
-        '☁️ 確定要切換至「雲端即時同步模式」嗎？\n\n系統將自動為您生成專屬同步碼，並將目前本機的記帳、股票庫存與財務設定安全上傳至 Supabase 雲端資料庫。'
-      );
-      if (!confirmed) return;
-
-      setIsSwitchingMode(true);
-      try {
-        await onToggleStorageMode('cloud');
-      } finally {
-        setIsSwitchingMode(false);
-      }
+      setConfirmModal({
+        isOpen: true,
+        title: '切換至雲端即時同步模式？',
+        message: '☁️ 確定要切換至「雲端即時同步模式」嗎？\n\n系統將自動為您生成專屬同步碼，並將目前本機的記帳、股票庫存與財務設定安全上傳至 Supabase 雲端資料庫。',
+        type: 'info',
+        confirmText: '確定切換雲端',
+        onConfirm: async () => {
+          setIsSwitchingMode(true);
+          try {
+            await onToggleStorageMode('cloud');
+          } finally {
+            setIsSwitchingMode(false);
+          }
+        },
+      });
     } else {
-      const confirmed = window.confirm(
-        `⚠️ 確定要切換至「純本機離線模式」嗎？\n\n切換後，系統將【清空抹除】同步碼 [${syncCode}] 在雲端資料庫的所有備份紀錄，未來所有財務與股票數據僅保存在本機裝置上，不再進行任何雲端同步。`
-      );
-      if (!confirmed) return;
-
-      setIsSwitchingMode(true);
-      try {
-        await onToggleStorageMode('local');
-      } finally {
-        setIsSwitchingMode(false);
-      }
+      setConfirmModal({
+        isOpen: true,
+        title: '切換至純本機離線模式？',
+        message: `⚠️ 確定要切換至「純本機離線模式」嗎？\n\n切換後，系統將【清空抹除】同步碼 [${syncCode}] 在雲端資料庫的所有備份紀錄，未來所有財務與股票數據僅保存在本機裝置上，不再進行任何雲端同步。`,
+        type: 'danger',
+        confirmText: '確定切換離線',
+        onConfirm: async () => {
+          setIsSwitchingMode(true);
+          try {
+            await onToggleStorageMode('local');
+          } finally {
+            setIsSwitchingMode(false);
+          }
+        },
+      });
     }
   };
 
@@ -692,13 +709,21 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  const confirmTitle = storageMode === 'cloud' ? '確定清空雲端與本機資料？' : '確定清除本機離線紀錄？';
                   const confirmMsg = storageMode === 'cloud'
                     ? '⚠️ 確定要清空「雲端與本機」的所有同步資料嗎？\n此操作將清空 Supabase 雲端與本機的記帳明細、持股庫存與現金儲備，回歸全新空白起點。'
                     : '⚠️ 確定要清除本機的所有離線紀錄嗎？\n此操作將清空本機的所有記帳明細、持股庫存與現金儲備，回歸全新空白起點。';
-                  if (window.confirm(confirmMsg)) {
-                    onClearAllLocalData?.();
-                    onClose();
-                  }
+                  setConfirmModal({
+                    isOpen: true,
+                    title: confirmTitle,
+                    message: confirmMsg,
+                    type: 'danger',
+                    confirmText: '確定清空所有資料',
+                    onConfirm: () => {
+                      onClearAllLocalData?.();
+                      onClose();
+                    },
+                  });
                 }}
                 className="p-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
               >
@@ -711,10 +736,17 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm('確定要載入預設範例資料（包含美股/台股範例庫存與記帳範例）嗎？')) {
-                    onLoadDemoData?.();
-                    onClose();
-                  }
+                  setConfirmModal({
+                    isOpen: true,
+                    title: '確定載入預設範例資料？',
+                    message: '確定要載入預設範例資料（包含美股/台股範例庫存與收支範例）嗎？',
+                    type: 'warning',
+                    confirmText: '確定載入範例',
+                    onConfirm: () => {
+                      onLoadDemoData?.();
+                      onClose();
+                    },
+                  });
                 }}
                 className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
               >
@@ -749,6 +781,18 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
           </div>
         </form>
       </div>
+
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          type={confirmModal.type || 'warning'}
+          confirmText={confirmModal.confirmText || '確定'}
+          onConfirm={confirmModal.onConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   );
 };
