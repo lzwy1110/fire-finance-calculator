@@ -480,18 +480,37 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       ctx.restore();
     }
 
-    // Time Axis Labels (Show ~5 dates)
-    ctx.fillStyle = '#6b7280';
+    // Smart Adaptive Time Axis Labels (Show ~5 dates)
+    ctx.fillStyle = '#9ca3af';
     ctx.font = '10px Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
-    const dateInterval = Math.max(1, Math.floor(visibleCandles.length / 5));
-    for (let i = 0; i < visibleCandles.length; i += dateInterval) {
-      const d = new Date(visibleCandles[i].time * 1000);
-      const dateStr =
-        queryInterval === '5m' || queryInterval === '15m'
-          ? `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
-          : `${d.getMonth() + 1}/${d.getDate()}`;
-      ctx.fillText(dateStr, getX(i), height - 10);
+
+    if (visibleCandles.length > 0) {
+      const firstTime = visibleCandles[0].time;
+      const lastTime = visibleCandles[visibleCandles.length - 1].time;
+      const spanDays = Math.abs(lastTime - firstTime) / (3600 * 24);
+      const dateInterval = Math.max(1, Math.floor(visibleCandles.length / 5));
+
+      for (let i = 0; i < visibleCandles.length; i += dateInterval) {
+        const d = new Date(visibleCandles[i].time * 1000);
+        let dateStr = '';
+
+        if (spanDays <= 1.5 || queryInterval === '5m' || queryInterval === '15m') {
+          // Intraday: Show HH:mm (e.g. 09:30, 13:30)
+          dateStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+        } else if (spanDays <= 60) {
+          // 5D ~ 2M: Show M/D (e.g. 8/25)
+          dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
+        } else if (spanDays <= 450) {
+          // 1Y: Show 'YY/M (e.g. '25/8)
+          dateStr = `'${(d.getFullYear() % 100).toString().padStart(2, '0')}/${d.getMonth() + 1}`;
+        } else {
+          // 5Y or multi-year: Show YYYY (e.g. 2021, 2022...)
+          dateStr = `${d.getFullYear()}`;
+        }
+
+        ctx.fillText(dateStr, getX(i), height - 10);
+      }
     }
   }, [visibleCandles, minPrice, maxPrice, chartType, activeUpColor, activeDownColor, stock, hoverData, queryInterval]);
 
