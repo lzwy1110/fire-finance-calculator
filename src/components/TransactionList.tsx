@@ -47,7 +47,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [tempSelectedCategories, setTempSelectedCategories] = useState<string[]>([]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   // Deletion Confirm Modal state
@@ -114,7 +115,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
     return transactions.filter((t) => {
       if (selectedMonth !== 'all' && !t.date.startsWith(selectedMonth)) return false;
       if (selectedType !== 'all' && t.type !== selectedType) return false;
-      if (selectedCategory !== 'all' && t.mainCategory !== selectedCategory) return false;
+      if (selectedCategories.length > 0 && !selectedCategories.includes(t.mainCategory)) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         const matchCat = t.mainCategory.toLowerCase().includes(q);
@@ -125,7 +126,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       }
       return true;
     });
-  }, [transactions, selectedMonth, selectedType, selectedCategory, search]);
+  }, [transactions, selectedMonth, selectedType, selectedCategories, search]);
 
   // Calculate statistics on filtered transactions
   const stats = useMemo(() => {
@@ -405,12 +406,13 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             })}
           </div>
 
-          {/* Row 2: Category Pill Chips (Horizontal scrollable, zero native popups) */}
+          {/* Row 2: Dynamic Category Pill Chips (Pinned on demand) */}
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+            {/* All Categories Chip */}
             <button
-              onClick={() => setSelectedCategory('all')}
+              onClick={() => setSelectedCategories([])}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                selectedCategory === 'all'
+                selectedCategories.length === 0
                   ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                   : 'bg-black/60 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/5'
               }`}
@@ -419,49 +421,54 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               <span>全部大類</span>
             </button>
 
-            {categories.map((c) => {
-              const isActive = selectedCategory === c.name;
-              const count = categoryCounts[c.name] || 0;
-              const icon = getCategoryIcon(c.name, 'expense');
+            {/* Dynamically Pinned Selected Category Chips */}
+            {selectedCategories.map((catName) => {
+              const count = categoryCounts[catName] || 0;
+              const icon = getCategoryIcon(catName, 'expense');
 
               return (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedCategory(isActive ? 'all' : c.name)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                    isActive
-                      ? 'shadow-sm border'
-                      : 'bg-black/60 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/5'
-                  }`}
-                  style={
-                    isActive
-                      ? {
-                          backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.22)`,
-                          borderColor: currentTheme.primaryHex,
-                          color: currentTheme.primaryHex,
-                        }
-                      : undefined
-                  }
+                <div
+                  key={catName}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 border shadow-sm shrink-0"
+                  style={{
+                    backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.25)`,
+                    borderColor: currentTheme.primaryHex,
+                    color: currentTheme.primaryHex,
+                  }}
                 >
                   <span>{icon}</span>
-                  <span>{c.name}</span>
+                  <span>{catName}</span>
                   {count > 0 && (
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-black/40 text-white' : 'bg-white/10 text-gray-400'}`}>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 text-white font-mono font-normal">
                       {count}
                     </span>
                   )}
-                </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCategories((prev) => prev.filter((c) => c !== catName));
+                    }}
+                    className="p-0.5 hover:bg-white/20 rounded-full text-white/70 hover:text-white transition cursor-pointer"
+                    title={`移除 ${catName} 篩選`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
               );
             })}
 
+            {/* Filter Category Modal Trigger Button */}
             <button
-              onClick={() => setIsCategoryModalOpen(true)}
-              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/10 transition whitespace-nowrap flex items-center gap-1 cursor-pointer shrink-0"
-              title="展開大類完整清單"
+              onClick={() => {
+                setTempSelectedCategories(selectedCategories);
+                setIsCategoryModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+              title="選擇要篩選的大類"
             >
-              <Folder className="w-3.5 h-3.5 text-cyan-400" />
-              <span>更多分類</span>
-              <ChevronDown className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
+              <span>篩選大類</span>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
             </button>
           </div>
 
@@ -639,7 +646,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         onClose={() => setIsClearAllConfirmOpen(false)}
       />
 
-      {/* Custom Glassmorphism Category Picker Modal */}
+      {/* Custom Glassmorphism Category Picker Modal (Multi-select) */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
           <div className="relative w-full max-w-md bg-[#0f0f12] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
@@ -657,7 +664,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">篩選記帳大類</h3>
-                  <p className="text-xs text-gray-400">點擊大類以即時過濾明細紀錄</p>
+                  <p className="text-xs text-gray-400">可自由勾選一或多個想查看的大類</p>
                 </div>
               </div>
               <button
@@ -668,85 +675,100 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               </button>
             </div>
 
-            {/* Grid of Categories */}
-            <div className="overflow-y-auto pr-1 space-y-2 flex-1 scrollbar-thin">
-              <button
-                onClick={() => {
-                  setSelectedCategory('all');
-                  setIsCategoryModalOpen(false);
-                }}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl border transition text-left cursor-pointer ${
-                  selectedCategory === 'all'
-                    ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-300 font-bold'
-                    : 'border-white/5 bg-white/5 hover:bg-white/10 text-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">📂</span>
-                  <div>
-                    <div className="text-sm font-bold">全部大類</div>
-                    <div className="text-xs text-gray-500">不限大類顯示所有明細</div>
-                  </div>
-                </div>
-                {selectedCategory === 'all' && <Check className="w-4 h-4 text-cyan-400" />}
-              </button>
+            {/* Select All / Clear Row */}
+            <div className="flex items-center justify-between px-1 text-xs">
+              <span className="text-gray-400 font-medium">
+                已選 <strong className="text-white font-bold">{tempSelectedCategories.length}</strong> 個大類
+                {tempSelectedCategories.length === 0 && ' (全部顯示)'}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTempSelectedCategories(categories.map((c) => c.name))}
+                  className="text-xs text-cyan-400 hover:underline cursor-pointer font-semibold"
+                >
+                  全選
+                </button>
+                <span className="text-gray-600">•</span>
+                <button
+                  onClick={() => setTempSelectedCategories([])}
+                  className="text-xs text-gray-400 hover:text-gray-200 hover:underline cursor-pointer"
+                >
+                  清空 (看全部)
+                </button>
+              </div>
+            </div>
 
+            {/* Grid of Categories with Checkboxes */}
+            <div className="overflow-y-auto pr-1 space-y-2 flex-1 scrollbar-thin">
               {categories.map((c) => {
-                const isSelected = selectedCategory === c.name;
+                const isChecked = tempSelectedCategories.includes(c.name);
                 const count = categoryCounts[c.name] || 0;
                 const icon = getCategoryIcon(c.name, 'expense');
 
                 return (
-                  <button
+                  <div
                     key={c.id}
                     onClick={() => {
-                      setSelectedCategory(isSelected ? 'all' : c.name);
-                      setIsCategoryModalOpen(false);
+                      setTempSelectedCategories((prev) =>
+                        prev.includes(c.name) ? prev.filter((item) => item !== c.name) : [...prev, c.name]
+                      );
                     }}
-                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition text-left cursor-pointer ${
-                      isSelected
-                        ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-300 font-bold'
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition text-left cursor-pointer select-none ${
+                      isChecked
+                        ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-300'
                         : 'border-white/5 bg-white/5 hover:bg-white/10 text-gray-300'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">{icon}</span>
+                      <div
+                        className={`w-5 h-5 rounded-lg border flex items-center justify-center transition shrink-0 ${
+                          isChecked
+                            ? 'bg-cyan-500 border-cyan-400 text-black'
+                            : 'border-white/20 bg-black/40'
+                        }`}
+                      >
+                        {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
+                      <span className="text-xl shrink-0">{icon}</span>
                       <div>
-                        <div className="text-sm font-bold">{c.name}</div>
+                        <div className="text-sm font-bold text-white">{c.name}</div>
                         <div className="text-xs text-gray-500">
                           {count > 0 ? `本期共 ${count} 筆紀錄` : '本期尚無紀錄'}
                         </div>
                       </div>
                     </div>
-                    {isSelected ? (
-                      <Check className="w-4 h-4 text-cyan-400" />
-                    ) : count > 0 ? (
-                      <span className="text-xs font-mono bg-white/10 text-gray-300 px-2 py-0.5 rounded-full">
+
+                    {count > 0 && (
+                      <span className="text-xs font-mono bg-white/10 text-gray-300 px-2 py-0.5 rounded-full shrink-0">
                         {count}
                       </span>
-                    ) : null}
-                  </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
 
             {/* Bottom Actions */}
-            <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
               <button
                 onClick={() => {
-                  setSelectedCategory('all');
+                  setTempSelectedCategories([]);
+                  setSelectedCategories([]);
                   setIsCategoryModalOpen(false);
                 }}
-                className="text-xs text-gray-400 hover:text-white transition cursor-pointer"
+                className="text-xs text-gray-400 hover:text-white transition cursor-pointer px-2 py-1.5"
               >
-                重設為全部大類
+                查看全部大類
               </button>
               <button
-                onClick={() => setIsCategoryModalOpen(false)}
-                className="px-4 py-2 text-black font-bold text-xs rounded-xl transition cursor-pointer shadow-md active:scale-95"
+                onClick={() => {
+                  setSelectedCategories(tempSelectedCategories);
+                  setIsCategoryModalOpen(false);
+                }}
+                className="px-5 py-2 text-black font-bold text-xs rounded-xl transition cursor-pointer shadow-md active:scale-95"
                 style={{ backgroundColor: currentTheme.primaryHex }}
               >
-                完成
+                確定套用 {tempSelectedCategories.length > 0 ? `(${tempSelectedCategories.length})` : ''}
               </button>
             </div>
           </div>
