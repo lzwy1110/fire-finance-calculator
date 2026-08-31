@@ -193,91 +193,107 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         onUpdateConfig={onUpdateFIREConfig}
       />
 
-      {/* Top Stat Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Monthly Income */}
-        <div className="bg-[#111111] border border-white/5 rounded-3xl p-5 relative overflow-hidden shadow-lg group hover:border-white/20 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">本月總收入</span>
+      {/* Option B: Unified Monthly Pulse Financial Dashboard Panel (Apple / Revolut Style) */}
+      <div className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3">
+        {/* Panel Header */}
+        <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+          <div className="flex items-center gap-2">
             <div
-              className="p-2 rounded-xl"
-              style={{
-                backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
-                color: currentTheme.primaryHex,
-              }}
-            >
-              <Wallet className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black text-white font-mono">
-              {sym} {formatNum(monthlyIncome)}
-            </div>
-            <div className="text-xs mt-1 flex items-center gap-1 font-medium" style={{ color: currentTheme.primaryHex }}>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>正職薪資與副業收益</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Monthly Expense */}
-        <div className="bg-[#111111] border border-white/5 rounded-3xl p-5 relative overflow-hidden shadow-lg group hover:border-orange-500/30 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">本月總支出</span>
-            <div className="p-2 bg-orange-500/10 text-orange-400 rounded-xl">
-              <ArrowDownRight className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black text-white font-mono">
-              {sym} {formatNum(monthlyExpense)}
-            </div>
-            <div className="text-xs text-orange-400 mt-1 flex items-center gap-1 font-medium">
-              <span>占總收入 {(monthlyIncome > 0 ? (monthlyExpense / monthlyIncome) * 100 : 0).toFixed(1)}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Monthly Tax */}
-        <div className="bg-[#111111] border border-white/5 rounded-3xl p-5 relative overflow-hidden shadow-lg group hover:border-purple-500/30 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">本月稅金與規費</span>
-            <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl">
-              <ReceiptText className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black text-white font-mono">
-              {sym} {formatNum(monthlyTax)}
-            </div>
-            <div className="text-xs text-purple-400 mt-1 font-medium truncate">
-              所得稅・補充保費・車輛規費
-            </div>
-          </div>
-        </div>
-
-        {/* Net Savings Rate & Health Grade */}
-        <div className="bg-[#111111] border border-white/5 rounded-3xl p-5 relative overflow-hidden shadow-lg group hover:border-white/20 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">淨儲蓄率 & 評級</span>
-            <span
-              className="px-2 py-0.5 text-xs font-black rounded-lg border"
-              style={{
-                color: currentTheme.primaryHex,
-                backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
-                borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.3)`,
-              }}
-            >
-              {healthGrade} 級
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{ backgroundColor: currentTheme.primaryHex }}
+            />
+            <span className="text-xs sm:text-sm font-bold text-white tracking-wide">
+              本月收支與財務脈動
             </span>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black font-mono" style={{ color: currentTheme.primaryHex }}>
+          <span className="text-[11px] text-gray-400 font-mono">
+            {new Date().getFullYear()} 年 {new Date().getMonth() + 1} 月
+          </span>
+        </div>
+
+        {/* 4-in-1 Compact Tiles Grid (2x2 on Mobile, 4-in-1 on Desktop) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {/* 1. Monthly Income */}
+          <div className="bg-[#141417] border border-white/5 rounded-2xl p-3 sm:p-3.5 space-y-1 hover:border-white/10 transition">
+            <div className="flex items-center justify-between text-[11px] text-gray-400">
+              <span className="font-medium">本月總收入</span>
+              <div
+                className="p-1 rounded-lg"
+                style={{
+                  backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
+                  color: currentTheme.primaryHex,
+                }}
+              >
+                <Wallet className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="text-base sm:text-lg font-black text-white font-mono whitespace-nowrap">
+              {sym} {formatNum(monthlyIncome)}
+            </div>
+            <div className="text-[10px] text-emerald-400 flex items-center gap-0.5 font-medium truncate">
+              <ArrowUpRight className="w-3 h-3 shrink-0" />
+              <span>薪資與副業收益</span>
+            </div>
+          </div>
+
+          {/* 2. Monthly Expense */}
+          <div className="bg-[#141417] border border-white/5 rounded-2xl p-3 sm:p-3.5 space-y-1 hover:border-orange-500/20 transition">
+            <div className="flex items-center justify-between text-[11px] text-gray-400">
+              <span className="font-medium">本月總支出</span>
+              <div className="p-1 bg-orange-500/10 text-orange-400 rounded-lg">
+                <ArrowDownRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="text-base sm:text-lg font-black text-white font-mono whitespace-nowrap">
+              {sym} {formatNum(monthlyExpense)}
+            </div>
+            <div className="text-[10px] text-orange-400 flex items-center gap-0.5 font-medium truncate">
+              <span>占收入 {(monthlyIncome > 0 ? (monthlyExpense / monthlyIncome) * 100 : 0).toFixed(1)}%</span>
+            </div>
+          </div>
+
+          {/* 3. Monthly Tax */}
+          <div className="bg-[#141417] border border-white/5 rounded-2xl p-3 sm:p-3.5 space-y-1 hover:border-purple-500/20 transition">
+            <div className="flex items-center justify-between text-[11px] text-gray-400">
+              <span className="font-medium">稅金與規費</span>
+              <div className="p-1 bg-purple-500/10 text-purple-400 rounded-lg">
+                <ReceiptText className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="text-base sm:text-lg font-black text-white font-mono whitespace-nowrap">
+              {sym} {formatNum(monthlyTax)}
+            </div>
+            <div className="text-[10px] text-purple-400 font-medium truncate">
+              所得稅・補充保費
+            </div>
+          </div>
+
+          {/* 4. Net Savings & Grade */}
+          <div className="bg-[#141417] border border-white/5 rounded-2xl p-3 sm:p-3.5 space-y-1 hover:border-white/10 transition">
+            <div className="flex items-center justify-between text-[11px] text-gray-400">
+              <span className="font-medium">淨儲蓄率</span>
+              <span
+                className="px-1.5 py-0.2 text-[10px] font-black rounded-md border"
+                style={{
+                  color: currentTheme.primaryHex,
+                  backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
+                  borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.3)`,
+                }}
+              >
+                {healthGrade} 級
+              </span>
+            </div>
+            <div
+              className="text-base sm:text-lg font-black font-mono whitespace-nowrap"
+              style={{ color: currentTheme.primaryHex }}
+            >
               {savingsRate}%
             </div>
-            <div className="text-xs text-gray-400 mt-1 flex flex-wrap items-center justify-between gap-1">
+            <div className="text-[10px] text-gray-400 flex items-center justify-between gap-1 font-medium truncate">
               <span>{healthDesc}</span>
-              <span className="text-emerald-400 font-mono font-bold whitespace-nowrap">淨存 {sym}{formatNum(Math.max(0, netSavings))}</span>
+              <span className="text-emerald-400 font-mono font-bold">
+                +{sym}{formatNum(Math.max(0, netSavings))}
+              </span>
             </div>
           </div>
         </div>
