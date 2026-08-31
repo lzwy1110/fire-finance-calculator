@@ -53,9 +53,9 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
       <div className="relative z-10 space-y-6">
         {/* Top Header Row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 min-w-0">
             <div
-              className="p-3 rounded-2xl border flex items-center justify-center transition-all"
+              className="p-2.5 sm:p-3 rounded-2xl border flex items-center justify-center transition-all shrink-0"
               style={{
                 backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
                 borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.35)`,
@@ -63,15 +63,15 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                 boxShadow: `0 0 15px rgba(${currentTheme.bgGlowRgb}, 0.25)`,
               }}
             >
-              <Flame className="w-7 h-7 animate-bounce" />
+              <Flame className="w-6 h-6 sm:w-7 sm:h-7 animate-bounce" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                  FIRE 財務獨立・退休倒數
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <h2 className="text-base sm:text-xl md:text-2xl font-black text-white tracking-tight whitespace-nowrap">
+                  FIRE 財務自由・退休倒數
                 </h2>
                 <span
-                  className="px-2.5 py-0.5 text-[10px] uppercase tracking-wider font-bold border rounded-full"
+                  className="px-2 py-0.5 text-[9.5px] sm:text-[10px] uppercase font-bold border rounded-full whitespace-nowrap shrink-0"
                   style={{
                     backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.2)`,
                     color: currentTheme.primaryHex,
@@ -81,7 +81,7 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                   4% 提領法則
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-gray-400">
+              <p className="text-[11px] sm:text-sm text-gray-400 mt-0.5 truncate">
                 目標退休年支出 {sym} {formatNumber(config.targetAnnualExpensePostRetirement)} ({sym} {formatNumber(Math.round(config.targetAnnualExpensePostRetirement / 12))}/月)
               </p>
             </div>
@@ -100,7 +100,7 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
               });
               setIsSimulatorOpen(true);
             }}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl text-xs sm:text-sm font-semibold transition cursor-pointer shadow-md"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl text-xs sm:text-sm font-semibold transition cursor-pointer shadow-md shrink-0"
             style={{ color: currentTheme.primaryHex }}
           >
             <Sliders className="w-4 h-4" style={{ color: currentTheme.primaryHex }} />
@@ -112,15 +112,15 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           {/* Main Big Days Countdown */}
           <div
-            className="lg:col-span-7 bg-[#0c0c0c] p-6 rounded-3xl border border-white/10 relative overflow-hidden transition-all"
+            className="lg:col-span-7 bg-[#0c0c0c] p-5 sm:p-6 rounded-3xl border border-white/10 relative overflow-hidden transition-all"
             style={{ boxShadow: `0 0 20px rgba(${currentTheme.bgGlowRgb}, 0.3)` }}
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold tracking-widest uppercase flex items-center gap-1.5" style={{ color: currentTheme.primaryHex }}>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <span className="text-xs font-bold uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0" style={{ color: currentTheme.primaryHex }}>
                 <Sparkles className="w-4 h-4" /> 距離財務自由進度
               </span>
-              <span className="text-xs font-mono text-gray-400 bg-white/5 px-2.5 py-1 rounded-lg border border-white/5">
-                年報酬率 {config.expectedInvestmentReturnRate}% | 通膨 {config.expectedInflationRate}%
+              <span className="text-[10px] sm:text-xs font-mono text-gray-400 bg-white/5 px-2 py-0.5 sm:py-1 rounded-lg border border-white/5 whitespace-nowrap shrink-0">
+                報酬 {config.expectedInvestmentReturnRate}% | 通膨 {config.expectedInflationRate}%
               </span>
             </div>
 
@@ -145,12 +145,12 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-300 pt-2 border-t border-white/10">
-                  <div className="flex items-center gap-1.5" style={{ color: currentTheme.primaryHex }}>
-                    <Calendar className="w-4 h-4" />
+                  <div className="flex items-center gap-1.5 whitespace-nowrap" style={{ color: currentTheme.primaryHex }}>
+                    <Calendar className="w-4 h-4 shrink-0" />
                     <span>預計達成日：<strong className="text-white">{result.estimatedFIRERetirementDate}</strong></span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-gray-300">
-                    <Target className="w-4 h-4 text-cyan-400" />
+                  <div className="flex items-center gap-1.5 text-gray-300 whitespace-nowrap">
+                    <Target className="w-4 h-4 text-cyan-400 shrink-0" />
                     <span>精算退休年齡：<strong className="text-cyan-300 font-bold font-mono">{result.ageAtFIRE} 歲</strong></span>
                   </div>
                   {config.targetRetirementAge > 0 && (
@@ -186,12 +186,13 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
 
               return (
                 <div className="col-span-2 bg-[#111111] p-4 sm:p-5 rounded-2xl border border-white/5 flex flex-col justify-between">
-                  <div className="text-xs text-gray-400 flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                      目前總淨資產 (Total Net Worth)
+                  <div className="text-xs text-gray-400 flex items-center justify-between mb-1 gap-1">
+                    <span className="font-bold text-xs uppercase text-gray-300 flex items-center gap-1.5 whitespace-nowrap">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>目前總淨資產</span>
+                      <span className="text-[10px] text-gray-500 font-normal hidden sm:inline">(Net Worth)</span>
                     </span>
-                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-bold">
+                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-bold whitespace-nowrap shrink-0">
                       現金 + 股票
                     </span>
                   </div>
@@ -218,8 +219,8 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-xs text-gray-400 pt-2 border-t border-white/5 flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2 py-1 rounded-xl">
+                  <div className="text-xs text-gray-400 pt-2 border-t border-white/5 grid grid-cols-1 xs:grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2 py-1 rounded-xl whitespace-nowrap">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
                       <span className="text-gray-300">現金:</span>
                       <strong className="text-emerald-400 font-bold flex items-center gap-1">
@@ -228,7 +229,7 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                       </strong>
                       <span className="text-[10px] text-gray-500 font-semibold">({cashPct}%)</span>
                     </div>
-                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2 py-1 rounded-xl">
+                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2 py-1 rounded-xl whitespace-nowrap">
                       <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
                       <span className="text-gray-300">股票:</span>
                       <strong className="text-cyan-400 font-bold">{sym} {formatNumber(stockAmt)}</strong>
@@ -291,11 +292,13 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
 
         {/* Progress Bar & Milestones */}
         <div className="space-y-2 pt-2">
-          <div className="flex items-center justify-between text-xs text-gray-300 font-medium">
-            <span className="flex items-center gap-1 font-bold" style={{ color: currentTheme.primaryHex }}>
-              <Flame className="w-3.5 h-3.5" /> FIRE 累積進度
+          <div className="flex flex-wrap items-center justify-between text-[11px] sm:text-xs text-gray-300 font-medium gap-1">
+            <span className="flex items-center gap-1 font-bold whitespace-nowrap" style={{ color: currentTheme.primaryHex }}>
+              <Flame className="w-3.5 h-3.5 shrink-0" /> FIRE 累積進度
             </span>
-            <span className="font-mono">{result.currentProgressPercent}% ({sym} {formatNumber(config.currentNetWorth)} / {sym} {formatNumber(result.targetFIREAmount)})</span>
+            <span className="font-mono text-gray-400 whitespace-nowrap">
+              <strong className="text-white">{result.currentProgressPercent}%</strong> ({sym} {formatNumber(config.currentNetWorth)} / {sym} {formatNumber(result.targetFIREAmount)})
+            </span>
           </div>
 
           <div className="w-full bg-[#050505] h-3.5 rounded-full p-0.5 border border-white/10 overflow-hidden relative">
