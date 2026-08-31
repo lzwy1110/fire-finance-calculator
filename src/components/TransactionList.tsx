@@ -50,6 +50,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [tempSelectedCategories, setTempSelectedCategories] = useState<string[]>([]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [selectedDetailTransaction, setSelectedDetailTransaction] = useState<Transaction | null>(null);
 
   // Deletion Confirm Modal state
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; amount: number } | null>(null);
@@ -559,11 +560,13 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                   return (
                     <div
                       key={t.id}
-                      className="flex items-center justify-between bg-[#121215] hover:bg-white/5 border border-white/5 p-3 rounded-2xl transition group"
+                      onClick={() => setSelectedDetailTransaction(t)}
+                      className="flex items-center justify-between bg-[#121215] hover:bg-white/5 border border-white/5 hover:border-white/10 p-3 rounded-2xl transition group cursor-pointer active:scale-[0.99]"
+                      title="點擊查看完整收據與備註"
                     >
                       {/* Left: Icon + Info */}
                       <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-base shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-base shrink-0 group-hover:scale-105 transition-transform">
                           {icon}
                         </div>
 
@@ -605,7 +608,10 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                         </div>
 
                         <button
-                          onClick={() => setDeleteTarget({ id: t.id, name: `${t.mainCategory} (${t.subCategory})`, amount: t.amount })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget({ id: t.id, name: `${t.mainCategory} (${t.subCategory})`, amount: t.amount });
+                          }}
                           className="p-1.5 text-gray-600 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
                           title="刪除紀錄"
                         >
@@ -774,6 +780,162 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                 style={{ backgroundColor: currentTheme.primaryHex }}
               >
                 確定套用 {tempSelectedCategories.length > 0 ? `(${tempSelectedCategories.length})` : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Detail Modal / Electronic Receipt (Option A) */}
+      {selectedDetailTransaction && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-md bg-[#0e0e12] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-slideUp sm:animate-none">
+            {/* Mobile Drag Indicator */}
+            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <div
+                  className="p-2 rounded-xl"
+                  style={{
+                    backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
+                    color: currentTheme.primaryHex,
+                  }}
+                >
+                  <ReceiptText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">收支明細收據</h3>
+                  <p className="text-[11px] text-gray-400 font-mono">ID: {selectedDetailTransaction.id.slice(0, 8)}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedDetailTransaction(null)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Hero: Amount & Icon */}
+            <div className="bg-[#141418] border border-white/5 rounded-2xl p-4 text-center space-y-2 shadow-inner">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl shadow-inner">
+                {getCategoryIcon(selectedDetailTransaction.mainCategory, selectedDetailTransaction.type)}
+              </div>
+              <div className="text-sm font-bold text-gray-300">
+                {selectedDetailTransaction.subCategory || selectedDetailTransaction.mainCategory}
+              </div>
+              <div
+                className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                  selectedDetailTransaction.type === 'income'
+                    ? 'text-emerald-400'
+                    : selectedDetailTransaction.type === 'tax'
+                    ? 'text-purple-400'
+                    : selectedDetailTransaction.type === 'investment'
+                    ? 'text-cyan-300'
+                    : 'text-orange-400'
+                }`}
+              >
+                {selectedDetailTransaction.type === 'income' ? '+' : '-'} {sym}{' '}
+                {formatNum(selectedDetailTransaction.amount)}
+              </div>
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                <span
+                  className="text-[10px] px-2.5 py-0.5 rounded-full border font-bold uppercase"
+                  style={{
+                    backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
+                    color: currentTheme.primaryHex,
+                    borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.3)`,
+                  }}
+                >
+                  {selectedDetailTransaction.type === 'income'
+                    ? '💰 收入紀錄'
+                    : selectedDetailTransaction.type === 'tax'
+                    ? '🏛️ 稅金與規費'
+                    : selectedDetailTransaction.type === 'investment'
+                    ? '📈 投資扣款'
+                    : '💸 日常支出'}
+                </span>
+                {selectedDetailTransaction.isQuickPreset && (
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold">
+                    ⚡ 1秒速記
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Breakdown Details Table */}
+            <div className="bg-[#141418] border border-white/5 rounded-2xl p-3.5 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between py-1 border-b border-white/5">
+                <span className="text-gray-400">記帳大類</span>
+                <span className="font-bold text-white">{selectedDetailTransaction.mainCategory}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-white/5">
+                <span className="text-gray-400">明細子類</span>
+                <span className="font-bold text-gray-200">
+                  {selectedDetailTransaction.subCategory || '未指定子類'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-white/5">
+                <span className="text-gray-400">交易日期</span>
+                <span className="font-mono font-bold text-white">{selectedDetailTransaction.date}</span>
+              </div>
+              {selectedDetailTransaction.tags && selectedDetailTransaction.tags.length > 0 && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-gray-400">專屬標籤</span>
+                  <div className="flex items-center gap-1 flex-wrap justify-end">
+                    {selectedDetailTransaction.tags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-0.5 bg-white/5 text-gray-300 border border-white/10 rounded-md text-[10px]"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Full Note Card (Zero Truncation, Multi-line Supported) */}
+            <div className="bg-[#141418] border border-white/5 rounded-2xl p-3.5 space-y-1.5">
+              <div className="text-[11px] font-bold text-gray-400 flex items-center gap-1">
+                <span>📝 完整備註說明</span>
+              </div>
+              {selectedDetailTransaction.note ? (
+                <p className="text-xs sm:text-sm text-gray-100 leading-relaxed break-words whitespace-pre-wrap select-text bg-black/40 p-2.5 rounded-xl border border-white/5">
+                  {selectedDetailTransaction.note}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 italic">此筆紀錄未填寫備註說明</p>
+              )}
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+              <button
+                onClick={() => {
+                  const target = selectedDetailTransaction;
+                  setSelectedDetailTransaction(null);
+                  setDeleteTarget({
+                    id: target.id,
+                    name: `${target.mainCategory} (${target.subCategory})`,
+                    amount: target.amount,
+                  });
+                }}
+                className="flex items-center gap-1 px-3 py-2 text-rose-400 hover:bg-rose-500/10 rounded-xl transition text-xs font-bold cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>刪除紀錄</span>
+              </button>
+
+              <button
+                onClick={() => setSelectedDetailTransaction(null)}
+                className="px-5 py-2 text-black font-bold text-xs rounded-xl transition cursor-pointer shadow-md active:scale-95"
+                style={{ backgroundColor: currentTheme.primaryHex }}
+              >
+                關閉
               </button>
             </div>
           </div>
