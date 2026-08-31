@@ -80,48 +80,46 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Mobile Right Controls */}
           <div className="flex md:hidden items-center gap-2">
-            {/* Mobile Cloud Status Badge */}
+            {/* Mobile Cloud Status Button (Icon Only, Minimalist & Symmetric) */}
             {storageMode === 'cloud' ? (
               !isFrontendSupabaseReady() ? (
                 <button
                   onClick={onOpenCloudSync}
-                  className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] font-bold text-amber-300 transition cursor-pointer"
-                  title="未設定 Supabase (點擊設定)"
+                  className="w-8 h-8 flex items-center justify-center bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 transition cursor-pointer active:scale-95"
+                  title="未設定 Supabase 雲端 (點擊進行設定)"
                 >
-                  <AlertTriangle className="w-3 h-3 text-amber-400" />
-                  <span>未配置雲端</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
                 </button>
               ) : (
                 <button
                   onClick={onOpenCloudSync}
-                  className="flex items-center gap-1.5 px-2 py-1 bg-white/5 border border-white/10 rounded-xl text-[11px] font-mono text-gray-300 transition cursor-pointer"
-                  title="雲端同步中"
+                  className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition cursor-pointer relative active:scale-95"
+                  title={`雲端同步中 (同步碼: ${syncCode})`}
                 >
                   <div className="relative flex items-center justify-center">
-                    <Cloud className="w-3 h-3" style={{ color: currentTheme.primaryHex }} />
+                    <Cloud className="w-4 h-4" style={{ color: currentTheme.primaryHex }} />
                     <span
-                      className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${
-                        dbStatus === 'connected' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+                      className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ring-2 ring-[#0a0a0a] ${
+                        dbStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
                       }`}
                     />
                   </div>
-                  <span className="font-bold text-white">{syncCode.slice(0, 6)}</span>
                 </button>
               )
             ) : (
               <button
                 onClick={onOpenConfig}
-                className="flex items-center gap-1 px-2 py-1 bg-zinc-900 border border-zinc-700 rounded-xl text-[11px] font-medium text-zinc-300 transition cursor-pointer"
-                title="純本機模式"
+                className="w-8 h-8 flex items-center justify-center bg-zinc-900 border border-zinc-700 rounded-xl text-zinc-300 transition cursor-pointer active:scale-95"
+                title="純本機模式 (點擊切換)"
               >
-                <Lock className="w-3 h-3 text-zinc-400" />
-                <span>離線</span>
+                <Lock className="w-4 h-4 text-zinc-400" />
               </button>
             )}
 
+            {/* System Settings Button */}
             <button
               onClick={onOpenConfig}
-              className="p-1.5 bg-white/10 text-gray-300 rounded-xl hover:bg-white/20 transition cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 text-gray-300 rounded-xl transition cursor-pointer active:scale-95"
               title="系統與主題設定"
             >
               <Settings className="w-4 h-4" />
