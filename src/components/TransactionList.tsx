@@ -12,6 +12,9 @@ import {
   X,
   ArrowUpRight,
   ArrowDownRight,
+  Check,
+  Folder,
+  ChevronDown,
 } from 'lucide-react';
 import { CategoryItem, FIREConfig, Transaction } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -45,10 +48,21 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   // Deletion Confirm Modal state
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; amount: number } | null>(null);
   const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState(false);
+
+  // Count items per category under current month
+  const categoryCounts = useMemo(() => {
+    const map: { [name: string]: number } = {};
+    transactions.forEach((t) => {
+      if (selectedMonth !== 'all' && !t.date.startsWith(selectedMonth)) return;
+      map[t.mainCategory] = (map[t.mainCategory] || 0) + 1;
+    });
+    return map;
+  }, [transactions, selectedMonth]);
 
   // Available unique months list sorted descending
   const availableMonths = useMemo(() => {
@@ -362,11 +376,12 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           </div>
         </div>
 
-        {/* Quick Filter: Types Pill Chips */}
-        <div className="space-y-2 pt-1 border-t border-white/5">
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
+        {/* Quick Filter: Types & Category Pill Chips */}
+        <div className="space-y-2.5 pt-1 border-t border-white/5">
+          {/* Row 1: Types Pill Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
             {[
-              { id: 'all', label: '全部', icon: '📝' },
+              { id: 'all', label: '全部類型', icon: '📝' },
               { id: 'expense', label: '支出', icon: '💸' },
               { id: 'income', label: '收入', icon: '💰' },
               { id: 'tax', label: '稅金', icon: '🏛️' },
@@ -377,9 +392,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                 <button
                   key={t.id}
                   onClick={() => setSelectedType(t.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
                     isActive
-                      ? 'bg-white text-black shadow-md'
+                      ? 'bg-white text-black shadow-md scale-100'
                       : 'bg-black/60 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/5'
                   }`}
                 >
@@ -390,41 +405,84 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             })}
           </div>
 
-          {/* Search + Category Dropdown Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-gray-500" />
-              <input
-                type="text"
-                placeholder="搜尋項目、金額或備註 (如: 晚餐, 0050)..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-black/60 border border-white/10 rounded-xl pl-8 pr-8 py-1.5 text-xs text-gray-200 focus:border-cyan-500 focus:outline-none"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-2 text-gray-500 hover:text-gray-300 p-0.5"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Category Dropdown */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-200 focus:border-cyan-500 focus:outline-none cursor-pointer"
+          {/* Row 2: Category Pill Chips (Horizontal scrollable, zero native popups) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                selectedCategory === 'all'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'bg-black/60 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/5'
+              }`}
             >
-              <option value="all">全部大類 (飲食/娛樂/居住/交通...)</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              <span>📂</span>
+              <span>全部大類</span>
+            </button>
+
+            {categories.map((c) => {
+              const isActive = selectedCategory === c.name;
+              const count = categoryCounts[c.name] || 0;
+              const icon = getCategoryIcon(c.name, 'expense');
+
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCategory(isActive ? 'all' : c.name)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                    isActive
+                      ? 'shadow-sm border'
+                      : 'bg-black/60 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/5'
+                  }`}
+                  style={
+                    isActive
+                      ? {
+                          backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.22)`,
+                          borderColor: currentTheme.primaryHex,
+                          color: currentTheme.primaryHex,
+                        }
+                      : undefined
+                  }
+                >
+                  <span>{icon}</span>
+                  <span>{c.name}</span>
+                  {count > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-black/40 text-white' : 'bg-white/10 text-gray-400'}`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/10 transition whitespace-nowrap flex items-center gap-1 cursor-pointer shrink-0"
+              title="展開大類完整清單"
+            >
+              <Folder className="w-3.5 h-3.5 text-cyan-400" />
+              <span>更多分類</span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Row 3: Keyword Search Bar */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="搜尋項目、金額或備註 (如: 晚餐, 0050)..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-black/60 border border-white/10 rounded-xl pl-8 pr-8 py-1.5 text-xs text-gray-200 focus:border-cyan-500 focus:outline-none placeholder:text-gray-600"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-2 text-gray-500 hover:text-gray-300 p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -580,6 +638,120 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         }}
         onClose={() => setIsClearAllConfirmOpen(false)}
       />
+
+      {/* Custom Glassmorphism Category Picker Modal */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-md bg-[#0f0f12] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="p-2 rounded-xl"
+                  style={{
+                    backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
+                    color: currentTheme.primaryHex,
+                  }}
+                >
+                  <Folder className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">篩選記帳大類</h3>
+                  <p className="text-xs text-gray-400">點擊大類以即時過濾明細紀錄</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Grid of Categories */}
+            <div className="overflow-y-auto pr-1 space-y-2 flex-1 scrollbar-thin">
+              <button
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setIsCategoryModalOpen(false);
+                }}
+                className={`w-full flex items-center justify-between p-3 rounded-2xl border transition text-left cursor-pointer ${
+                  selectedCategory === 'all'
+                    ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-300 font-bold'
+                    : 'border-white/5 bg-white/5 hover:bg-white/10 text-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">📂</span>
+                  <div>
+                    <div className="text-sm font-bold">全部大類</div>
+                    <div className="text-xs text-gray-500">不限大類顯示所有明細</div>
+                  </div>
+                </div>
+                {selectedCategory === 'all' && <Check className="w-4 h-4 text-cyan-400" />}
+              </button>
+
+              {categories.map((c) => {
+                const isSelected = selectedCategory === c.name;
+                const count = categoryCounts[c.name] || 0;
+                const icon = getCategoryIcon(c.name, 'expense');
+
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedCategory(isSelected ? 'all' : c.name);
+                      setIsCategoryModalOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition text-left cursor-pointer ${
+                      isSelected
+                        ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-300 font-bold'
+                        : 'border-white/5 bg-white/5 hover:bg-white/10 text-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{icon}</span>
+                      <div>
+                        <div className="text-sm font-bold">{c.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {count > 0 ? `本期共 ${count} 筆紀錄` : '本期尚無紀錄'}
+                        </div>
+                      </div>
+                    </div>
+                    {isSelected ? (
+                      <Check className="w-4 h-4 text-cyan-400" />
+                    ) : count > 0 ? (
+                      <span className="text-xs font-mono bg-white/10 text-gray-300 px-2 py-0.5 rounded-full">
+                        {count}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setIsCategoryModalOpen(false);
+                }}
+                className="text-xs text-gray-400 hover:text-white transition cursor-pointer"
+              >
+                重設為全部大類
+              </button>
+              <button
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="px-4 py-2 text-black font-bold text-xs rounded-xl transition cursor-pointer shadow-md active:scale-95"
+                style={{ backgroundColor: currentTheme.primaryHex }}
+              >
+                完成
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
