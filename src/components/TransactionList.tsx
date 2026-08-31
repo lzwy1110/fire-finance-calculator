@@ -807,7 +807,18 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-bold text-white">收支明細收據</h3>
-                  <p className="text-[11px] text-gray-400 font-mono">ID: {selectedDetailTransaction.id.slice(0, 8)}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[11px] text-gray-400 font-mono">
+                      {selectedDetailTransaction.id.startsWith('t-widget-')
+                        ? `憑證 #W-${selectedDetailTransaction.id.slice(-6).toUpperCase()}`
+                        : `憑證 #TX-${selectedDetailTransaction.id.replace(/^t-/, '').slice(-6).toUpperCase()}`}
+                    </span>
+                    {selectedDetailTransaction.id.startsWith('t-widget-') && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
+                        ⚡ WIDGET
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <button

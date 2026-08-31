@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, CalendarRange, Wallet, ArrowDownRight, ReceiptText, TrendingUp, ShieldCheck, PieChart, ChevronRight } from 'lucide-react';
+import {
+  Calendar,
+  CalendarRange,
+  Wallet,
+  ArrowDownRight,
+  ReceiptText,
+  TrendingUp,
+  ShieldCheck,
+  PieChart,
+  ChevronRight,
+  ChevronLeft,
+  ChevronDown,
+  Check,
+} from 'lucide-react';
 import { FIREConfig, Transaction } from '../types';
 import { calculateMonthlyStats, calculateYearlyStats } from '../utils/fireCalculator';
 import { getThemePreset } from '../utils/theme';
@@ -17,6 +30,7 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>(initialMode);
   const currentTheme = getThemePreset(fireConfig.themeColor);
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
 
   useEffect(() => {
     setViewMode(initialMode);
@@ -31,15 +45,43 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
     new Set<string>(transactions.map((t) => t.date.slice(0, 4)))
   ).sort((a, b) => b.localeCompare(a));
 
+  const currentMonthStr = new Date().toISOString().slice(0, 7);
+  const currentYearStr = new Date().getFullYear().toString();
+
   const [selectedMonth, setSelectedMonth] = useState<string>(
-    availableMonths[0] || new Date().toISOString().slice(0, 7)
+    availableMonths[0] || currentMonthStr
   );
   const [selectedYear, setSelectedYear] = useState<string>(
-    availableYears[0] || new Date().getFullYear().toString()
+    availableYears[0] || currentYearStr
   );
 
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
+
+  // Month & Year Steppers
+  const handlePrevMonth = () => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const date = new Date(y, m - 2, 1);
+    setSelectedMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth >= currentMonthStr) return;
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const date = new Date(y, m, 1);
+    setSelectedMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+  };
+
+  const handlePrevYear = () => {
+    const y = parseInt(selectedYear, 10);
+    setSelectedYear((y - 1).toString());
+  };
+
+  const handleNextYear = () => {
+    const y = parseInt(selectedYear, 10);
+    if (y >= parseInt(currentYearStr, 10)) return;
+    setSelectedYear((y + 1).toString());
+  };
 
   // Stats calculation
   const mStats = calculateMonthlyStats(transactions, selectedMonth);
@@ -68,33 +110,97 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
           </p>
         </div>
 
-        {/* Date Dropdown */}
-        <div className="flex items-center gap-3">
-          {viewMode === 'monthly' ? (
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-black border border-white/10 rounded-2xl px-3 py-2 text-xs font-mono font-bold focus:outline-none cursor-pointer"
-              style={{ color: currentTheme.primaryHex }}
+        {/* Glassmorphic Stepper + Custom Popover Picker */}
+        <div className="flex items-center gap-2 relative">
+          <div className="flex items-center bg-black/60 border border-white/10 p-1 rounded-2xl shadow-inner">
+            <button
+              onClick={viewMode === 'monthly' ? handlePrevMonth : handlePrevYear}
+              className="p-1.5 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer active:scale-95"
+              title="前一個週期"
             >
-              {availableMonths.map((m) => (
-                <option key={m} value={m}>
-                  {m} 月度總結
-                </option>
-              ))}
-            </select>
-          ) : (
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="bg-black border border-white/10 rounded-2xl px-3 py-2 text-xs font-mono font-bold text-cyan-300 focus:border-cyan-500 focus:outline-none cursor-pointer"
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {/* Middle Trigger */}
+            <button
+              onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
+              className="px-3 py-1 text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer hover:bg-white/5 rounded-xl"
+              style={{ color: viewMode === 'monthly' ? currentTheme.primaryHex : '#67e8f9' }}
             >
-              {availableYears.map((y) => (
-                <option key={y} value={y}>
-                  {y} 年度總結
-                </option>
-              ))}
-            </select>
+              <span>{viewMode === 'monthly' ? `${selectedMonth} 月結` : `${selectedYear} 年結`}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${isDateDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            <button
+              onClick={viewMode === 'monthly' ? handleNextMonth : handleNextYear}
+              disabled={viewMode === 'monthly' ? selectedMonth >= currentMonthStr : parseInt(selectedYear, 10) >= parseInt(currentYearStr, 10)}
+              className="p-1.5 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
+              title="後一個週期"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Custom Popover Dropdown */}
+          {isDateDropdownOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-[60]"
+                onClick={() => setIsDateDropdownOpen(false)}
+              />
+              <div className="absolute right-0 top-full mt-2 z-[70] w-48 max-h-60 overflow-y-auto bg-[#141418] border border-white/15 rounded-2xl p-1.5 shadow-2xl space-y-1 animate-fadeIn scrollbar-thin">
+                {viewMode === 'monthly' ? (
+                  availableMonths.length > 0 ? (
+                    availableMonths.map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => {
+                          setSelectedMonth(m);
+                          setIsDateDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-mono font-bold transition text-left cursor-pointer ${
+                          selectedMonth === m
+                            ? 'bg-white/15 text-white shadow-sm'
+                            : 'text-gray-400 hover:bg-white/10 hover:text-white'
+                        }`}
+                        style={selectedMonth === m ? { color: currentTheme.primaryHex } : {}}
+                      >
+                        <span>{m} 月度總結</span>
+                        {selectedMonth === m && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-xs text-gray-500 text-center font-mono">
+                      {selectedMonth}
+                    </div>
+                  )
+                ) : (
+                  availableYears.length > 0 ? (
+                    availableYears.map((y) => (
+                      <button
+                        key={y}
+                        onClick={() => {
+                          setSelectedYear(y);
+                          setIsDateDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-mono font-bold transition text-left cursor-pointer ${
+                          selectedYear === y
+                            ? 'bg-cyan-500/20 text-cyan-300 shadow-sm'
+                            : 'text-gray-400 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <span>{y} 年度總結</span>
+                        {selectedYear === y && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-xs text-gray-500 text-center font-mono">
+                      {selectedYear}
+                    </div>
+                  )
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
