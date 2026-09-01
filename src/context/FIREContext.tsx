@@ -207,128 +207,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     applyThemeToCSSVariables(fireConfig.themeColor);
   }, [fireConfig.themeColor]);
 
-  // ================= ANNUAL TAXES SYSTEM ================= //
-
-  const annualTaxes = useMemo(() => {
-    return fireConfig.annualTaxes && fireConfig.annualTaxes.length > 0
-      ? fireConfig.annualTaxes
-      : DEFAULT_ANNUAL_TAXES;
-  }, [fireConfig.annualTaxes]);
-
-  const annualTaxTotal = useMemo(() => {
-    return annualTaxes.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  }, [annualTaxes]);
-
-  const updateAnnualTaxes = useCallback((taxes: TaxItem[]) => {
-    lastUserEditTimeRef.current = Date.now();
-    const total = taxes.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-    const monthly = Math.round(total / 12);
-    setFireConfig((prev) => {
-      const updated: FIREConfig = {
-        ...prev,
-        annualTaxes: taxes,
-        monthlyTax: monthly,
-      };
-      saveFIREConfig(updated);
-      return updated;
-    });
-  }, []);
-
-  const toggleTaxPaid = useCallback((taxId: string) => {
-    lastUserEditTimeRef.current = Date.now();
-    const todayStr = new Date().toISOString().split('T')[0];
-    const currentTaxes = fireConfig.annualTaxes && fireConfig.annualTaxes.length > 0
-      ? fireConfig.annualTaxes
-      : DEFAULT_ANNUAL_TAXES;
-    const targetTax = currentTaxes.find((t) => t.id === taxId);
-    if (!targetTax) return;
-
-    if (!targetTax.isPaid) {
-      // 1. Mark as paid, create linked transaction
-      const newTxId = `t-tax-${Date.now()}`;
-      const newTx: Transaction = {
-        id: newTxId,
-        type: 'tax',
-        amount: targetTax.amount,
-        mainCategory: '稅金規費',
-        subCategory: targetTax.name,
-        date: todayStr,
-        note: `${targetTax.name} (年度稅金繳納)`,
-      };
-
-      const updatedTaxes = currentTaxes.map((t) =>
-        t.id === taxId
-          ? { ...t, isPaid: true, paidDate: todayStr, transactionId: newTxId }
-          : t
-      );
-
-      // Add transaction to state & storage
-      setTransactions((prev) => {
-        const next = [newTx, ...prev];
-        saveTransactions(next);
-        return next;
-      });
-
-      // Deduct cash savings TWD
-      adjustCashSavings(-targetTax.amount, 'TWD');
-
-      // Update fire config
-      updateAnnualTaxes(updatedTaxes);
-    } else {
-      // 2. Mark as unpaid, remove linked transaction
-      if (targetTax.transactionId) {
-        setTransactions((prev) => {
-          const next = prev.filter((t) => t.id !== targetTax.transactionId);
-          saveTransactions(next);
-          return next;
-        });
-      }
-
-      // Refund cash savings TWD
-      adjustCashSavings(targetTax.amount, 'TWD');
-
-      const updatedTaxes = currentTaxes.map((t) =>
-        t.id === taxId
-          ? { ...t, isPaid: false, paidDate: undefined, transactionId: undefined }
-          : t
-      );
-
-      updateAnnualTaxes(updatedTaxes);
-    }
-  }, [fireConfig.annualTaxes, updateAnnualTaxes, adjustCashSavings]);
-
-  const addCustomTaxItem = useCallback((tax: Omit<TaxItem, 'id' | 'isPaid'>) => {
-    lastUserEditTimeRef.current = Date.now();
-    const currentTaxes = fireConfig.annualTaxes && fireConfig.annualTaxes.length > 0
-      ? fireConfig.annualTaxes
-      : DEFAULT_ANNUAL_TAXES;
-    const newTaxItem: TaxItem = {
-      ...tax,
-      id: `tax-custom-${Date.now()}`,
-      isPaid: false,
-    };
-    updateAnnualTaxes([...currentTaxes, newTaxItem]);
-  }, [fireConfig.annualTaxes, updateAnnualTaxes]);
-
-  const deleteTaxItem = useCallback((taxId: string) => {
-    lastUserEditTimeRef.current = Date.now();
-    const currentTaxes = fireConfig.annualTaxes && fireConfig.annualTaxes.length > 0
-      ? fireConfig.annualTaxes
-      : DEFAULT_ANNUAL_TAXES;
-    const targetTax = currentTaxes.find((t) => t.id === taxId);
-    if (targetTax && targetTax.isPaid && targetTax.transactionId) {
-      setTransactions((prev) => {
-        const next = prev.filter((t) => t.id !== targetTax.transactionId);
-        saveTransactions(next);
-        return next;
-      });
-      adjustCashSavings(targetTax.amount, 'TWD');
-    }
-    const updatedTaxes = currentTaxes.filter((t) => t.id !== taxId);
-    updateAnnualTaxes(updatedTaxes);
-  }, [fireConfig.annualTaxes, updateAnnualTaxes, adjustCashSavings]);
-
-  // ================= MUTATION ACTIONS ================= //
+  // ================= CASH & MUTATION ACTIONS ================= //
 
   const updateCashSavings = useCallback((twdAmount: number, usdAmount?: number) => {
     lastUserEditTimeRef.current = Date.now();
@@ -490,6 +369,127 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       adjustCashSavings(cashDelta, 'TWD');
     }
   }, [adjustCashSavings]);
+
+  // ================= ANNUAL TAXES SYSTEM ================= //
+
+  const annualTaxes = useMemo(() => {
+    return fireConfig.annualTaxes && fireConfig.annualTaxes.length > 0
+      ? fireConfig.annualTaxes
+      : DEFAULT_ANNUAL_TAXES;
+  }, [fireConfig.annualTaxes]);
+
+  const annualTaxTotal = useMemo(() => {
+    return annualTaxes.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  }, [annualTaxes]);
+
+  const updateAnnualTaxes = useCallback((taxes: TaxItem[]) => {
+    lastUserEditTimeRef.current = Date.now();
+    const total = taxes.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const monthly = Math.round(total / 12);
+    setFireConfig((prev) => {
+      const updated: FIREConfig = {
+        ...prev,
+        annualTaxes: taxes,
+        monthlyTax: monthly,
+      };
+      saveFIREConfig(updated);
+      return updated;
+    });
+  }, []);
+
+  const toggleTaxPaid = useCallback((taxId: string) => {
+    lastUserEditTimeRef.current = Date.now();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const currentTaxes = fireConfig.annualTaxes && fireConfig.annualTaxes.length > 0
+      ? fireConfig.annualTaxes
+      : DEFAULT_ANNUAL_TAXES;
+    const targetTax = currentTaxes.find((t) => t.id === taxId);
+    if (!targetTax) return;
+
+    if (!targetTax.isPaid) {
+      // 1. Mark as paid, create linked transaction
+      const newTxId = `t-tax-${Date.now()}`;
+      const newTx: Transaction = {
+        id: newTxId,
+        type: 'tax',
+        amount: targetTax.amount,
+        mainCategory: '稅金規費',
+        subCategory: targetTax.name,
+        date: todayStr,
+        note: `${targetTax.name} (年度稅金繳納)`,
+      };
+
+      const updatedTaxes = currentTaxes.map((t) =>
+        t.id === taxId
+          ? { ...t, isPaid: true, paidDate: todayStr, transactionId: newTxId }
+          : t
+      );
+
+      // Add transaction to state & storage
+      setTransactions((prev) => {
+        const next = [newTx, ...prev];
+        saveTransactions(next);
+        return next;
+      });
+
+      // Deduct cash savings TWD
+      adjustCashSavings(-targetTax.amount, 'TWD');
+
+      // Update fire config
+      updateAnnualTaxes(updatedTaxes);
+    } else {
+      // 2. Mark as unpaid, remove linked transaction
+      if (targetTax.transactionId) {
+        setTransactions((prev) => {
+          const next = prev.filter((t) => t.id !== targetTax.transactionId);
+          saveTransactions(next);
+          return next;
+        });
+      }
+
+      // Refund cash savings TWD
+      adjustCashSavings(targetTax.amount, 'TWD');
+
+      const updatedTaxes = currentTaxes.map((t) =>
+        t.id === taxId
+          ? { ...t, isPaid: false, paidDate: undefined, transactionId: undefined }
+          : t
+      );
+
+      updateAnnualTaxes(updatedTaxes);
+    }
+  }, [fireConfig.annualTaxes, updateAnnualTaxes, adjustCashSavings]);
+
+  const addCustomTaxItem = useCallback((tax: Omit<TaxItem, 'id' | 'isPaid'>) => {
+    lastUserEditTimeRef.current = Date.now();
+    const currentTaxes = fireConfig.annualTaxes && fireConfig.annualTaxes.length > 0
+      ? fireConfig.annualTaxes
+      : DEFAULT_ANNUAL_TAXES;
+    const newTaxItem: TaxItem = {
+      ...tax,
+      id: `tax-custom-${Date.now()}`,
+      isPaid: false,
+    };
+    updateAnnualTaxes([...currentTaxes, newTaxItem]);
+  }, [fireConfig.annualTaxes, updateAnnualTaxes]);
+
+  const deleteTaxItem = useCallback((taxId: string) => {
+    lastUserEditTimeRef.current = Date.now();
+    const currentTaxes = fireConfig.annualTaxes && fireConfig.annualTaxes.length > 0
+      ? fireConfig.annualTaxes
+      : DEFAULT_ANNUAL_TAXES;
+    const targetTax = currentTaxes.find((t) => t.id === taxId);
+    if (targetTax && targetTax.isPaid && targetTax.transactionId) {
+      setTransactions((prev) => {
+        const next = prev.filter((t) => t.id !== targetTax.transactionId);
+        saveTransactions(next);
+        return next;
+      });
+      adjustCashSavings(targetTax.amount, 'TWD');
+    }
+    const updatedTaxes = currentTaxes.filter((t) => t.id !== taxId);
+    updateAnnualTaxes(updatedTaxes);
+  }, [fireConfig.annualTaxes, updateAnnualTaxes, adjustCashSavings]);
 
   const updateCategories = useCallback((cats: CategoryItem[]) => {
     lastUserEditTimeRef.current = Date.now();
