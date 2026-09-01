@@ -83,7 +83,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
         const isBuy = st.type === 'BUY';
         const isSell = st.type === 'SELL';
-        const txType: TransactionType = isBuy ? 'investment' : (isSell ? 'investment' : 'income');
+        const txType: Transaction['type'] = isBuy ? 'investment' : (isSell ? 'investment' : 'income');
         const actionLabel = isBuy ? '買入' : isSell ? '賣出' : '股利發放';
 
         list.push({

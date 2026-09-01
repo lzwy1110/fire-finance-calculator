@@ -152,11 +152,6 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
       expectedInflationRate: finalInflationRate,
     };
 
-    // Save Widget custom categories
-    try {
-      localStorage.setItem('widget_custom_cats', JSON.stringify(widgetCats));
-    } catch (e) {}
-
     onSaveConfig(finalConfig);
     onClose();
   };

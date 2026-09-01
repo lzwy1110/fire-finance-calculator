@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   TrendingUp,
   RefreshCw,
@@ -2123,7 +2123,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                       </button>
 
                       <button
-                        onClick={() => handleDeleteTransaction(activeHistoryStock.id, tx.id)}
+                        onClick={() => handleDeleteSingleTransaction(activeHistoryStock.id, tx.id)}
                         className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
                         title="刪除此筆交易紀錄"
                       >

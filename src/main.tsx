@@ -13,8 +13,8 @@ interface State {
   errorInfo: ErrorInfo | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
+class ErrorBoundary extends (React.Component as any) {
+  state: State = {
     hasError: false,
     error: null,
     errorInfo: null,
