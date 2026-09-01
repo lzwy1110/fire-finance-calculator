@@ -195,9 +195,15 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     }
   }, [chartType, lineRange, candleResolution]);
 
-  // Fetch chart data when stock, chartType, or timeframe changes
+  const stockSymbol = stock?.symbol;
+  const onUpdatePriceRef = useRef(onUpdateStockPrice);
   useEffect(() => {
-    if (!stock) return;
+    onUpdatePriceRef.current = onUpdateStockPrice;
+  }, [onUpdateStockPrice]);
+
+  // Fetch chart data when stock symbol, chartType, or timeframe changes
+  useEffect(() => {
+    if (!stockSymbol) return;
     let isCancelled = false;
 
     const loadData = async () => {
@@ -209,19 +215,19 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       setYPanOffset(0);
 
       try {
-        const res = await fetchStockHistoricalChart(stock.symbol, queryRange, queryInterval);
+        const res = await fetchStockHistoricalChart(stockSymbol, queryRange, queryInterval);
         if (isCancelled) return;
 
         if (res && res.candles && res.candles.length > 0) {
           setCandles(res.candles);
           setViewWindow({ start: 0, end: res.candles.length - 1 });
 
-          // Extract absolute latest candle close price and synchronize back
+          // Extract absolute latest candle close price and synchronize back without triggering loops
           const lastCandle = res.candles[res.candles.length - 1];
           if (lastCandle && lastCandle.close > 0) {
             setLivePrice(lastCandle.close);
-            if (onUpdateStockPrice) {
-              onUpdateStockPrice(stock.symbol, lastCandle.close);
+            if (onUpdatePriceRef.current) {
+              onUpdatePriceRef.current(stockSymbol, lastCandle.close);
             }
           }
         } else {
@@ -240,7 +246,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [stock, queryRange, queryInterval, onUpdateStockPrice]);
+  }, [stockSymbol, queryRange, queryInterval]);
 
   // Current active colors
   const activeUpColor = selectedThemeId === 'custom' ? customUp : COLOR_PRESETS.find((p) => p.id === selectedThemeId)?.upColor || customUp;

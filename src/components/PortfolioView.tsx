@@ -2185,6 +2185,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           onUpdateStockPrice={(stockSym, newPrice) => {
             const symUp = stockSym.toUpperCase();
             const rawCode = symUp.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+            const target = syncedStocks.find((s) => {
+              const sUpper = s.symbol.toUpperCase();
+              const sRaw = sUpper.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+              return sUpper === symUp || sRaw === rawCode;
+            });
+            if (!target || target.currentPrice === newPrice) return;
+
             const updated = syncedStocks.map((s) => {
               const sUpper = s.symbol.toUpperCase();
               const sRaw = sUpper.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
