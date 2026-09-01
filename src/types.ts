@@ -57,8 +57,10 @@ export interface FIREConfig {
   currencySymbol: string; // e.g. "NT$" or "$"
   themeColor?: string; // Theme preset id ('cyan' | 'sakura' | 'emerald' | 'amber' | 'violet' | 'rose') or custom hex color
   annualTaxes?: TaxItem[]; // 年度稅務待辦清單
-  twStockFeeDiscount?: number; // 🇹🇼 台股電子下單手續費折數 (預設 0.28 即 2.8 折，0.1425% * discount)
-  usStockFee?: number; // 🇺🇸 美股每筆交易手續費 (預設 0)
+  twStockFeeRate?: number; // 🇹🇼 台股交易手續費率 % (預設 0.0399%)
+  usStockFeeRate?: number; // 🇺🇸 美股交易手續費率 % (預設 0%)
+  twStockFeeDiscount?: number; // 向後相容
+  usStockFee?: number; // 向後相容
 }
 
 export interface QuickPreset {

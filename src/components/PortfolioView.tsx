@@ -24,10 +24,12 @@ import {
   PieChart,
   Check,
   ChevronDown,
+  Settings,
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../types';
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
+import { useFIRE } from '../context/FIREContext';
 import { StockChartModal } from './StockChartModal';
 import {
   batchFetchStockQuotes,
@@ -94,11 +96,20 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const [dateInput, setDateInput] = useState<string>(new Date().toISOString().split('T')[0]);
   const [noteInput, setNoteInput] = useState<string>('');
   const [isInitialHoldingsInput, setIsInitialHoldingsInput] = useState<boolean>(false);
-  const [feeDiscountInput, setFeeDiscountInput] = useState<number>(() => {
-    return typeof fireConfig?.twStockFeeDiscount === 'number' ? fireConfig.twStockFeeDiscount : 0.28;
-  });
-  const [customFeeRateInput, setCustomFeeRateInput] = useState<string>('0.1425');
-  const [isCustomFee, setIsCustomFee] = useState<boolean>(false);
+  const { updateFIREConfig } = useFIRE();
+
+  // Global Fee Settings Modal State
+  const [isFeeSettingsModalOpen, setIsFeeSettingsModalOpen] = useState(false);
+  const [twDefaultFeeRate, setTwDefaultFeeRate] = useState<string>(() =>
+    String(typeof fireConfig?.twStockFeeRate === 'number' ? fireConfig.twStockFeeRate : 0.0399)
+  );
+  const [usDefaultFeeRate, setUsDefaultFeeRate] = useState<string>(() =>
+    String(typeof fireConfig?.usStockFeeRate === 'number' ? fireConfig.usStockFeeRate : 0)
+  );
+
+  const [feeRateInput, setFeeRateInput] = useState<string>(() =>
+    String(marketInput === 'TW' ? (fireConfig.twStockFeeRate ?? 0.0399) : (fireConfig.usStockFeeRate ?? 0))
+  );
 
   // Computed live transaction fee & net total
   const parsedSharesNum = parseFloat(sharesInput) || 0;
@@ -108,15 +119,16 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const isETFTrade = isTWTrade && (symbolInput.startsWith('00') || nameInput.includes('ETF') || symbolInput.includes('00'));
   const twTaxRate = isETFTrade ? 0.001 : 0.003;
 
+  const parsedFeeRateNum = parseFloat(feeRateInput) || 0;
+
   const calculatedFee = useMemo(() => {
     if (!rawTradeTotal || rawTradeTotal <= 0) return 0;
+    const fee = rawTradeTotal * (parsedFeeRateNum / 100);
     if (isTWTrade) {
-      const discount = isCustomFee ? (parseFloat(customFeeRateInput) || 0.1425) / 0.1425 : feeDiscountInput;
-      const baseFee = rawTradeTotal * 0.001425 * discount;
-      return Math.max(1, Math.round(baseFee));
+      return Math.max(1, Math.round(fee));
     }
-    return 0;
-  }, [rawTradeTotal, isTWTrade, isCustomFee, customFeeRateInput, feeDiscountInput]);
+    return Number(fee.toFixed(2));
+  }, [rawTradeTotal, isTWTrade, parsedFeeRateNum]);
 
   const calculatedTax = useMemo(() => {
     if (!rawTradeTotal || rawTradeTotal <= 0 || tradeType !== 'SELL') return 0;
@@ -482,6 +494,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   // Market Tab Switch in Modal
   const handleMarketInputSwitch = (newMarket: MarketType) => {
     setMarketInput(newMarket);
+    setFeeRateInput(String(newMarket === 'TW' ? (fireConfig.twStockFeeRate ?? 0.0399) : (fireConfig.usStockFeeRate ?? 0)));
     if (symbolInput.trim()) {
       handleSymbolInputChange(symbolInput, newMarket);
     }
@@ -492,6 +505,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setSymbolInput(item.symbol);
     setNameInput(item.name);
     setMarketInput(item.market);
+    setFeeRateInput(String(item.market === 'TW' ? (fireConfig.twStockFeeRate ?? 0.0399) : (fireConfig.usStockFeeRate ?? 0)));
     setShowSuggestions(false);
 
     if (item.price && item.price > 0) {
@@ -523,6 +537,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const handleOpenAddModal = (targetStock?: PortfolioStock) => {
     setEditingTxId(null);
     setTradeType('BUY');
+    const targetMkt = targetStock ? targetStock.market : (filterMarket === 'TW' ? 'TW' : 'US');
     if (targetStock) {
       setSymbolInput(targetStock.symbol);
       setNameInput(targetStock.name);
@@ -532,10 +547,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     } else {
       setSymbolInput('');
       setNameInput('');
-      setMarketInput(filterMarket === 'TW' ? 'TW' : 'US');
+      setMarketInput(targetMkt);
       setPriceInput(0);
       setCostInput('');
     }
+    setFeeRateInput(String(targetMkt === 'TW' ? (fireConfig.twStockFeeRate ?? 0.0399) : (fireConfig.usStockFeeRate ?? 0)));
     setSharesInput('');
     setDateInput(new Date().toISOString().split('T')[0]);
     setNoteInput('');
@@ -1204,6 +1220,21 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   ? '行情延遲'
                   : '連線正常'}
               </span>
+            </button>
+
+            {/* Fee Settings Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setTwDefaultFeeRate(String(fireConfig.twStockFeeRate ?? 0.0399));
+                setUsDefaultFeeRate(String(fireConfig.usStockFeeRate ?? 0));
+                setIsFeeSettingsModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm border bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border-white/10"
+              title="設定台股與美股預設交易手續費率 (%)"
+            >
+              <Settings className="w-3.5 h-3.5 text-cyan-400" />
+              <span>費率設定</span>
             </button>
 
             {/* Custom Glassmorphic Sort Dropdown */}
@@ -1887,56 +1918,92 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 </div>
               </div>
 
-              {/* Trading Fee & Tax Breakdown Box for Taiwan Stocks */}
-              {isTWTrade && rawTradeTotal > 0 && (
-                <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3.5 space-y-2.5">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
-                      <span>🏷️ 券商手續費折數</span>
-                    </span>
-                    {/* Discount Selector Pills */}
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {[
-                        { label: '2.8折', val: 0.28 },
-                        { label: '5折', val: 0.5 },
-                        { label: '6折', val: 0.6 },
-                        { label: '1折', val: 0.1 },
-                        { label: '免手續費', val: 0 },
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          type="button"
-                          onClick={() => {
-                            setFeeDiscountInput(item.val);
-                            setIsCustomFee(false);
-                          }}
-                          className={`px-2 py-1 rounded-lg text-[11px] font-bold font-mono transition cursor-pointer ${
-                            !isCustomFee && feeDiscountInput === item.val
-                              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm'
-                              : 'bg-white/5 text-gray-400 hover:text-gray-200 border border-transparent'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              {/* Trading Fee & Tax Configuration & Breakdown Box (for both TW and US) */}
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                    <span>🏷️ 交易手續費率 (%)</span>
+                  </span>
 
-                  {/* Real-time Fee & Tax Calculation Breakdown */}
+                  {/* Direct % Input with quick fill chips */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="relative w-24">
+                      <input
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        placeholder="0.0399"
+                        value={feeRateInput}
+                        onChange={(e) => setFeeRateInput(e.target.value)}
+                        className="w-full bg-black/60 border border-white/15 rounded-lg px-2 py-1 text-xs font-mono font-bold text-white focus:border-cyan-500 focus:outline-none text-right pr-5"
+                      />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-mono">%</span>
+                    </div>
+
+                    {isTWTrade ? (
+                      <>
+                        {[
+                          { label: '0.0399%', val: '0.0399' },
+                          { label: '0.0713%', val: '0.0713' },
+                          { label: '0.1425%', val: '0.1425' },
+                          { label: '0%', val: '0' },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => setFeeRateInput(item.val)}
+                            className={`px-1.5 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer ${
+                              feeRateInput === item.val
+                                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm'
+                                : 'bg-white/5 text-gray-400 hover:text-gray-200 border border-transparent'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        {[
+                          { label: '0%', val: '0' },
+                          { label: '0.08%', val: '0.08' },
+                          { label: '0.1%', val: '0.1' },
+                          { label: '0.2%', val: '0.2' },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => setFeeRateInput(item.val)}
+                            className={`px-1.5 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer ${
+                              feeRateInput === item.val
+                                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm'
+                                : 'bg-white/5 text-gray-400 hover:text-gray-200 border border-transparent'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Real-time Calculation Breakdown if price/shares filled */}
+                {rawTradeTotal > 0 && (
                   <div className="bg-black/40 border border-white/5 rounded-xl p-3 space-y-1.5 text-xs">
                     <div className="flex justify-between text-gray-400">
                       <span>成交總金額:</span>
-                      <span className="font-mono font-bold text-white">NT$ {formatNum(rawTradeTotal)}</span>
+                      <span className="font-mono font-bold text-white">
+                        {isTWTrade ? 'NT$' : '$'} {formatNum(rawTradeTotal)}
+                      </span>
                     </div>
                     <div className="flex justify-between text-gray-400">
-                      <span>
-                        預估券商手續費 ({feeDiscountInput === 0 ? '免手續費' : `${Math.round(feeDiscountInput * 100) / 10}折`}):
-                      </span>
+                      <span>預估交易手續費 ({feeRateInput || 0}%):</span>
                       <span className="font-mono text-cyan-300">
-                        {tradeType === 'BUY' ? '+' : '-'} NT$ {formatNum(calculatedFee)}
+                        {tradeType === 'BUY' ? '+' : '-'} {isTWTrade ? 'NT$' : '$'} {formatNum(calculatedFee)}
                       </span>
                     </div>
-                    {tradeType === 'SELL' && (
+                    {isTWTrade && tradeType === 'SELL' && (
                       <div className="flex justify-between text-gray-400">
                         <span>證券交易稅 ({isETFTrade ? 'ETF 0.1%' : '個股 0.3%'}):</span>
                         <span className="font-mono text-amber-300">- NT$ {formatNum(calculatedTax)}</span>
@@ -1945,12 +2012,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     <div className="flex justify-between items-baseline pt-1.5 border-t border-white/10 text-xs font-bold text-gray-200">
                       <span>{tradeType === 'BUY' ? '預計扣除總現金:' : '預計實收淨額:'}</span>
                       <span className={`font-mono text-sm font-black ${tradeType === 'BUY' ? 'text-white' : 'text-emerald-400'}`}>
-                        NT$ {formatNum(netTradeTotal)}
+                        {isTWTrade ? 'NT$' : '$'} {formatNum(netTradeTotal)}
                       </span>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Option to skip cash balance deduction for pre-existing stock holdings */}
               {tradeType === 'BUY' && (
@@ -2312,6 +2379,162 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           }}
           onClose={() => setActiveChartStock(null)}
         />
+      )}
+
+      {/* Modal: Global Stock Trading Fee Settings Modal */}
+      {isFeeSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#121216] border border-white/15 w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 animate-scaleUp">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">證券交易手續費率設定 (%)</h3>
+                  <p className="text-xs text-gray-400">設定買賣股票時預設自動帶入的手續費率</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFeeSettingsModalOpen(false)}
+                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* TW Stock Fee Rate Input */}
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-white flex items-center gap-1.5">
+                    <span>🇹🇼 台股交易手續費率 (%)</span>
+                  </label>
+                  <span className="text-[10px] text-gray-400 font-mono">公定全額為 0.1425%</span>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    placeholder="0.0399"
+                    value={twDefaultFeeRate}
+                    onChange={(e) => setTwDefaultFeeRate(e.target.value)}
+                    className="w-full bg-black/60 border border-white/15 rounded-xl px-3 py-2 text-sm font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-sm">%</span>
+                </div>
+
+                {/* Quick Selection Chips */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[10px] text-gray-400">快速填入:</span>
+                  {[
+                    { label: '0.0399% (2.8折)', val: '0.0399' },
+                    { label: '0.0713% (5折)', val: '0.0713' },
+                    { label: '0.0855% (6折)', val: '0.0855' },
+                    { label: '0.1425% (全額)', val: '0.1425' },
+                    { label: '0% (免手續費)', val: '0' },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => setTwDefaultFeeRate(item.val)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer ${
+                        twDefaultFeeRate === item.val
+                          ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50'
+                          : 'bg-white/5 text-gray-400 hover:text-white border border-transparent'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-emerald-400/80">
+                  💡 賣出台股時，系統將自動依標的性質外加「證交稅」(個股 0.3% / ETF 0.1%)
+                </p>
+              </div>
+
+              {/* US Stock Fee Rate Input */}
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-white flex items-center gap-1.5">
+                    <span>🇺🇸 美股交易手續費率 (%)</span>
+                  </label>
+                  <span className="text-[10px] text-gray-400 font-mono">美股券商多數免佣 (0%)</span>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0"
+                    value={usDefaultFeeRate}
+                    onChange={(e) => setUsDefaultFeeRate(e.target.value)}
+                    className="w-full bg-black/60 border border-white/15 rounded-xl px-3 py-2 text-sm font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-sm">%</span>
+                </div>
+
+                {/* Quick Selection Chips */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[10px] text-gray-400">快速填入:</span>
+                  {[
+                    { label: '0% (免佣金)', val: '0' },
+                    { label: '0.08%', val: '0.08' },
+                    { label: '0.1%', val: '0.1' },
+                    { label: '0.15%', val: '0.15' },
+                    { label: '0.2%', val: '0.2' },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => setUsDefaultFeeRate(item.val)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer ${
+                        usDefaultFeeRate === item.val
+                          ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50'
+                          : 'bg-white/5 text-gray-400 hover:text-white border border-transparent'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setIsFeeSettingsModalOpen(false)}
+                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl font-bold cursor-pointer text-xs"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const twRate = parseFloat(twDefaultFeeRate) || 0;
+                  const usRate = parseFloat(usDefaultFeeRate) || 0;
+                  updateFIREConfig({
+                    ...fireConfig,
+                    twStockFeeRate: twRate,
+                    usStockFeeRate: usRate,
+                  });
+                  setFeeRateInput(String(marketInput === 'TW' ? twRate : usRate));
+                  setIsFeeSettingsModalOpen(false);
+                }}
+                className="px-5 py-2 font-black rounded-xl text-black shadow-lg cursor-pointer text-xs transition active:scale-95"
+                style={{ backgroundColor: currentTheme.primaryHex }}
+              >
+                儲存費率設定
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

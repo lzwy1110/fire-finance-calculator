@@ -232,6 +232,8 @@ export const DEFAULT_FIRE_CONFIG: FIREConfig = {
   currencySymbol: 'NT$',
   themeColor: 'sakura',
   annualTaxes: DEFAULT_ANNUAL_TAXES,
+  twStockFeeRate: 0.0399,
+  usStockFeeRate: 0,
   twStockFeeDiscount: 0.28,
   usStockFee: 0,
 };

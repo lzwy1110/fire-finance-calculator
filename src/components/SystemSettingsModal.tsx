@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock, Trash2, RefreshCw, Tag, AlertTriangle } from 'lucide-react';
+import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock, Trash2, RefreshCw, Tag, AlertTriangle, TrendingUp } from 'lucide-react';
 import { FIREConfig } from '../types';
 import { THEME_PRESETS, CURRENCY_OPTIONS, getThemePreset } from '../utils/theme';
 import { isFrontendSupabaseReady } from '../services/supabaseFrontend';
@@ -678,6 +678,51 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   }}
                   className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 4b: 股票交易手續費率設定 */}
+          <div className="bg-white/5 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-4">
+            <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-white/5 pb-2">
+              <TrendingUp className="w-3.5 h-3.5 text-cyan-400" /> 證券股票交易手續費率 (%)
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="text-gray-400 block mb-1">🇹🇼 台股交易手續費率 (%):</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.0001"
+                    placeholder="0.0399"
+                    value={formData.twStockFeeRate ?? 0.0399}
+                    onChange={(e) => handleChange('twStockFeeRate', parseFloat(e.target.value) || 0)}
+                    className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-mono">%</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  公定費率為 0.1425% (2.8折約為 0.0399%)；賣出時系統自動外加證交稅 (0.3% / ETF 0.1%)
+                </p>
+              </div>
+
+              <div>
+                <label className="text-gray-400 block mb-1">🇺🇸 美股交易手續費率 (%):</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0"
+                    value={formData.usStockFeeRate ?? 0}
+                    onChange={(e) => handleChange('usStockFeeRate', parseFloat(e.target.value) || 0)}
+                    className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-1.5 font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-mono">%</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  若券商免佣金請設為 0%；複委託等若有依成交額收費請填寫實際 % 數
+                </p>
               </div>
             </div>
           </div>
