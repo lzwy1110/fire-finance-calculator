@@ -29,6 +29,7 @@ import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../typ
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
 import { StockChartModal } from './StockChartModal';
+import { Sparkline } from './Sparkline';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
@@ -314,6 +315,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             currentPrice: quote.currentPrice,
             name: quote.name || s.name,
             previousClose: quote.previousClose || s.previousClose,
+            sparkline: quote.sparkline || s.sparkline,
             lastUpdated: nowIso,
           };
           return syncStockCalculations(updatedStock);
@@ -1322,13 +1324,23 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                         {isUS ? '美股' : '台股'}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-400 truncate max-w-[160px] xs:max-w-[200px] sm:max-w-[320px] md:max-w-[400px]" title={stock.name}>
+                    <div className="text-xs text-gray-400 truncate max-w-[140px] xs:max-w-[180px] sm:max-w-[280px] md:max-w-[360px]" title={stock.name}>
                       {stock.name}
                     </div>
                     <div className="text-[11px] font-mono text-gray-500 mt-0.5">
                       {formatNum(metrics.shares)} 股 • 均價 {currSymbol}{formatDec(metrics.avgCost)}
                     </div>
                   </div>
+                </div>
+
+                {/* Middle: Intraday Mini Sparkline */}
+                <div className="hidden xs:flex items-center justify-center px-1 shrink-0">
+                  <Sparkline
+                    data={stock.sparkline}
+                    isPositive={todayChangeVal >= 0}
+                    width={64}
+                    height={22}
+                  />
                 </div>
 
                 {/* Right: Current Price + Market Value + ROI Pill */}
@@ -1386,9 +1398,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 key={stock.id}
                 className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl hover:border-white/20 transition group relative overflow-hidden"
               >
-                {/* Card Header: Symbol + Name + Large Price & Today Change */}
-                <div className="flex items-start justify-between border-b border-white/10 pb-3.5">
-                  <div className="flex items-center gap-2.5">
+                {/* Card Header: Symbol + Name + Sparkline + Large Price & Today Change */}
+                <div className="flex items-start justify-between border-b border-white/10 pb-3.5 gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0">
                       {isUS ? '🇺🇸' : '🇹🇼'}
                     </div>
@@ -1399,26 +1411,35 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                           {isUS ? '美股' : '台股'}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-400 truncate max-w-[160px] xs:max-w-[200px] sm:max-w-[240px]" title={stock.name}>{stock.name}</p>
+                      <p className="text-xs text-gray-400 truncate max-w-[130px] xs:max-w-[160px] sm:max-w-[200px]" title={stock.name}>{stock.name}</p>
                     </div>
                   </div>
 
-                  {/* Large Current Price on Top Right */}
-                  <div className="text-right">
-                    <div className="text-lg font-black font-mono text-white">
-                      {currSymbol}{formatDec(stock.currentPrice)}
+                  {/* Large Current Price & Mini Sparkline on Top Right */}
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <Sparkline
+                      data={stock.sparkline}
+                      isPositive={todayChangeVal >= 0}
+                      width={58}
+                      height={26}
+                      fill={true}
+                    />
+                    <div className="text-right">
+                      <div className="text-base sm:text-lg font-black font-mono text-white">
+                        {currSymbol}{formatDec(stock.currentPrice)}
+                      </div>
+                      {stock.previousClose && stock.previousClose > 0 ? (
+                        <span
+                          className={`text-[11px] font-mono font-bold ${
+                            todayChangeVal >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                          }`}
+                        >
+                          {todayChangeVal >= 0 ? '▲ +' : '▼ '}{todayChangePct.toFixed(2)}% 今日
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-gray-500">最新即時價</span>
+                      )}
                     </div>
-                    {stock.previousClose && stock.previousClose > 0 ? (
-                      <span
-                        className={`text-[11px] font-mono font-bold ${
-                          todayChangeVal >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                        }`}
-                      >
-                        {todayChangeVal >= 0 ? '▲ +' : '▼ '}{todayChangePct.toFixed(2)}% 今日
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-gray-500">最新即時價</span>
-                    )}
                   </div>
                 </div>
 

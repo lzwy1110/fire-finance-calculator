@@ -466,6 +466,19 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
           const previousClose = meta.chartPreviousClose || meta.previousClose || currentPrice;
           const change = currentPrice - previousClose;
           const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
+
+          let sparkline: number[] | undefined;
+          if (validCloses.length >= 2) {
+            const step = Math.max(1, Math.floor(validCloses.length / 24));
+            sparkline = [];
+            for (let i = 0; i < validCloses.length; i += step) {
+              sparkline.push(Math.round(validCloses[i] * 100) / 100);
+            }
+            if (sparkline[sparkline.length - 1] !== Math.round(lastCandleClose * 100) / 100) {
+              sparkline.push(Math.round(lastCandleClose * 100) / 100);
+            }
+          }
+
           return {
             symbol: cleanSymbol,
             currentPrice: Math.round(currentPrice * 100) / 100,
@@ -474,6 +487,7 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
             changePercent: Math.round(changePercent * 100) / 100,
             currency: market === 'TW' ? 'TWD' : 'USD',
             name: meta.shortName || meta.longName || cleanSymbol,
+            sparkline,
           };
         }
       }

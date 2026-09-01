@@ -26,6 +26,7 @@ export interface PortfolioStock {
   notes?: string;             // Optional notes
   transactions?: StockTransaction[]; // List of Buy/Sell transaction logs
   realizedPnL?: number;       // Realized Profit/Loss locked from sell trades
+  sparkline?: number[];       // Sampled recent intraday price points for mini chart
 }
 
 export interface PortfolioSummary {

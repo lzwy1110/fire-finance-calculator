@@ -567,7 +567,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (cStocks.length > 0 || Date.now() - lastUserEditTimeRef.current > 4000) {
             setPortfolioStocks((prevLocal) => {
               // Map all existing local live prices & metadata
-              const localPriceMap = new Map<string, { currentPrice: number; previousClose?: number; lastUpdated?: string }>();
+              const localPriceMap = new Map<string, { currentPrice: number; previousClose?: number; lastUpdated?: string; sparkline?: number[] }>();
               (prevLocal || []).forEach((ls) => {
                 const sym = ls.symbol.toUpperCase();
                 const raw = sym.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
@@ -576,6 +576,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     currentPrice: ls.currentPrice,
                     previousClose: ls.previousClose,
                     lastUpdated: ls.lastUpdated,
+                    sparkline: ls.sparkline,
                   };
                   localPriceMap.set(sym, info);
                   localPriceMap.set(raw, info);
@@ -591,12 +592,14 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const effectivePrice = (localInfo && localInfo.currentPrice > 0) ? localInfo.currentPrice : (cs.currentPrice || 0);
                 const effectivePrevClose = (localInfo && localInfo.previousClose) ? localInfo.previousClose : cs.previousClose;
                 const effectiveLastUpdated = (localInfo && localInfo.lastUpdated) ? localInfo.lastUpdated : cs.lastUpdated;
+                const effectiveSparkline = (localInfo && localInfo.sparkline) ? localInfo.sparkline : cs.sparkline;
 
                 return syncStockCalculations({
                   ...cs,
                   currentPrice: effectivePrice,
                   previousClose: effectivePrevClose,
                   lastUpdated: effectiveLastUpdated,
+                  sparkline: effectiveSparkline,
                 });
               });
 
@@ -627,7 +630,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCategories(cat);
     setQuickPresets(presets);
     setPortfolioStocks((prevLocal) => {
-      const localPriceMap = new Map<string, { currentPrice: number; previousClose?: number; lastUpdated?: string }>();
+      const localPriceMap = new Map<string, { currentPrice: number; previousClose?: number; lastUpdated?: string; sparkline?: number[] }>();
       (prevLocal || []).forEach((ls) => {
         const sym = ls.symbol.toUpperCase();
         const raw = sym.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
@@ -636,6 +639,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
             currentPrice: ls.currentPrice,
             previousClose: ls.previousClose,
             lastUpdated: ls.lastUpdated,
+            sparkline: ls.sparkline,
           };
           localPriceMap.set(sym, info);
           localPriceMap.set(raw, info);
@@ -651,6 +655,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
           currentPrice: (localInfo && localInfo.currentPrice > 0) ? localInfo.currentPrice : (s.currentPrice || 0),
           previousClose: (localInfo && localInfo.previousClose) ? localInfo.previousClose : s.previousClose,
           lastUpdated: (localInfo && localInfo.lastUpdated) ? localInfo.lastUpdated : s.lastUpdated,
+          sparkline: (localInfo && localInfo.sparkline) ? localInfo.sparkline : s.sparkline,
         });
       });
     });
