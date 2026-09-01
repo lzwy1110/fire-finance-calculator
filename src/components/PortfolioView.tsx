@@ -94,6 +94,45 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const [dateInput, setDateInput] = useState<string>(new Date().toISOString().split('T')[0]);
   const [noteInput, setNoteInput] = useState<string>('');
   const [isInitialHoldingsInput, setIsInitialHoldingsInput] = useState<boolean>(false);
+  const [feeDiscountInput, setFeeDiscountInput] = useState<number>(() => {
+    return typeof fireConfig?.twStockFeeDiscount === 'number' ? fireConfig.twStockFeeDiscount : 0.28;
+  });
+  const [customFeeRateInput, setCustomFeeRateInput] = useState<string>('0.1425');
+  const [isCustomFee, setIsCustomFee] = useState<boolean>(false);
+
+  // Computed live transaction fee & net total
+  const parsedSharesNum = parseFloat(sharesInput) || 0;
+  const parsedCostNum = parseFloat(costInput) || 0;
+  const rawTradeTotal = parsedSharesNum * parsedCostNum;
+  const isTWTrade = marketInput === 'TW';
+  const isETFTrade = isTWTrade && (symbolInput.startsWith('00') || nameInput.includes('ETF') || symbolInput.includes('00'));
+  const twTaxRate = isETFTrade ? 0.001 : 0.003;
+
+  const calculatedFee = useMemo(() => {
+    if (!rawTradeTotal || rawTradeTotal <= 0) return 0;
+    if (isTWTrade) {
+      const discount = isCustomFee ? (parseFloat(customFeeRateInput) || 0.1425) / 0.1425 : feeDiscountInput;
+      const baseFee = rawTradeTotal * 0.001425 * discount;
+      return Math.max(1, Math.round(baseFee));
+    }
+    return 0;
+  }, [rawTradeTotal, isTWTrade, isCustomFee, customFeeRateInput, feeDiscountInput]);
+
+  const calculatedTax = useMemo(() => {
+    if (!rawTradeTotal || rawTradeTotal <= 0 || tradeType !== 'SELL') return 0;
+    if (isTWTrade) {
+      return Math.round(rawTradeTotal * twTaxRate);
+    }
+    return 0;
+  }, [rawTradeTotal, tradeType, isTWTrade, twTaxRate]);
+
+  const netTradeTotal = useMemo(() => {
+    if (tradeType === 'BUY') {
+      return rawTradeTotal + calculatedFee;
+    } else {
+      return Math.max(0, rawTradeTotal - calculatedFee - calculatedTax);
+    }
+  }, [rawTradeTotal, calculatedFee, calculatedTax, tradeType]);
 
   // Transaction History Modal State
   const [activeHistoryStock, setActiveHistoryStock] = useState<PortfolioStock | null>(null);
@@ -737,10 +776,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         onUpdateStocks(updatedList);
       }
 
-      // Adjust cash savings according to the stock trade and currency
+      // Adjust cash savings according to the stock trade and currency (including fee/tax)
       let cashDelta = 0;
       const isUS = marketInput === 'US';
-      const tradeValue = parsedShares * parsedCost;
+      const tradeValue = netTradeTotal > 0 ? netTradeTotal : parsedShares * parsedCost;
       if (tradeType === 'BUY') {
         if (!useInitialHoldings) {
           cashDelta = -tradeValue;
@@ -1847,6 +1886,71 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Trading Fee & Tax Breakdown Box for Taiwan Stocks */}
+              {isTWTrade && rawTradeTotal > 0 && (
+                <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                      <span>🏷️ 券商手續費折數</span>
+                    </span>
+                    {/* Discount Selector Pills */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {[
+                        { label: '2.8折', val: 0.28 },
+                        { label: '5折', val: 0.5 },
+                        { label: '6折', val: 0.6 },
+                        { label: '1折', val: 0.1 },
+                        { label: '免手續費', val: 0 },
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => {
+                            setFeeDiscountInput(item.val);
+                            setIsCustomFee(false);
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-bold font-mono transition cursor-pointer ${
+                            !isCustomFee && feeDiscountInput === item.val
+                              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm'
+                              : 'bg-white/5 text-gray-400 hover:text-gray-200 border border-transparent'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Real-time Fee & Tax Calculation Breakdown */}
+                  <div className="bg-black/40 border border-white/5 rounded-xl p-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between text-gray-400">
+                      <span>成交總金額:</span>
+                      <span className="font-mono font-bold text-white">NT$ {formatNum(rawTradeTotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-400">
+                      <span>
+                        預估券商手續費 ({feeDiscountInput === 0 ? '免手續費' : `${Math.round(feeDiscountInput * 100) / 10}折`}):
+                      </span>
+                      <span className="font-mono text-cyan-300">
+                        {tradeType === 'BUY' ? '+' : '-'} NT$ {formatNum(calculatedFee)}
+                      </span>
+                    </div>
+                    {tradeType === 'SELL' && (
+                      <div className="flex justify-between text-gray-400">
+                        <span>證券交易稅 ({isETFTrade ? 'ETF 0.1%' : '個股 0.3%'}):</span>
+                        <span className="font-mono text-amber-300">- NT$ {formatNum(calculatedTax)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-baseline pt-1.5 border-t border-white/10 text-xs font-bold text-gray-200">
+                      <span>{tradeType === 'BUY' ? '預計扣除總現金:' : '預計實收淨額:'}</span>
+                      <span className={`font-mono text-sm font-black ${tradeType === 'BUY' ? 'text-white' : 'text-emerald-400'}`}>
+                        NT$ {formatNum(netTradeTotal)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Option to skip cash balance deduction for pre-existing stock holdings */}
               {tradeType === 'BUY' && (

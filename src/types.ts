@@ -23,6 +23,18 @@ export interface Transaction {
   isQuickPreset?: boolean;
 }
 
+export interface TaxItem {
+  id: string;
+  name: string;
+  month: number; // 1-12
+  amount: number;
+  isPaid: boolean;
+  paidDate?: string; // YYYY-MM-DD
+  transactionId?: string; // Linked ledger transaction ID
+  category?: 'vehicle' | 'income' | 'housing' | 'custom';
+  note?: string;
+}
+
 export type FIREType = 'lean' | 'standard' | 'fat' | 'coast';
 
 export interface FIREConfig {
@@ -36,7 +48,7 @@ export interface FIREConfig {
   baseCashBalance?: number; // 使用者手動設定之非投資現金儲備基準 (活存/定存/備用金)
   monthlyIncome: number; // 預估月收入
   monthlyExpenses: number; // 預估月支出
-  monthlyTax: number; // 預估月稅務扣除
+  monthlyTax: number; // 預估月稅務扣除 (由年度稅金平攤或手動設定)
   monthlyInvestment: number; // 月投資金額
   targetAnnualExpensePostRetirement: number; // 退休後預期年支出
   expectedInvestmentReturnRate: number; // 預期年化報酬率 % (e.g., 7%)
@@ -44,6 +56,9 @@ export interface FIREConfig {
   safeWithdrawalRate: number; // 安全提領率 % (e.g., 4%)
   currencySymbol: string; // e.g. "NT$" or "$"
   themeColor?: string; // Theme preset id ('cyan' | 'sakura' | 'emerald' | 'amber' | 'violet' | 'rose') or custom hex color
+  annualTaxes?: TaxItem[]; // 年度稅務待辦清單
+  twStockFeeDiscount?: number; // 🇹🇼 台股電子下單手續費折數 (預設 0.28 即 2.8 折，0.1425% * discount)
+  usStockFee?: number; // 🇺🇸 美股每筆交易手續費 (預設 0)
 }
 
 export interface QuickPreset {

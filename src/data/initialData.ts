@@ -1,4 +1,52 @@
-import { CategoryItem, FIREConfig, QuickPreset, Transaction, PortfolioStock } from '../types';
+import { CategoryItem, FIREConfig, QuickPreset, Transaction, PortfolioStock, TaxItem } from '../types';
+
+export const DEFAULT_ANNUAL_TAXES: TaxItem[] = [
+  {
+    id: 'tax-license',
+    name: '汽機車使用牌照稅',
+    month: 4,
+    amount: 7120,
+    isPaid: false,
+    category: 'vehicle',
+    note: '自用小客車 1,201~1,800cc',
+  },
+  {
+    id: 'tax-income',
+    name: '綜合所得稅',
+    month: 5,
+    amount: 25000,
+    isPaid: false,
+    category: 'income',
+    note: '5月個人綜合所得稅結算',
+  },
+  {
+    id: 'tax-house',
+    name: '自住房屋稅',
+    month: 5,
+    amount: 3500,
+    isPaid: false,
+    category: 'housing',
+    note: '住家用房屋稅',
+  },
+  {
+    id: 'tax-fuel',
+    name: '汽機車燃料使用費',
+    month: 7,
+    amount: 4800,
+    isPaid: false,
+    category: 'vehicle',
+    note: '7月汽機車燃料費',
+  },
+  {
+    id: 'tax-land',
+    name: '自用住宅地價稅',
+    month: 11,
+    amount: 1800,
+    isPaid: false,
+    category: 'housing',
+    note: '自用住宅用地優惠稅率',
+  },
+];
 
 export const DEFAULT_PORTFOLIO_STOCKS: PortfolioStock[] = [
   {
@@ -175,7 +223,7 @@ export const DEFAULT_FIRE_CONFIG: FIREConfig = {
   baseCashBalance: 650000,
   monthlyIncome: 85000,
   monthlyExpenses: 35000,
-  monthlyTax: 5000,
+  monthlyTax: 3518, // (7120 + 25000 + 3500 + 4800 + 1800) / 12 = 3518
   monthlyInvestment: 35000,
   targetAnnualExpensePostRetirement: 480000,
   expectedInvestmentReturnRate: 7.0,
@@ -183,6 +231,9 @@ export const DEFAULT_FIRE_CONFIG: FIREConfig = {
   safeWithdrawalRate: 4.0,
   currencySymbol: 'NT$',
   themeColor: 'sakura',
+  annualTaxes: DEFAULT_ANNUAL_TAXES,
+  twStockFeeDiscount: 0.28,
+  usStockFee: 0,
 };
 
 export const DEFAULT_QUICK_PRESETS: QuickPreset[] = [
