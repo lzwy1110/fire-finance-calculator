@@ -1313,18 +1313,18 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 className="p-3.5 sm:p-4 hover:bg-white/[0.04] active:bg-white/[0.08] transition cursor-pointer flex items-center justify-between gap-3 group"
               >
                 {/* Left: Flag Badge + Symbol + Name & Position */}
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
                     {isUS ? '🇺🇸' : '🇹🇼'}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-mono font-black text-white text-base tracking-tight">{stock.symbol}</span>
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300">
                         {isUS ? '美股' : '台股'}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-400 truncate max-w-[140px] xs:max-w-[180px] sm:max-w-[280px] md:max-w-[360px]" title={stock.name}>
+                    <div className="text-xs text-gray-400 truncate max-w-[160px] xs:max-w-[200px] sm:max-w-[320px]" title={stock.name}>
                       {stock.name}
                     </div>
                     <div className="text-[11px] font-mono text-gray-500 mt-0.5">
@@ -1333,12 +1333,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   </div>
                 </div>
 
-                {/* Middle: Intraday Mini Sparkline */}
-                <div className="hidden xs:flex items-center justify-center px-1 shrink-0">
+                {/* Middle: Intraday Mini Sparkline (Tablet/Desktop) */}
+                <div className="hidden sm:flex items-center justify-center px-2 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
                   <Sparkline
                     data={stock.sparkline}
                     isPositive={todayChangeVal >= 0}
-                    width={64}
+                    width={68}
                     height={22}
                   />
                 </div>
@@ -1398,48 +1398,52 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 key={stock.id}
                 className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl hover:border-white/20 transition group relative overflow-hidden"
               >
-                {/* Card Header: Symbol + Name + Sparkline + Large Price & Today Change */}
-                <div className="flex items-start justify-between border-b border-white/10 pb-3.5 gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                {/* Option A: Ambient Background Sparkline Wave (Absolute, Zero Squeeze on text) */}
+                <div className="absolute right-0 top-0 w-36 sm:w-44 h-16 pointer-events-none opacity-20 transition-opacity group-hover:opacity-35 overflow-hidden flex items-end justify-end p-2">
+                  <Sparkline
+                    data={stock.sparkline}
+                    isPositive={todayChangeVal >= 0}
+                    width={140}
+                    height={48}
+                    fill={true}
+                  />
+                </div>
+
+                {/* Card Header: Symbol + Name (Left) ｜ Large Price & Today Change (Right) */}
+                <div className="flex items-start justify-between border-b border-white/10 pb-3.5 gap-2 relative z-10">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0">
                       {isUS ? '🇺🇸' : '🇹🇼'}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <h3 className="text-lg font-black text-white font-mono tracking-tight">{stock.symbol}</h3>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300">
                           {isUS ? '美股' : '台股'}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-400 truncate max-w-[130px] xs:max-w-[160px] sm:max-w-[200px]" title={stock.name}>{stock.name}</p>
+                      <p className="text-xs text-gray-400 truncate max-w-[160px] xs:max-w-[200px] sm:max-w-[260px]" title={stock.name}>
+                        {stock.name}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Large Current Price & Mini Sparkline on Top Right */}
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <Sparkline
-                      data={stock.sparkline}
-                      isPositive={todayChangeVal >= 0}
-                      width={58}
-                      height={26}
-                      fill={true}
-                    />
-                    <div className="text-right">
-                      <div className="text-base sm:text-lg font-black font-mono text-white">
-                        {currSymbol}{formatDec(stock.currentPrice)}
-                      </div>
-                      {stock.previousClose && stock.previousClose > 0 ? (
-                        <span
-                          className={`text-[11px] font-mono font-bold ${
-                            todayChangeVal >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}
-                        >
-                          {todayChangeVal >= 0 ? '▲ +' : '▼ '}{todayChangePct.toFixed(2)}% 今日
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-gray-500">最新即時價</span>
-                      )}
+                  {/* Large Current Price on Top Right */}
+                  <div className="text-right shrink-0">
+                    <div className="text-lg font-black font-mono text-white">
+                      {currSymbol}{formatDec(stock.currentPrice)}
                     </div>
+                    {stock.previousClose && stock.previousClose > 0 ? (
+                      <span
+                        className={`text-[11px] font-mono font-bold ${
+                          todayChangeVal >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {todayChangeVal >= 0 ? '▲ +' : '▼ '}{todayChangePct.toFixed(2)}% 今日
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-gray-500">最新即時價</span>
+                    )}
                   </div>
                 </div>
 

@@ -149,15 +149,13 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
   const cleanSymbol = symbol.trim().toUpperCase();
   if (!cleanSymbol) return null;
 
-  // 1. If Taiwan Stock, query MIS TWSE Official Real-Time API via Native HTTP / Proxy
+  // 1. If Taiwan Stock, query MIS TWSE Official Real-Time API for instant live price
+  let twLiveQuote: StockQuote | null = null;
   if (market === 'TW' || /^\d+[A-Za-z]?$/.test(cleanSymbol)) {
-    const twQuote = await fetchTaiwanStockQuote(cleanSymbol);
-    if (twQuote && twQuote.currentPrice > 0) {
-      return twQuote;
-    }
+    twLiveQuote = await fetchTaiwanStockQuote(cleanSymbol);
   }
 
-  // 2. US Stock or TW Fallback via Yahoo Finance Live Minute / Intraday Chart API
+  // 2. US Stock or TW Fallback via Yahoo Finance Live Minute / Intraday Chart API (also retrieves intraday sparkline)
   const rawCode = cleanSymbol.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   const isTw = market === 'TW' || cleanSymbol.endsWith('.TW') || cleanSymbol.endsWith('.TWO') || /^\d+[A-Za-z]?$/.test(cleanSymbol);
 
@@ -172,8 +170,8 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 
   for (const sym of symbolsToTry) {
     const endpoints = [
-      `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=2m&includePrePost=true`,
-      `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=2m&includePrePost=true`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=5m&includePrePost=true`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=5m&includePrePost=true`,
       `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`,
     ];
 
@@ -184,11 +182,16 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
       const validCloses = (quote?.close || []).filter((c: any) => typeof c === 'number' && c > 0);
       const lastCandleClose = validCloses.length > 0 ? validCloses[validCloses.length - 1] : 0;
 
-      if (meta && (meta.regularMarketPrice > 0 || lastCandleClose > 0)) {
-        const currentPrice = lastCandleClose > 0 ? lastCandleClose : meta.regularMarketPrice;
-        const previousClose = meta.chartPreviousClose || meta.previousClose || currentPrice;
+      if (meta && (meta.regularMarketPrice > 0 || lastCandleClose > 0 || (twLiveQuote && twLiveQuote.currentPrice > 0))) {
+        const currentPrice = (twLiveQuote && twLiveQuote.currentPrice > 0)
+          ? twLiveQuote.currentPrice
+          : (lastCandleClose > 0 ? lastCandleClose : meta.regularMarketPrice);
+        const previousClose = (twLiveQuote && twLiveQuote.previousClose)
+          ? twLiveQuote.previousClose
+          : (meta.chartPreviousClose || meta.previousClose || currentPrice);
         const change = currentPrice - previousClose;
         const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
+        const stockName = (twLiveQuote && twLiveQuote.name) ? twLiveQuote.name : (meta.shortName || meta.longName || cleanSymbol);
 
         let sparkline: number[] | undefined;
         if (validCloses.length >= 2) {
@@ -197,23 +200,28 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
           for (let i = 0; i < validCloses.length; i += step) {
             sparkline.push(Math.round(validCloses[i] * 100) / 100);
           }
-          if (sparkline[sparkline.length - 1] !== Math.round(lastCandleClose * 100) / 100) {
-            sparkline.push(Math.round(lastCandleClose * 100) / 100);
+          if (sparkline[sparkline.length - 1] !== Math.round(currentPrice * 100) / 100) {
+            sparkline.push(Math.round(currentPrice * 100) / 100);
           }
         }
 
         return {
-          symbol: sym,
+          symbol: isTw ? (cleanSymbol.includes('.') ? cleanSymbol : `${cleanSymbol}.TW`) : sym,
           currentPrice: Math.round(currentPrice * 100) / 100,
           previousClose: Math.round(previousClose * 100) / 100,
           change: Math.round(change * 100) / 100,
           changePercent: Math.round(changePercent * 100) / 100,
           currency: isTw ? 'TWD' : 'USD',
-          name: meta.shortName || meta.longName || cleanSymbol,
+          name: stockName,
           sparkline,
         };
       }
     }
+  }
+
+  // If Yahoo was unreachable but TWSE live quote succeeded
+  if (twLiveQuote && twLiveQuote.currentPrice > 0) {
+    return twLiveQuote;
   }
 
   // 3. Web Proxy Fallback via Backend Serverless Route (/api/quote) to bypass CORS on Desktop Web
