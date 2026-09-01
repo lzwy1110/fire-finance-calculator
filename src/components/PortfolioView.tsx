@@ -48,7 +48,7 @@ interface PortfolioViewProps {
   cashSavingsTWD?: number;
   cashSavingsUSD?: number;
   usdRate?: number;
-  onUpdateStocks: (newStocks: PortfolioStock[]) => void;
+  onUpdateStocks: (newStocks: PortfolioStock[], options?: { syncToCloud?: boolean }) => void;
   onSaveSingleStock?: (stock: PortfolioStock) => Promise<{ success: boolean; error?: string }>;
   onDeleteSingleStock?: (stockId: string) => Promise<{ success: boolean; error?: string }>;
   onSyncNetWorthToFIRE: (totalMarketValueTWD: number) => void;
@@ -273,9 +273,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     return 0;
   });
 
-  // Batch Refresh All Stock Quotes from Online Endpoints
-  const handleRefreshQuotes = async (silent: boolean = false) => {
-    if (syncedStocks.length === 0) return;
+  // Batch Refresh All Stock Quotes from Online Endpoints (Zero Supabase Writes by default)
+  const isRefreshingRef = useRef<boolean>(false);
+  const handleRefreshQuotes = async (silent: boolean = false, syncToCloud: boolean = false) => {
+    if (syncedStocks.length === 0 || isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     setIsRefreshing(true);
     if (!silent) {
       setRefreshStatus('⚡ 正在連線交易所與行情中心同步最新股價...');
@@ -307,7 +309,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       });
 
       if (updatedCount > 0) {
-        onUpdateStocks(updatedStocks);
+        onUpdateStocks(updatedStocks, { syncToCloud });
         if (!silent) {
           setRefreshStatus(`✅ 已成功更新 ${updatedCount} 檔最新線上行情報價！`);
         }
@@ -321,22 +323,52 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         setRefreshStatus('⚠️ 線上服務連線失敗，現有資料已保留。');
       }
     } finally {
+      isRefreshingRef.current = false;
       setTimeout(() => {
         setIsRefreshing(false);
         if (!silent) {
           setRefreshStatus(null);
         }
-      }, 2500);
+      }, 2000);
     }
   };
 
-  // Auto-fetch latest stock quotes in background on mount
-  const hasAutoFetchedRef = useRef<boolean>(false);
+  // 5-second Smart Foreground Heartbeat Polling (Zero Supabase writes, pauses on background/tab-switch)
   useEffect(() => {
-    if (syncedStocks.length > 0 && !hasAutoFetchedRef.current) {
-      hasAutoFetchedRef.current = true;
-      handleRefreshQuotes(true);
-    }
+    if (syncedStocks.length === 0) return;
+
+    let timer: any = null;
+
+    const doPoll = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !isRefreshingRef.current) {
+        handleRefreshQuotes(true, false);
+      }
+    };
+
+    // Initial immediate silent poll on mount
+    doPoll();
+
+    // Start 5-second cadence
+    timer = setInterval(doPoll, 5000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        doPoll();
+        if (!timer) timer = setInterval(doPoll, 5000);
+      } else {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (timer) clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [syncedStocks.length]);
 
   // Fast Live Search Input Change (Connected via /api/search Proxy on Web & CapacitorHttp on Mobile)
@@ -1147,18 +1179,17 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         {/* Row 2: 2 Equal Primary Action Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
           <button
-            onClick={() => handleRefreshQuotes(false)}
+            onClick={() => handleRefreshQuotes(false, false)}
             disabled={isRefreshing}
             className="w-full py-2.5 px-4 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
-            title="從線上數據源自動更新價格"
+            title="從線上數據源自動更新價格 (每 5 秒前景自動即時同步)"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>更新最新股價</span>
-            {latestStockUpdate && (
-              <span className="text-[11px] font-mono text-cyan-300/90 font-normal pl-2 border-l border-cyan-500/30">
-                {formatUpdateTime(latestStockUpdate)}
-              </span>
-            )}
+            <span className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-400 font-bold pl-2 border-l border-cyan-500/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping opacity-75" />
+              <span>5s 即時連線</span>
+            </span>
           </button>
 
           <button
@@ -2075,6 +2106,23 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           stock={activeChartStock}
           usdRate={usdRate}
           currencySymbol={activeChartStock.currency === 'USD' ? '$' : sym}
+          onUpdateStockPrice={(stockSym, newPrice) => {
+            const symUp = stockSym.toUpperCase();
+            const rawCode = symUp.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+            const updated = syncedStocks.map((s) => {
+              const sUpper = s.symbol.toUpperCase();
+              const sRaw = sUpper.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+              if (sUpper === symUp || sRaw === rawCode) {
+                return syncStockCalculations({
+                  ...s,
+                  currentPrice: newPrice,
+                  lastUpdated: new Date().toISOString(),
+                });
+              }
+              return s;
+            });
+            onUpdateStocks(updated, { syncToCloud: false });
+          }}
           onClose={() => setActiveChartStock(null)}
         />
       )}

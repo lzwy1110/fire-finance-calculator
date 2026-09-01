@@ -442,8 +442,9 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
   }
 
   const endpoints = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=1d&interval=2m&includePrePost=true`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=1d&interval=2m&includePrePost=true`,
     `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
-    `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`,
   ];
 
   for (const url of endpoints) {
@@ -456,17 +457,21 @@ async function fetchQuoteOnServer(symbol: string, market: string) {
       if (res.ok) {
         const data = await res.json();
         const meta = data?.chart?.result?.[0]?.meta;
-        if (meta && typeof meta.regularMarketPrice === 'number' && meta.regularMarketPrice > 0) {
-          const currentPrice = meta.regularMarketPrice;
+        const quote = data?.chart?.result?.[0]?.indicators?.quote?.[0];
+        const validCloses = (quote?.close || []).filter((c: any) => typeof c === 'number' && c > 0);
+        const lastCandleClose = validCloses.length > 0 ? validCloses[validCloses.length - 1] : 0;
+
+        if (meta && (meta.regularMarketPrice > 0 || lastCandleClose > 0)) {
+          const currentPrice = lastCandleClose > 0 ? lastCandleClose : meta.regularMarketPrice;
           const previousClose = meta.chartPreviousClose || meta.previousClose || currentPrice;
           const change = currentPrice - previousClose;
           const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
           return {
             symbol: cleanSymbol,
-            currentPrice,
-            previousClose,
-            change,
-            changePercent,
+            currentPrice: Math.round(currentPrice * 100) / 100,
+            previousClose: Math.round(previousClose * 100) / 100,
+            change: Math.round(change * 100) / 100,
+            changePercent: Math.round(changePercent * 100) / 100,
             currency: market === 'TW' ? 'TWD' : 'USD',
             name: meta.shortName || meta.longName || cleanSymbol,
           };

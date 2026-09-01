@@ -100,8 +100,23 @@ async function fetchTaiwanStockQuote(symbol: string): Promise<StockQuote | null>
     const item = validItems.length > 0 ? validItems[0] : null;
 
     if (item) {
-      const livePrice = parseFloat(item.z) || parseFloat(item.y) || parseFloat(item.o) || parseFloat(item.a?.split('_')?.[0]) || 0;
-      const prevClose = parseFloat(item.y) || livePrice;
+      const parseNum = (v: any) => {
+        if (!v || v === '-') return null;
+        const n = parseFloat(v);
+        return isNaN(n) ? null : n;
+      };
+
+      const rawZ = parseNum(item.z); // Latest traded price
+      const rawB = parseNum(item.b?.split('_')?.[0]); // Best bid
+      const rawA = parseNum(item.a?.split('_')?.[0]); // Best ask
+      const rawH = parseNum(item.h); // High
+      const rawL = parseNum(item.l); // Low
+      const rawO = parseNum(item.o); // Open
+      const rawY = parseNum(item.y); // Yesterday close
+
+      // Prioritize actual live traded price > top bid/ask > day range > yesterday close
+      const livePrice = rawZ ?? rawB ?? rawA ?? rawH ?? rawL ?? rawO ?? rawY ?? 0;
+      const prevClose = rawY ?? livePrice;
       const change = livePrice - prevClose;
       const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
       const realCode = item.c || rawCode;
@@ -141,7 +156,7 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
     }
   }
 
-  // 2. US Stock or TW Fallback via Yahoo Finance Chart API
+  // 2. US Stock or TW Fallback via Yahoo Finance Live Minute / Intraday Chart API
   const rawCode = cleanSymbol.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   const isTw = market === 'TW' || cleanSymbol.endsWith('.TW') || cleanSymbol.endsWith('.TWO') || /^\d+[A-Za-z]?$/.test(cleanSymbol);
 
@@ -156,27 +171,31 @@ export async function fetchSingleStockQuote(symbol: string, market: MarketType):
 
   for (const sym of symbolsToTry) {
     const endpoints = [
+      `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=2m&includePrePost=true`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=2m&includePrePost=true`,
       `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`,
-      `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`,
     ];
 
     for (const url of endpoints) {
       const data = await httpGetJson(url);
       const meta = data?.chart?.result?.[0]?.meta;
+      const quote = data?.chart?.result?.[0]?.indicators?.quote?.[0];
+      const validCloses = (quote?.close || []).filter((c: any) => typeof c === 'number' && c > 0);
+      const lastCandleClose = validCloses.length > 0 ? validCloses[validCloses.length - 1] : 0;
 
-      if (meta && typeof meta.regularMarketPrice === 'number' && meta.regularMarketPrice > 0) {
-        const currentPrice = meta.regularMarketPrice;
+      if (meta && (meta.regularMarketPrice > 0 || lastCandleClose > 0)) {
+        const currentPrice = lastCandleClose > 0 ? lastCandleClose : meta.regularMarketPrice;
         const previousClose = meta.chartPreviousClose || meta.previousClose || currentPrice;
         const change = currentPrice - previousClose;
         const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
 
         return {
           symbol: sym,
-          currentPrice,
-          previousClose,
-          change,
-          changePercent,
-          currency: market === 'TW' ? 'TWD' : 'USD',
+          currentPrice: Math.round(currentPrice * 100) / 100,
+          previousClose: Math.round(previousClose * 100) / 100,
+          change: Math.round(change * 100) / 100,
+          changePercent: Math.round(changePercent * 100) / 100,
+          currency: isTw ? 'TWD' : 'USD',
           name: meta.shortName || meta.longName || cleanSymbol,
         };
       }

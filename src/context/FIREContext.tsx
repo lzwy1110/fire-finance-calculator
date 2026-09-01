@@ -83,7 +83,7 @@ interface FIREContextType {
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
   deleteTransaction: (id: string) => void;
   updateCategories: (cats: CategoryItem[]) => void;
-  updatePortfolioStocks: (stocks: PortfolioStock[]) => void;
+  updatePortfolioStocks: (stocks: PortfolioStock[], options?: { syncToCloud?: boolean }) => void;
   saveSingleStock: (stock: PortfolioStock) => Promise<{ success: boolean; error?: string }>;
   deleteSingleStock: (stockId: string) => Promise<{ success: boolean; error?: string }>;
   updateQuickPresets: (presets: QuickPreset[]) => void;
@@ -367,13 +367,14 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveCategories(cats);
   }, []);
 
-  const updatePortfolioStocks = useCallback((stocks: PortfolioStock[]) => {
+  const updatePortfolioStocks = useCallback((stocks: PortfolioStock[], options?: { syncToCloud?: boolean }) => {
+    const syncToCloud = options?.syncToCloud ?? true;
     lastUserEditTimeRef.current = Date.now();
     const synced = stocks.map((s) => syncStockCalculations(s));
     setPortfolioStocks(synced);
     savePortfolioStocks(synced);
 
-    if (storageModeState === 'cloud') {
+    if (syncToCloud && storageModeState === 'cloud') {
       const code = syncCodeState || getOrCreateSyncCode();
       synced.forEach((s) => {
         saveStockToCloud(code, s).catch(() => {});

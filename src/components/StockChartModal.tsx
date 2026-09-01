@@ -18,6 +18,7 @@ interface StockChartModalProps {
   stock: PortfolioStock | null;
   usdRate: number;
   currencySymbol: string;
+  onUpdateStockPrice?: (symbol: string, latestPrice: number) => void;
   onClose: () => void;
 }
 
@@ -64,6 +65,7 @@ const LOCAL_STORAGE_COLOR_KEY = 'fire_stock_chart_color_theme';
 export const StockChartModal: React.FC<StockChartModalProps> = ({
   stock,
   currencySymbol,
+  onUpdateStockPrice,
   onClose,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('line');
@@ -71,6 +73,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   const [candleResolution, setCandleResolution] = useState<CandleResolution>('d');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [candles, setCandles] = useState<CandleData[]>([]);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Color theme state
@@ -130,39 +133,35 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.themeId) setSelectedThemeId(parsed.themeId);
-        if (parsed.upColor) setCustomUp(parsed.upColor);
-        if (parsed.downColor) setCustomDown(parsed.downColor);
+        if (parsed.customUp) setCustomUp(parsed.customUp);
+        if (parsed.customDown) setCustomDown(parsed.customDown);
       }
     } catch (e) {}
   }, []);
 
-  const handleSelectPreset = (preset: ColorTheme) => {
-    setSelectedThemeId(preset.id);
-    setCustomUp(preset.upColor);
-    setCustomDown(preset.downColor);
-    try {
-      localStorage.setItem(
-        LOCAL_STORAGE_COLOR_KEY,
-        JSON.stringify({ themeId: preset.id, upColor: preset.upColor, downColor: preset.downColor })
-      );
-    } catch (e) {}
-  };
-
-  const handleCustomColorChange = (type: 'up' | 'down', color: string) => {
-    setSelectedThemeId('custom');
-    if (type === 'up') setCustomUp(color);
-    if (type === 'down') setCustomDown(color);
-
+  const saveColorTheme = (themeId: string, up?: string, down?: string) => {
+    setSelectedThemeId(themeId);
+    if (up) setCustomUp(up);
+    if (down) setCustomDown(down);
     try {
       localStorage.setItem(
         LOCAL_STORAGE_COLOR_KEY,
         JSON.stringify({
-          themeId: 'custom',
-          upColor: type === 'up' ? color : customUp,
-          downColor: type === 'down' ? color : customDown,
+          themeId,
+          customUp: up || customUp,
+          customDown: down || customDown,
         })
       );
     } catch (e) {}
+  };
+
+  const handleSelectPreset = (preset: ColorTheme) => {
+    saveColorTheme(preset.id, preset.upColor, preset.downColor);
+  };
+
+  const handleCustomColorChange = (type: 'up' | 'down', color: string) => {
+    if (type === 'up') saveColorTheme('custom', color, customDown);
+    else saveColorTheme('custom', customUp, color);
   };
 
   // Determine query parameters based on chartType and selected timeframe
@@ -170,11 +169,11 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     if (chartType === 'line') {
       switch (lineRange) {
         case '1d':
-          return { queryRange: '1d', queryInterval: '5m', periodLabel: '今日' };
+          return { queryRange: '1d', queryInterval: '2m', periodLabel: '當日' };
         case '5d':
           return { queryRange: '5d', queryInterval: '15m', periodLabel: '近5日' };
         case '1m':
-          return { queryRange: '1mo', queryInterval: '1d', periodLabel: '近1個月' };
+          return { queryRange: '1mo', queryInterval: '1d', periodLabel: '近1月' };
         case '1y':
           return { queryRange: '1y', queryInterval: '1d', periodLabel: '近1年' };
         case '5y':
@@ -216,6 +215,15 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
         if (res && res.candles && res.candles.length > 0) {
           setCandles(res.candles);
           setViewWindow({ start: 0, end: res.candles.length - 1 });
+
+          // Extract absolute latest candle close price and synchronize back
+          const lastCandle = res.candles[res.candles.length - 1];
+          if (lastCandle && lastCandle.close > 0) {
+            setLivePrice(lastCandle.close);
+            if (onUpdateStockPrice) {
+              onUpdateStockPrice(stock.symbol, lastCandle.close);
+            }
+          }
         } else {
           setError('暫無該標的歷史走勢資料');
         }
@@ -232,7 +240,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [stock, queryRange, queryInterval]);
+  }, [stock, queryRange, queryInterval, onUpdateStockPrice]);
 
   // Current active colors
   const activeUpColor = selectedThemeId === 'custom' ? customUp : COLOR_PRESETS.find((p) => p.id === selectedThemeId)?.upColor || customUp;
@@ -938,8 +946,9 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   if (!stock) return null;
 
   const isUS = stock.market === 'US';
-  const priceDisplay = stock.currentPrice.toFixed(2);
-  const costDiff = stock.avgCost > 0 ? stock.currentPrice - stock.avgCost : 0;
+  const currentDisplayPrice = livePrice || stock.currentPrice;
+  const priceDisplay = currentDisplayPrice.toFixed(2);
+  const costDiff = stock.avgCost > 0 ? currentDisplayPrice - stock.avgCost : 0;
   const costDiffPercent = stock.avgCost > 0 ? (costDiff / stock.avgCost) * 100 : 0;
   const isCostProfit = costDiff >= 0;
 
