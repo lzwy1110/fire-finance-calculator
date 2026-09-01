@@ -19,6 +19,7 @@ import {
 import { CategoryItem, FIREConfig, Transaction, PortfolioStock } from '../types';
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
+import { AnnualTaxChecklist } from './AnnualTaxChecklist';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -48,6 +49,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
 
   const currentMonthStr = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+  const [mainTab, setMainTab] = useState<'ledger' | 'tax'>('ledger');
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
   const [search, setSearch] = useState('');
   // View Scope: 'living' (生活收支) | 'investment' (投資證券) | 'all' (全部動態)
@@ -353,14 +355,48 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-16">
-      {/* Top Header Card */}
-      <div className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl space-y-4">
-        {/* Title Bar & Quick Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              <ReceiptText className="w-6 h-6" style={{ color: currentTheme.primaryHex }} />
-              <span>收支明細與金流日記</span>
+      {/* Top Sub-Tab Navigation Bar */}
+      <div className="flex bg-[#0c0c0e] p-1.5 rounded-2xl border border-white/10 max-w-xs shadow-lg">
+        <button
+          type="button"
+          onClick={() => setMainTab('ledger')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mainTab === 'ledger'
+              ? 'bg-white/10 text-white shadow-md'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+          style={mainTab === 'ledger' ? { color: currentTheme.primaryHex } : {}}
+        >
+          <ReceiptText className="w-4 h-4" />
+          <span>收支明細</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('tax')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mainTab === 'tax'
+              ? 'bg-white/10 text-white shadow-md'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+          style={mainTab === 'tax' ? { color: currentTheme.primaryHex } : {}}
+        >
+          <span>🏛️ 年度稅務</span>
+        </button>
+      </div>
+
+      {mainTab === 'tax' ? (
+        <AnnualTaxChecklist />
+      ) : (
+        <>
+          {/* Top Header Card */}
+          <div className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl space-y-4">
+            {/* Title Bar & Quick Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                  <ReceiptText className="w-6 h-6" style={{ color: currentTheme.primaryHex }} />
+                  <span>收支明細與金流日記</span>
             </h2>
             <p className="text-xs text-gray-400 mt-1">
               生活收支與證券投資雙軌管理 • 支援多維度篩選與收據憑證查閱
@@ -1249,6 +1285,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

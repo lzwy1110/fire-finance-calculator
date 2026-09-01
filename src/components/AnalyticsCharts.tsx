@@ -18,7 +18,6 @@ import {
 import { FIREConfig, Transaction } from '../types';
 import { generateFIRETrajectoryCurve } from '../utils/fireCalculator';
 import { getThemePreset } from '../utils/theme';
-import { AnnualTaxChecklist } from './AnnualTaxChecklist';
 
 interface AnalyticsChartsProps {
   transactions: Transaction[];
@@ -248,9 +247,6 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
           </ResponsiveContainer>
         </div>
       </div>
-
-      {/* 4. Annual Tax & Statutory Levies Checklist & Planning */}
-      <AnnualTaxChecklist />
     </div>
   );
 };
