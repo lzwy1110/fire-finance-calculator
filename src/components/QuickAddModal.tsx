@@ -122,40 +122,29 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Type Selector Tabs (3 Primary Daily Life Types) */}
-          <div className="grid grid-cols-3 gap-1.5 p-1 bg-zinc-950 rounded-2xl border border-zinc-800">
+          {/* Type Selector Tabs (2 Primary Daily Life Types) */}
+          <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-950 rounded-2xl border border-zinc-800">
             <button
               type="button"
               onClick={() => handleTypeChange('expense')}
-              className={`py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+              className={`py-2.5 text-sm font-black rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
                 type === 'expense'
                   ? 'bg-rose-500 text-white shadow-md'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              🛒 支出
+              <span>🛒 支出 (Expense)</span>
             </button>
             <button
               type="button"
               onClick={() => handleTypeChange('income')}
-              className={`py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+              className={`py-2.5 text-sm font-black rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
                 type === 'income'
                   ? 'bg-emerald-500 text-zinc-950 shadow-md'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              💵 收入
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTypeChange('investment')}
-              className={`py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
-                type === 'investment'
-                  ? 'bg-purple-500 text-white shadow-md'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              📈 投資
+              <span>💵 收入 (Income)</span>
             </button>
           </div>
 

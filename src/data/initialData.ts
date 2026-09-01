@@ -243,8 +243,8 @@ export const DEFAULT_QUICK_PRESETS: QuickPreset[] = [
   { id: 'p2', label: '商業午餐', mainCategory: '飲食', subCategory: '午餐', amount: 150 },
   { id: 'p3', label: '捷運加值', mainCategory: '交通', subCategory: '公車捷運', amount: 500 },
   { id: 'p4', label: '機車加油', mainCategory: '交通', subCategory: '機車/汽車加油', amount: 120 },
-  { id: 'p5', label: '買 0050 定額', mainCategory: '投資資產', subCategory: '指數型ETF (VOO/0050)', amount: 10000 },
-  { id: 'p6', label: '買 VOO 定額', mainCategory: '投資資產', subCategory: '美股定期定額', amount: 15000 },
+  { id: 'p5', label: '全聯/超市採買', mainCategory: '飲食', subCategory: '食材/買菜', amount: 650 },
+  { id: 'p6', label: '日常薪資入帳', mainCategory: '薪資收入', subCategory: '本業薪資', amount: 85000 },
 ];
 
 export const INITIAL_TRANSACTIONS: Transaction[] = [
