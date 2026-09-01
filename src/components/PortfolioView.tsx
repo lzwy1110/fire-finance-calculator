@@ -76,6 +76,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const currentUSD = cashSavingsUSD ?? (fireConfig.cashSavingsUSD ?? 0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState<string | null>(null);
+  const [liveSyncState, setLiveSyncState] = useState<'ok' | 'warning' | 'error'>('ok');
+  const [lastSuccessfulSyncTime, setLastSuccessfulSyncTime] = useState<number>(Date.now());
+  const consecutiveFailuresRef = useRef<number>(0);
   const [isSaving, setIsSaving] = useState(false);
 
   // Add / Record Transaction Modal State
@@ -273,6 +276,16 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     return 0;
   });
 
+  // Human readable last sync time
+  const formatLastSync = () => {
+    if (!lastSuccessfulSyncTime) return '剛剛';
+    const diffSec = Math.floor((Date.now() - lastSuccessfulSyncTime) / 1000);
+    if (diffSec < 10) return '剛剛';
+    if (diffSec < 60) return `${diffSec}秒前`;
+    const d = new Date(lastSuccessfulSyncTime);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
   // Batch Refresh All Stock Quotes from Online Endpoints (Zero Supabase Writes by default)
   const isRefreshingRef = useRef<boolean>(false);
   const handleRefreshQuotes = async (silent: boolean = false, syncToCloud: boolean = false) => {
@@ -310,15 +323,30 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
       if (updatedCount > 0) {
         onUpdateStocks(updatedStocks, { syncToCloud });
+        consecutiveFailuresRef.current = 0;
+        setLiveSyncState('ok');
+        setLastSuccessfulSyncTime(Date.now());
         if (!silent) {
           setRefreshStatus(`✅ 已成功更新 ${updatedCount} 檔最新線上行情報價！`);
         }
       } else {
+        consecutiveFailuresRef.current += 1;
+        if (consecutiveFailuresRef.current >= 3 || Date.now() - lastSuccessfulSyncTime > 30000) {
+          setLiveSyncState('error');
+        } else {
+          setLiveSyncState('warning');
+        }
         if (!silent) {
           setRefreshStatus('⚠️ 數據源連線繁忙，現有持股價格已完好保留。');
         }
       }
     } catch (e) {
+      consecutiveFailuresRef.current += 1;
+      if (consecutiveFailuresRef.current >= 3 || Date.now() - lastSuccessfulSyncTime > 30000) {
+        setLiveSyncState('error');
+      } else {
+        setLiveSyncState('warning');
+      }
       if (!silent) {
         setRefreshStatus('⚠️ 線上服務連線失敗，現有資料已保留。');
       }
@@ -329,7 +357,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         if (!silent) {
           setRefreshStatus(null);
         }
-      }, 2000);
+      }, 1500);
     }
   };
 
@@ -1049,7 +1077,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
       {/* 🛠️ Symmetrically Aligned Clean Control Toolbar */}
       <div className="bg-[#0c0c0c] border border-white/5 p-3.5 sm:p-4 rounded-3xl space-y-3">
-        {/* Row 1: Market Filter Tabs (Left) + Sort Dropdown & Layout Mode (Right) */}
+        {/* Row 1: Market Filter Tabs (Left) + Live Status (Middle) + Sort & Layout Mode (Right) */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Market Filter Tabs */}
           <div className="flex items-center gap-1 bg-black/60 border border-white/10 p-1 rounded-2xl">
@@ -1093,8 +1121,51 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             </button>
           </div>
 
-          {/* Sort & View Mode Tools */}
-          <div className="flex items-center gap-2">
+          {/* Right Tools: Ambient Live Status + Sort & View Mode */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Ambient Live Sync Status Capsule */}
+            <button
+              type="button"
+              onClick={() => handleRefreshQuotes(false, false)}
+              disabled={isRefreshing}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm border ${
+                liveSyncState === 'error'
+                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                  : liveSyncState === 'warning'
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+              }`}
+              title="即時行情每 5 秒自動更新，點擊可手動立即重整"
+            >
+              <span className="relative flex h-2 w-2">
+                <span
+                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                    liveSyncState === 'error'
+                      ? 'bg-rose-400'
+                      : liveSyncState === 'warning'
+                      ? 'bg-amber-400'
+                      : 'bg-emerald-400'
+                  }`}
+                />
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    liveSyncState === 'error'
+                      ? 'bg-rose-500'
+                      : liveSyncState === 'warning'
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                />
+              </span>
+              <span className="font-mono text-[11px]">
+                {isRefreshing
+                  ? '同步中...'
+                  : liveSyncState === 'error'
+                  ? '行情延遲'
+                  : `即時 • ${formatLastSync()}`}
+              </span>
+            </button>
+
             {/* Custom Glassmorphic Sort Dropdown */}
             <div className="relative">
               <button
@@ -1119,7 +1190,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     className="fixed inset-0 z-[60]"
                     onClick={() => setIsSortDropdownOpen(false)}
                   />
-                  <div className="absolute left-0 top-full mt-1.5 z-[70] w-48 bg-[#141418] border border-white/15 rounded-2xl p-1.5 shadow-2xl space-y-0.5 animate-fadeIn">
+                  <div className="absolute right-0 top-full mt-1.5 z-[70] w-48 bg-[#141418] border border-white/15 rounded-2xl p-1.5 shadow-2xl space-y-0.5 animate-fadeIn">
                     {[
                       { id: 'value_desc', label: '市值最高', icon: '💎' },
                       { id: 'roi_desc', label: 'ROI% 最高', icon: '🚀' },
@@ -1176,37 +1247,39 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           </div>
         </div>
 
-        {/* Row 2: 2 Equal Primary Action Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-          <button
-            onClick={() => handleRefreshQuotes(false, false)}
-            disabled={isRefreshing}
-            className="w-full py-2.5 px-4 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-extrabold rounded-2xl transition cursor-pointer active:scale-95 shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
-            title="從線上數據源自動更新價格 (每 5 秒前景自動即時同步)"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>更新最新股價</span>
-            <span className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-400 font-bold pl-2 border-l border-cyan-500/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping opacity-75" />
-              <span>5s 即時連線</span>
-            </span>
-          </button>
-
+        {/* Row 2: Full Width Modern Primary Action Button */}
+        <div className="pt-1">
           <button
             onClick={() => handleOpenAddModal()}
-            className="w-full py-2.5 px-4 text-black font-extrabold text-xs rounded-2xl transition cursor-pointer shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+            className="w-full py-3 px-4 text-black font-black text-xs sm:text-sm rounded-2xl transition cursor-pointer shadow-lg active:scale-[0.99] flex items-center justify-center gap-2 hover:brightness-110"
             style={{
               backgroundColor: currentTheme.primaryHex,
-              boxShadow: `0 0 15px rgba(${currentTheme.bgGlowRgb}, 0.3)`,
+              boxShadow: `0 0 20px rgba(${currentTheme.bgGlowRgb}, 0.25)`,
             }}
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            <span>記一筆交易 (買入 / 賣出)</span>
+            <span>記一筆交易 (買入 / 賣出 / 除息)</span>
           </button>
         </div>
       </div>
 
-      {/* Status Alert Banner if Refreshing */}
+      {/* Watchdog Alert Banner if prolonged sync error / offline */}
+      {liveSyncState === 'error' && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 text-xs text-amber-300 flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="truncate">即時行情連線暫時延遲，已為您安全保留最近有效收盤價。</span>
+          </div>
+          <button
+            onClick={() => handleRefreshQuotes(false, false)}
+            className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 rounded-xl text-[11px] font-bold shrink-0 cursor-pointer transition active:scale-95 border border-amber-500/30"
+          >
+            立即重試
+          </button>
+        </div>
+      )}
+
+      {/* Status Alert Banner if Manual Refreshing */}
       {refreshStatus && (
         <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-3.5 text-xs text-cyan-300 font-bold flex items-center gap-2.5 animate-fadeIn">
           <Sparkles className="w-4 h-4 text-cyan-400 animate-spin" />
