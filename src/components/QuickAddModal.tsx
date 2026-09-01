@@ -109,7 +109,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-zinc-100">新增財務紀錄</h3>
-              <p className="text-xs text-zinc-400">整合收入、支出、稅金、投資</p>
+              <p className="text-xs text-zinc-400">快速記錄日常支出與各類收入</p>
             </div>
           </div>
           <button
@@ -186,9 +186,9 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                   key={cat.id}
                   type="button"
                   onClick={() => handleMainCatChange(cat.name)}
-                  className={`px-2.5 py-2 rounded-xl text-[11px] sm:text-xs font-semibold text-left transition leading-snug break-words flex items-center ${
+                  className={`px-2 py-2.5 rounded-xl text-[11px] sm:text-xs font-bold text-center transition leading-snug break-words flex items-center justify-center cursor-pointer ${
                     mainCategory === cat.name
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm'
                       : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800/80 hover:text-zinc-200'
                   }`}
                 >
