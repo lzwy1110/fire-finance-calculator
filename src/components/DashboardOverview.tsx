@@ -50,17 +50,25 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   let monthlyIncome = 0;
   let monthlyExpense = 0;
-  let monthlyTax = 0;
   let monthlyInvestment = 0;
 
   currentMonthTransactions.forEach((t) => {
     if (t.type === 'income') monthlyIncome += t.amount;
     if (t.type === 'expense') monthlyExpense += t.amount;
-    if (t.type === 'tax') monthlyTax += t.amount;
     if (t.type === 'investment') monthlyInvestment += t.amount;
   });
 
-  const netSavings = monthlyIncome - monthlyExpense - monthlyTax;
+  // Include current month stock buys from portfolioStocks
+  portfolioStocks.forEach((stock) => {
+    stock.transactions?.forEach((tx) => {
+      if (tx.type === 'BUY' && tx.date.startsWith(currentMonthStr)) {
+        const rate = stock.currency === 'USD' ? usdRate : 1;
+        monthlyInvestment += Math.round(tx.shares * tx.price * rate);
+      }
+    });
+  });
+
+  const netSavings = monthlyIncome - monthlyExpense;
   const savingsRate = monthlyIncome > 0 ? ((netSavings / monthlyIncome) * 100).toFixed(1) : '0.0';
 
   // Financial Health Grade
@@ -236,10 +244,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
 
-          {/* 2. Monthly Expense */}
+          {/* 2. Monthly Living Expense */}
           <div className="bg-[#141417] border border-white/5 rounded-2xl p-3 sm:p-3.5 space-y-1 hover:border-orange-500/20 transition">
             <div className="flex items-center justify-between text-[11px] text-gray-400">
-              <span className="font-medium">本月總支出</span>
+              <span className="font-medium">生活總支出</span>
               <div className="p-1 bg-orange-500/10 text-orange-400 rounded-lg">
                 <ArrowDownRight className="w-3.5 h-3.5" />
               </div>
@@ -252,19 +260,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
 
-          {/* 3. Monthly Tax */}
-          <div className="bg-[#141417] border border-white/5 rounded-2xl p-3 sm:p-3.5 space-y-1 hover:border-purple-500/20 transition">
+          {/* 3. Monthly Investment Allocation */}
+          <div className="bg-[#141417] border border-white/5 rounded-2xl p-3 sm:p-3.5 space-y-1 hover:border-cyan-500/20 transition">
             <div className="flex items-center justify-between text-[11px] text-gray-400">
-              <span className="font-medium">稅金與規費</span>
-              <div className="p-1 bg-purple-500/10 text-purple-400 rounded-lg">
-                <ReceiptText className="w-3.5 h-3.5" />
+              <span className="font-medium">投資資產投入</span>
+              <div className="p-1 bg-cyan-500/10 text-cyan-400 rounded-lg">
+                <TrendingUp className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="text-base sm:text-lg font-black text-white font-mono whitespace-nowrap">
-              {sym} {formatNum(monthlyTax)}
+            <div className="text-base sm:text-lg font-black text-cyan-400 font-mono whitespace-nowrap">
+              {sym} {formatNum(monthlyInvestment)}
             </div>
-            <div className="text-[10px] text-purple-400 font-medium truncate">
-              所得稅・補充保費
+            <div className="text-[10px] text-cyan-400/80 font-medium truncate">
+              <span>定期定額・買入股票</span>
             </div>
           </div>
 
