@@ -29,7 +29,6 @@ import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../typ
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
 import { StockChartModal } from './StockChartModal';
-import { Sparkline } from './Sparkline';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
@@ -1313,44 +1312,34 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 className="p-3.5 sm:p-4 hover:bg-white/[0.04] active:bg-white/[0.08] transition cursor-pointer flex items-center justify-between gap-3 group"
               >
                 {/* Left: Flag Badge + Symbol + Name & Position */}
-                <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                   <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
                     {isUS ? '🇺🇸' : '🇹🇼'}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono font-black text-white text-base tracking-tight">{stock.symbol}</span>
+                      <span className="font-mono font-black text-white text-sm sm:text-base tracking-tight">{stock.symbol}</span>
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300">
                         {isUS ? '美股' : '台股'}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-400 truncate max-w-[160px] xs:max-w-[200px] sm:max-w-[320px]" title={stock.name}>
+                    <div className="text-xs text-gray-400 truncate max-w-[170px] xs:max-w-[220px] sm:max-w-[360px]" title={stock.name}>
                       {stock.name}
                     </div>
                     <div className="text-[11px] font-mono text-gray-500 mt-0.5">
-                      {formatNum(metrics.shares)} 股 • 均價 {currSymbol}{formatDec(metrics.avgCost)}
+                      {formatNum(metrics.shares)} 股 • 均價 ${formatDec(metrics.avgCost)}
                     </div>
                   </div>
                 </div>
 
-                {/* Middle: Intraday Mini Sparkline (Tablet/Desktop) */}
-                <div className="hidden sm:flex items-center justify-center px-2 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
-                  <Sparkline
-                    data={stock.sparkline}
-                    isPositive={todayChangeVal >= 0}
-                    width={68}
-                    height={22}
-                  />
-                </div>
-
-                {/* Right: Current Price + Market Value + ROI Pill */}
-                <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                {/* Right: Current Price + Market Value + Clean Compact ROI Pill */}
+                <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
                   <div className="text-right">
                     <div className="font-mono font-black text-white text-sm sm:text-base">
                       {currSymbol}{formatDec(stock.currentPrice)}
                     </div>
                     <div className="text-[11px] font-mono text-gray-400">
-                      市值 {currSymbol}{formatNum(metrics.marketValue)}
+                      市值 ${formatNum(metrics.marketValue)}
                     </div>
                     {stock.previousClose && stock.previousClose > 0 && (
                       <div
@@ -1363,9 +1352,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     )}
                   </div>
 
-                  {/* Big ROI Capsule Badge */}
+                  {/* Clean Compact ROI Capsule Badge */}
                   <div
-                    className={`min-w-[76px] sm:min-w-[88px] py-1.5 px-2.5 rounded-2xl font-mono text-xs font-black text-center shadow-md ${
+                    className={`min-w-[68px] sm:min-w-[78px] py-1.5 px-2 rounded-2xl font-mono text-xs font-black text-center shadow-md ${
                       metrics.unrealizedPnL >= 0
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                         : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
@@ -1373,7 +1362,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   >
                     <div>{metrics.unrealizedPnL >= 0 ? '+' : ''}{formatDec(metrics.unrealizedRoiPercent)}%</div>
                     <div className="text-[10px] opacity-80 font-normal">
-                      {metrics.unrealizedPnL >= 0 ? '+' : ''}{currSymbol}{formatNum(metrics.unrealizedPnL)}
+                      {metrics.unrealizedPnL >= 0 ? '+' : ''}${formatNum(metrics.unrealizedPnL)}
                     </div>
                   </div>
                 </div>
@@ -1398,19 +1387,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 key={stock.id}
                 className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl hover:border-white/20 transition group relative overflow-hidden"
               >
-                {/* Option A: Ambient Background Sparkline Wave (Absolute, Zero Squeeze on text) */}
-                <div className="absolute right-0 top-0 w-36 sm:w-44 h-16 pointer-events-none opacity-20 transition-opacity group-hover:opacity-35 overflow-hidden flex items-end justify-end p-2">
-                  <Sparkline
-                    data={stock.sparkline}
-                    isPositive={todayChangeVal >= 0}
-                    width={140}
-                    height={48}
-                    fill={true}
-                  />
-                </div>
-
                 {/* Card Header: Symbol + Name (Left) ｜ Large Price & Today Change (Right) */}
-                <div className="flex items-start justify-between border-b border-white/10 pb-3.5 gap-2 relative z-10">
+                <div className="flex items-start justify-between border-b border-white/10 pb-3.5 gap-2">
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0">
                       {isUS ? '🇺🇸' : '🇹🇼'}
@@ -1422,7 +1400,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                           {isUS ? '美股' : '台股'}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-400 truncate max-w-[160px] xs:max-w-[200px] sm:max-w-[260px]" title={stock.name}>
+                      <p className="text-xs text-gray-400 truncate max-w-[180px] xs:max-w-[240px] sm:max-w-[300px]" title={stock.name}>
                         {stock.name}
                       </p>
                     </div>
