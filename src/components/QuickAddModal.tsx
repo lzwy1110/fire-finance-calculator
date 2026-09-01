@@ -23,11 +23,12 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   if (!isOpen) return null;
 
   const currentTheme = getThemePreset(themeColor);
+  const todayStr = new Date().toISOString().split('T')[0];
   const [type, setType] = useState<TransactionType>('expense');
   const [mainCategory, setMainCategory] = useState<string>('');
   const [subCategory, setSubCategory] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>(todayStr);
   const [note, setNote] = useState<string>('');
   const [tags, setTags] = useState<string>('');
 
