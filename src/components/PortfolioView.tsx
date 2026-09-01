@@ -1128,14 +1128,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               type="button"
               onClick={() => handleRefreshQuotes(false, false)}
               disabled={isRefreshing}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm border ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm border ${
                 liveSyncState === 'error'
                   ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                   : liveSyncState === 'warning'
                   ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
                   : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
               }`}
-              title="即時行情每 5 秒自動更新，點擊可手動立即重整"
+              title="行情每 5 秒自動靜默同步，點擊可立即重整"
             >
               <span className="relative flex h-2 w-2">
                 <span
@@ -1158,11 +1158,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 />
               </span>
               <span className="font-mono text-[11px]">
-                {isRefreshing
-                  ? '同步中...'
-                  : liveSyncState === 'error'
+                {liveSyncState === 'error'
+                  ? '連線異常'
+                  : liveSyncState === 'warning'
                   ? '行情延遲'
-                  : `即時 • ${formatLastSync()}`}
+                  : '連線正常'}
               </span>
             </button>
 
