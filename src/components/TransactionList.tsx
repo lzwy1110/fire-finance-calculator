@@ -50,7 +50,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const currentMonthStr = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
   const [search, setSearch] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('all');
+  // View Scope: 'living' (生活收支) | 'investment' (投資證券) | 'all' (全部動態)
+  const [viewScope, setViewScope] = useState<'living' | 'investment' | 'all'>('living');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [tempSelectedCategories, setTempSelectedCategories] = useState<string[]>([]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -62,7 +63,13 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
   // Unified list combining ledger + portfolio stock trades
   const allTransactions = useMemo(() => {
-    const list: (Transaction & { isStockTrade?: boolean; stockOriginalAmount?: number; stockOriginalCurrency?: string })[] = [...transactions];
+    const list: (Transaction & {
+      isStockTrade?: boolean;
+      stockTradeType?: 'BUY' | 'SELL' | 'DIVIDEND';
+      stockMarket?: 'US' | 'TW';
+      stockOriginalAmount?: number;
+      stockOriginalCurrency?: string;
+    })[] = [...transactions];
 
     (portfolioStocks || []).forEach((stock) => {
       const isUS = stock.market === 'US';
@@ -74,7 +81,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
         const isBuy = st.type === 'BUY';
         const isSell = st.type === 'SELL';
-        const txType = isBuy ? 'investment' : 'income';
+        const txType: TransactionType = isBuy ? 'investment' : (isSell ? 'investment' : 'income');
         const actionLabel = isBuy ? '買入' : isSell ? '賣出' : '股利發放';
 
         list.push({
@@ -87,6 +94,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           note: `${formatNum(st.shares)} 股 @ ${stockCurrency}${st.price}${st.note ? ` • ${st.note}` : ''}`,
           tags: [isUS ? '美股' : '台股', '證券交易'],
           isStockTrade: true,
+          stockTradeType: st.type,
+          stockMarket: stock.market,
           stockOriginalAmount: totalTradeVal,
           stockOriginalCurrency: stockCurrency,
         });
@@ -156,12 +165,84 @@ export const TransactionList: React.FC<TransactionListProps> = ({
     }
   };
 
-  // Filter transactions
+  // Scope statistics for the active month (living vs investment vs all)
+  const monthAllTxs = useMemo(() => {
+    return allTransactions.filter((t) => selectedMonth === 'all' || t.date.startsWith(selectedMonth));
+  }, [allTransactions, selectedMonth]);
+
+  const scopeStats = useMemo(() => {
+    let livingIncome = 0;
+    let livingExpense = 0;
+    let livingTax = 0;
+
+    let investBuy = 0;
+    let investSell = 0;
+    let investDividend = 0;
+
+    monthAllTxs.forEach((t: any) => {
+      if (t.isStockTrade) {
+        if (t.stockTradeType === 'BUY') {
+          investBuy += t.amount;
+        } else if (t.stockTradeType === 'SELL') {
+          investSell += t.amount;
+        } else {
+          investDividend += t.amount;
+          livingIncome += t.amount; // Stock dividends count toward passive living income!
+        }
+      } else {
+        if (t.type === 'income') livingIncome += t.amount;
+        else if (t.type === 'expense') livingExpense += t.amount;
+        else if (t.type === 'tax') livingTax += t.amount;
+        else if (t.type === 'investment') investBuy += t.amount;
+      }
+    });
+
+    const livingNet = livingIncome - livingExpense - livingTax;
+    const investNet = investBuy - investSell;
+    const globalNet = livingIncome + investSell - livingExpense - livingTax - investBuy;
+
+    return {
+      livingIncome,
+      livingExpense,
+      livingTax,
+      livingNet,
+      investBuy,
+      investSell,
+      investDividend,
+      investNet,
+      globalNet,
+    };
+  }, [monthAllTxs]);
+
+  // Filter transactions based on viewScope, month, category and search query
   const filtered = useMemo(() => {
-    return allTransactions.filter((t) => {
+    return allTransactions.filter((t: any) => {
+      // 1. Month filter
       if (selectedMonth !== 'all' && !t.date.startsWith(selectedMonth)) return false;
-      if (selectedType !== 'all' && t.type !== selectedType) return false;
-      if (selectedCategories.length > 0 && !selectedCategories.includes(t.mainCategory)) return false;
+
+      // 2. View Scope filter
+      if (viewScope === 'living') {
+        // Pure Living mode: Exclude stock BUY and SELL (keep dividends & living records)
+        if (t.isStockTrade && t.stockTradeType !== 'DIVIDEND') return false;
+        if (!t.isStockTrade && t.type === 'investment') return false;
+      } else if (viewScope === 'investment') {
+        // Investment mode: Only stock trades or investment records
+        if (!t.isStockTrade && t.type !== 'investment') return false;
+      }
+
+      // 3. Category / Market filter
+      if (selectedCategories.length > 0) {
+        if (viewScope === 'investment') {
+          const matchesMarket = selectedCategories.some(
+            (c) => (t.tags || []).includes(c) || t.mainCategory === c
+          );
+          if (!matchesMarket) return false;
+        } else {
+          if (!selectedCategories.includes(t.mainCategory)) return false;
+        }
+      }
+
+      // 4. Search query
       if (search.trim()) {
         const q = search.toLowerCase();
         const matchCat = t.mainCategory.toLowerCase().includes(q);
@@ -172,29 +253,11 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       }
       return true;
     });
-  }, [allTransactions, selectedMonth, selectedType, selectedCategories, search]);
-
-  // Calculate statistics on filtered transactions
-  const stats = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    let tax = 0;
-    let investment = 0;
-
-    filtered.forEach((t) => {
-      if (t.type === 'income') income += t.amount;
-      else if (t.type === 'expense') expense += t.amount;
-      else if (t.type === 'tax') tax += t.amount;
-      else if (t.type === 'investment') investment += t.amount;
-    });
-
-    const net = income - expense - tax;
-    return { income, expense, tax, investment, net };
-  }, [filtered]);
+  }, [allTransactions, selectedMonth, viewScope, selectedCategories, search]);
 
   // Group filtered transactions by date (descending)
   const groupedByDate = useMemo(() => {
-    const groups: { [date: string]: Transaction[] } = {};
+    const groups: { [date: string]: any[] } = {};
     filtered.forEach((t) => {
       if (!groups[t.date]) groups[t.date] = [];
       groups[t.date].push(t);
@@ -206,9 +269,18 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       const items = groups[date];
       let dayExpense = 0;
       let dayIncome = 0;
+      let dayInvest = 0;
+
       items.forEach((item) => {
-        if (item.type === 'income') dayIncome += item.amount;
-        else if (item.type === 'expense') dayExpense += item.amount;
+        if (item.isStockTrade) {
+          if (item.stockTradeType === 'BUY') dayInvest += item.amount;
+          else if (item.stockTradeType === 'SELL') dayIncome += item.amount;
+          else if (item.stockTradeType === 'DIVIDEND') dayIncome += item.amount;
+        } else {
+          if (item.type === 'income') dayIncome += item.amount;
+          else if (item.type === 'expense' || item.type === 'tax') dayExpense += item.amount;
+          else if (item.type === 'investment') dayInvest += item.amount;
+        }
       });
 
       // Format weekday
@@ -226,6 +298,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         weekdayStr,
         dayExpense,
         dayIncome,
+        dayInvest,
         items,
       };
     });
@@ -241,9 +314,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
     if (cat.includes('教育') || cat.includes('學') || cat.includes('書') || cat.includes('課')) return '📚';
     if (cat.includes('醫療') || cat.includes('健') || cat.includes('醫') || cat.includes('藥')) return '💊';
     if (cat.includes('購物') || cat.includes('日常') || cat.includes('服飾') || cat.includes('生活')) return '🛍️';
+    if (cat.includes('證券') || cat.includes('股票') || cat.includes('投資') || type === 'investment') return '📈';
     if (type === 'income') return '💵';
     if (type === 'tax') return '🏛️';
-    if (type === 'investment') return '📈';
     return '📝';
   };
 
@@ -260,17 +333,18 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       `"${t.note || ''}"`,
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers, ...rows].map((e) => e.join(',')).join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `FIRE_Ledger_${selectedMonth}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `fire_ledger_${selectedMonth}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Format month for display
+  // Format Month Display
   const displayMonthLabel = (m: string) => {
     if (m === 'all') return '全部歷史明細';
     const [y, mon] = m.split('-');
@@ -278,41 +352,36 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
-      {/* Top Header & Action Buttons */}
-      <div className="bg-[#0c0c0c] border border-white/5 p-5 rounded-3xl space-y-4 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 animate-fadeIn pb-16">
+      {/* Top Header Card */}
+      <div className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl space-y-4">
+        {/* Title Bar & Quick Actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
           <div>
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <ReceiptText className="w-5 h-5" style={{ color: currentTheme.primaryHex }} />
-              收支明細總帳
+            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+              <ReceiptText className="w-6 h-6" style={{ color: currentTheme.primaryHex }} />
+              <span>收支明細與金流日記</span>
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5">即時統計飲食、交通、日常、稅金與投資動態</p>
+            <p className="text-xs text-gray-400 mt-1">
+              生活收支與證券投資雙軌管理 • 支援多維度篩選與收據憑證查閱
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Top Right Actions */}
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold rounded-xl border border-white/10 transition cursor-pointer"
-              title="匯出目前篩選結果為 CSV"
+              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 rounded-xl text-xs font-semibold transition cursor-pointer active:scale-95"
+              title="匯出 CSV 檔"
             >
-              <Download className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
+              <Download className="w-3.5 h-3.5" />
               <span className="hidden xs:inline">匯出</span> CSV
             </button>
 
             <button
-              onClick={() => setIsClearAllConfirmOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 transition cursor-pointer"
-              title="清空所有本機資料"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-              清空
-            </button>
-
-            <button
               onClick={onResetDefaultData}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 text-xs font-semibold rounded-xl border border-white/10 transition cursor-pointer"
-              title="重設為預設數據"
+              className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/10 rounded-xl text-xs font-medium transition cursor-pointer active:scale-95"
+              title="重設並加載預設範例資料"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               重設範例
@@ -378,83 +447,198 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           </button>
         </div>
 
-        {/* Real-time Filtered Summary Ribbon */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-          <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
-            <div className="text-[11px] text-gray-400 flex items-center justify-between">
-              <span>總收入</span>
-              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-            <div className="text-sm sm:text-base font-black font-mono text-emerald-400 mt-1 whitespace-nowrap">
-              +{sym} {formatNum(stats.income)}
-            </div>
-          </div>
+        {/* 1. Top Level Scope Segmented Switcher (生活 vs 投資 vs 全部) */}
+        <div className="grid grid-cols-3 p-1 bg-black/70 border border-white/10 rounded-2xl gap-1 shadow-inner">
+          <button
+            type="button"
+            onClick={() => {
+              setViewScope('living');
+              setSelectedCategories([]);
+            }}
+            className={`py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              viewScope === 'living'
+                ? 'bg-white text-black shadow-lg scale-100'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            <span>☕</span>
+            <span>生活收支</span>
+          </button>
 
-          <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
-            <div className="text-[11px] text-gray-400 flex items-center justify-between">
-              <span>總支出</span>
-              <ArrowDownRight className="w-3.5 h-3.5 text-orange-400" />
-            </div>
-            <div className="text-sm sm:text-base font-black font-mono text-orange-400 mt-1 whitespace-nowrap">
-              -{sym} {formatNum(stats.expense)}
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setViewScope('investment');
+              setSelectedCategories([]);
+            }}
+            className={`py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              viewScope === 'investment'
+                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 shadow-lg scale-100'
+                : 'text-gray-400 hover:text-cyan-300'
+            }`}
+          >
+            <span>📈</span>
+            <span>投資證券</span>
+          </button>
 
-          <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
-            <div className="text-[11px] text-gray-400 flex items-center justify-between">
-              <span>稅金與規費</span>
-              <ReceiptText className="w-3.5 h-3.5 text-purple-400" />
-            </div>
-            <div className="text-sm sm:text-base font-black font-mono text-purple-300 mt-1 whitespace-nowrap">
-              {sym} {formatNum(stats.tax)}
-            </div>
-          </div>
-
-          <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
-            <div className="text-[11px] text-gray-400 flex items-center justify-between">
-              <span>當期結餘</span>
-              <span className={`text-[10px] font-bold ${stats.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {stats.net >= 0 ? '淨存' : '透支'}
-              </span>
-            </div>
-            <div className={`text-sm sm:text-base font-black font-mono mt-1 whitespace-nowrap ${stats.net >= 0 ? 'text-cyan-300' : 'text-rose-400'}`}>
-              {stats.net >= 0 ? '+' : ''}{sym} {formatNum(stats.net)}
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setViewScope('all');
+              setSelectedCategories([]);
+            }}
+            className={`py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              viewScope === 'all'
+                ? 'bg-white/15 text-white border border-white/20 shadow-lg scale-100'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <span>🌐</span>
+            <span>全部動態</span>
+          </button>
         </div>
 
-        {/* Quick Filter: Types & Category Pill Chips */}
-        <div className="space-y-2.5 pt-1 border-t border-white/5">
-          {/* Row 1: Types Pill Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
-            {[
-              { id: 'all', label: '全部類型', icon: '📝' },
-              { id: 'expense', label: '支出', icon: '💸' },
-              { id: 'income', label: '收入', icon: '💰' },
-              { id: 'tax', label: '稅金', icon: '🏛️' },
-              { id: 'investment', label: '投資', icon: '📈' },
-            ].map((t) => {
-              const isActive = selectedType === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setSelectedType(t.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                    isActive
-                      ? 'bg-white text-black shadow-md scale-100'
-                      : 'bg-black/60 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/5'
-                  }`}
-                >
-                  <span>{t.icon}</span>
-                  <span>{t.label}</span>
-                </button>
-              );
-            })}
-          </div>
+        {/* 2. Adaptive Summary Cards Ribbon */}
+        {viewScope === 'living' && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 animate-fadeIn">
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>日常總收入</span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-emerald-400 mt-1 whitespace-nowrap">
+                +{sym} {formatNum(scopeStats.livingIncome)}
+              </div>
+            </div>
 
-          {/* Row 2: Dynamic Category Pill Chips (Pinned on demand) */}
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>日常總支出</span>
+                <ArrowDownRight className="w-3.5 h-3.5 text-orange-400" />
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-orange-400 mt-1 whitespace-nowrap">
+                -{sym} {formatNum(scopeStats.livingExpense)}
+              </div>
+            </div>
+
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>稅金與規費</span>
+                <ReceiptText className="w-3.5 h-3.5 text-purple-400" />
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-purple-300 mt-1 whitespace-nowrap">
+                {sym} {formatNum(scopeStats.livingTax)}
+              </div>
+            </div>
+
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>生活淨結餘</span>
+                <span className={`text-[10px] font-bold ${scopeStats.livingNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {scopeStats.livingNet >= 0 ? '淨存' : '透支'}
+                </span>
+              </div>
+              <div className={`text-sm sm:text-base font-black font-mono mt-1 whitespace-nowrap ${scopeStats.livingNet >= 0 ? 'text-cyan-300' : 'text-rose-400'}`}>
+                {scopeStats.livingNet >= 0 ? '+' : ''}{sym} {formatNum(scopeStats.livingNet)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {viewScope === 'investment' && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 animate-fadeIn">
+            <div className="bg-[#141416] border border-cyan-500/10 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>買入投入</span>
+                <ArrowDownRight className="w-3.5 h-3.5 text-cyan-400" />
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-cyan-300 mt-1 whitespace-nowrap">
+                -{sym} {formatNum(scopeStats.investBuy)}
+              </div>
+            </div>
+
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>賣出變現</span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-emerald-400 mt-1 whitespace-nowrap">
+                +{sym} {formatNum(scopeStats.investSell)}
+              </div>
+            </div>
+
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>獲配股息</span>
+                <ReceiptText className="w-3.5 h-3.5 text-amber-400" />
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-amber-300 mt-1 whitespace-nowrap">
+                +{sym} {formatNum(scopeStats.investDividend)}
+              </div>
+            </div>
+
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>當月淨投入</span>
+                <span className="text-[10px] font-bold text-gray-400">資本</span>
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-white mt-1 whitespace-nowrap">
+                {sym} {formatNum(scopeStats.investNet)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {viewScope === 'all' && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 animate-fadeIn">
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>生活總收入</span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-emerald-400 mt-1 whitespace-nowrap">
+                +{sym} {formatNum(scopeStats.livingIncome)}
+              </div>
+            </div>
+
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>生活總支出</span>
+                <ArrowDownRight className="w-3.5 h-3.5 text-orange-400" />
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-orange-400 mt-1 whitespace-nowrap">
+                -{sym} {formatNum(scopeStats.livingExpense)}
+              </div>
+            </div>
+
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>證券總投入</span>
+                <span className="text-[10px] text-cyan-400 font-bold">投資</span>
+              </div>
+              <div className="text-sm sm:text-base font-black font-mono text-cyan-300 mt-1 whitespace-nowrap">
+                {sym} {formatNum(scopeStats.investNet)}
+              </div>
+            </div>
+
+            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+              <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                <span>全域淨流動</span>
+                <span className={`text-[10px] font-bold ${scopeStats.globalNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {scopeStats.globalNet >= 0 ? '淨存' : '淨出'}
+                </span>
+              </div>
+              <div className={`text-sm sm:text-base font-black font-mono mt-1 whitespace-nowrap ${scopeStats.globalNet >= 0 ? 'text-cyan-300' : 'text-rose-400'}`}>
+                {scopeStats.globalNet >= 0 ? '+' : ''}{sym} {formatNum(scopeStats.globalNet)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. Sub-Category / Market Filter Chips & Search Bar */}
+        <div className="space-y-2.5 pt-1 border-t border-white/5">
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
-            {/* All Categories Chip */}
+            {/* All Filter Chip */}
             <button
               onClick={() => setSelectedCategories([])}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
@@ -464,66 +648,97 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               }`}
             >
               <span>📂</span>
-              <span>全部大類</span>
+              <span>{viewScope === 'investment' ? '全部市場' : '全部大類'}</span>
             </button>
 
-            {/* Dynamically Pinned Selected Category Chips */}
-            {selectedCategories.map((catName) => {
-              const count = categoryCounts[catName] || 0;
-              const icon = getCategoryIcon(catName, 'expense');
-
-              return (
-                <div
-                  key={catName}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 border shadow-sm shrink-0"
-                  style={{
-                    backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.25)`,
-                    borderColor: currentTheme.primaryHex,
-                    color: currentTheme.primaryHex,
-                  }}
+            {/* Investment specific market pills */}
+            {viewScope === 'investment' && (
+              <>
+                <button
+                  onClick={() => setSelectedCategories(['美股'])}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                    selectedCategories.includes('美股')
+                      ? 'bg-blue-500/25 text-blue-300 border border-blue-500/40 shadow-sm'
+                      : 'bg-black/60 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/5'
+                  }`}
                 >
-                  <span>{icon}</span>
-                  <span>{catName}</span>
-                  {count > 0 && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 text-white font-mono font-normal">
-                      {count}
-                    </span>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedCategories((prev) => prev.filter((c) => c !== catName));
-                    }}
-                    className="p-0.5 hover:bg-white/20 rounded-full text-white/70 hover:text-white transition cursor-pointer"
-                    title={`移除 ${catName} 篩選`}
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              );
-            })}
+                  <span>🇺🇸</span>
+                  <span>美股</span>
+                </button>
+                <button
+                  onClick={() => setSelectedCategories(['台股'])}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                    selectedCategories.includes('台股')
+                      ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                      : 'bg-black/60 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/5'
+                  }`}
+                >
+                  <span>🇹🇼</span>
+                  <span>台股</span>
+                </button>
+              </>
+            )}
 
-            {/* Filter Category Modal Trigger Button */}
-            <button
-              onClick={() => {
-                setTempSelectedCategories(selectedCategories);
-                setIsCategoryModalOpen(true);
-              }}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
-              title="選擇要篩選的大類"
-            >
-              <Plus className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
-              <span>篩選大類</span>
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
-            </button>
+            {/* Living specific pinned category chips */}
+            {viewScope !== 'investment' &&
+              selectedCategories.map((catName) => {
+                const count = categoryCounts[catName] || 0;
+                const icon = getCategoryIcon(catName, 'expense');
+
+                return (
+                  <div
+                    key={catName}
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 border shadow-sm shrink-0"
+                    style={{
+                      backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.25)`,
+                      borderColor: currentTheme.primaryHex,
+                      color: currentTheme.primaryHex,
+                    }}
+                  >
+                    <span>{icon}</span>
+                    <span>{catName}</span>
+                    {count > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 text-white font-mono font-normal">
+                        {count}
+                      </span>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCategories((prev) => prev.filter((c) => c !== catName));
+                      }}
+                      className="p-0.5 hover:bg-white/20 rounded-full text-white/70 hover:text-white transition cursor-pointer"
+                      title={`移除 ${catName} 篩選`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+
+            {/* Filter Category Modal Trigger Button (Living mode) */}
+            {viewScope !== 'investment' && (
+              <button
+                onClick={() => {
+                  setTempSelectedCategories(selectedCategories);
+                  setIsCategoryModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+                title="選擇要篩選的大類"
+              >
+                <Plus className="w-3.5 h-3.5" style={{ color: currentTheme.primaryHex }} />
+                <span>篩選大類</span>
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+              </button>
+            )}
           </div>
 
-          {/* Row 3: Keyword Search Bar */}
+          {/* Keyword Search Bar */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-gray-500" />
             <input
               type="text"
-              placeholder="搜尋項目、金額或備註 (如: 晚餐, 0050)..."
+              placeholder="搜尋項目、金額或備註 (如: 晚餐, QQQ, 0050)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-black/60 border border-white/10 rounded-xl pl-8 pr-8 py-1.5 text-xs text-gray-200 focus:border-cyan-500 focus:outline-none placeholder:text-gray-600"
@@ -578,15 +793,26 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               {/* Transactions in this Day */}
               <div className="space-y-1.5">
                 {group.items.map((t) => {
-                  const isIncome = t.type === 'income';
-                  const isExpense = t.type === 'expense';
+                  const isStock = Boolean(t.isStockTrade);
+                  const isIncome = t.type === 'income' || (isStock && (t.stockTradeType === 'SELL' || t.stockTradeType === 'DIVIDEND'));
                   const isTax = t.type === 'tax';
-                  const isInvest = t.type === 'investment';
+                  const isInvest = t.type === 'investment' || isStock;
                   const icon = getCategoryIcon(t.mainCategory, t.type);
 
                   let amtColor = 'text-orange-400';
                   let sign = '-';
-                  if (isIncome) {
+                  if (isStock) {
+                    if (t.stockTradeType === 'BUY') {
+                      amtColor = 'text-cyan-300';
+                      sign = '-';
+                    } else if (t.stockTradeType === 'SELL') {
+                      amtColor = 'text-emerald-400';
+                      sign = '+';
+                    } else {
+                      amtColor = 'text-amber-300';
+                      sign = '+';
+                    }
+                  } else if (isIncome) {
                     amtColor = 'text-emerald-400';
                     sign = '+';
                   } else if (isTax) {
@@ -594,7 +820,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                     sign = '-';
                   } else if (isInvest) {
                     amtColor = 'text-cyan-300';
-                    sign = '🚀';
+                    sign = '-';
                   }
 
                   return (
