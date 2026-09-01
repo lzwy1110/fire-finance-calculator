@@ -45,17 +45,19 @@ export const DataReconciliationModal: React.FC<DataReconciliationModalProps> = (
   const formatNumber = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
 
   // Local stats
+  const localRate = localData.fireConfig.usdRate || 32.0;
   const localCash = localData.fireConfig.cashSavings ?? (localData.fireConfig.baseCashBalance || 0);
   const localStocks = localData.portfolioStocks || [];
   const localTxCount = (localData.transactions || []).length;
   let localStockValue = 0;
   localStocks.forEach((s) => {
-    const rate = s.market === 'US' ? 32.5 : 1;
+    const rate = s.market === 'US' ? localRate : 1;
     localStockValue += (s.shares * (s.currentPrice || 0)) * rate;
   });
   const localTotalNetWorth = Math.round(localCash + localStockValue);
 
   // Cloud stats
+  const cloudRate = cloudData.fireConfig?.usdRate || localRate;
   const cloudCash = cloudData.fireConfig
     ? (cloudData.fireConfig.cashSavings ?? (cloudData.fireConfig.baseCashBalance ?? 0))
     : 0;
@@ -63,7 +65,7 @@ export const DataReconciliationModal: React.FC<DataReconciliationModalProps> = (
   const cloudTxCount = (cloudData.transactions || []).length;
   let cloudStockValue = 0;
   cloudStocks.forEach((s) => {
-    const rate = s.market === 'US' ? 32.5 : 1;
+    const rate = s.market === 'US' ? cloudRate : 1;
     cloudStockValue += (s.shares * (s.currentPrice || 0)) * rate;
   });
   const cloudTotalNetWorth = Math.round(cloudCash + cloudStockValue);

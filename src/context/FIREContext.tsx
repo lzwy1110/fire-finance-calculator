@@ -120,8 +120,9 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
-  // Prevent refresh storms immediately after user edit
+  // Prevent refresh storms immediately after user edit & overlapping cloud fetches
   const lastUserEditTimeRef = useRef<number>(0);
+  const isCloudFetchingRef = useRef<boolean>(false);
 
   // 0. Fetch Live Exchange Rate on startup (Once)
   useEffect(() => {
@@ -497,7 +498,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [adjustCashSavings]);
 
-  // Pure Read Cloud Fetcher (Never pushes back)
+  // Pure Read Cloud Fetcher (Never pushes back, guarded by concurrency lock)
   const refreshCloudData = useCallback(async (isManual = false): Promise<boolean> => {
     // Ingest any Android Widget transactions first if on native platform
     if (Capacitor.isNativePlatform()) {
@@ -506,11 +507,15 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (storageModeState === 'local') return false;
 
+    // Prevent concurrent duplicate cloud fetching requests
+    if (isCloudFetchingRef.current) return false;
+
     // Skip background auto-refresh if user edited within last 4.5 seconds
     if (!isManual && Date.now() - lastUserEditTimeRef.current < 4500) {
       return false;
     }
 
+    isCloudFetchingRef.current = true;
     const code = syncCodeState || getOrCreateSyncCode();
     setIsSyncing(true);
 
@@ -605,6 +610,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.warn('Cloud refresh error:', e);
     } finally {
+      isCloudFetchingRef.current = false;
       setIsSyncing(false);
     }
     return false;
