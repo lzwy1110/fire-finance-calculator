@@ -560,9 +560,44 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         if (Array.isArray(cStocks)) {
           if (cStocks.length > 0 || Date.now() - lastUserEditTimeRef.current > 4000) {
-            const synced = cStocks.map((s) => syncStockCalculations(s));
-            setPortfolioStocks(synced);
-            savePortfolioStocksLocalOnly(synced);
+            setPortfolioStocks((prevLocal) => {
+              // Map all existing local live prices & metadata
+              const localPriceMap = new Map<string, { currentPrice: number; previousClose?: number; lastUpdated?: string }>();
+              (prevLocal || []).forEach((ls) => {
+                const sym = ls.symbol.toUpperCase();
+                const raw = sym.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+                if (ls.currentPrice > 0) {
+                  const info = {
+                    currentPrice: ls.currentPrice,
+                    previousClose: ls.previousClose,
+                    lastUpdated: ls.lastUpdated,
+                  };
+                  localPriceMap.set(sym, info);
+                  localPriceMap.set(raw, info);
+                }
+              });
+
+              // Merge cloud trade history with local live market prices (NEVER overwrite with cloud stale prices)
+              const merged = cStocks.map((cs) => {
+                const sym = cs.symbol.toUpperCase();
+                const raw = sym.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+                const localInfo = localPriceMap.get(sym) || localPriceMap.get(raw);
+
+                const effectivePrice = (localInfo && localInfo.currentPrice > 0) ? localInfo.currentPrice : (cs.currentPrice || 0);
+                const effectivePrevClose = (localInfo && localInfo.previousClose) ? localInfo.previousClose : cs.previousClose;
+                const effectiveLastUpdated = (localInfo && localInfo.lastUpdated) ? localInfo.lastUpdated : cs.lastUpdated;
+
+                return syncStockCalculations({
+                  ...cs,
+                  currentPrice: effectivePrice,
+                  previousClose: effectivePrevClose,
+                  lastUpdated: effectiveLastUpdated,
+                });
+              });
+
+              savePortfolioStocksLocalOnly(merged);
+              return merged;
+            });
           }
         }
         return true;
@@ -579,13 +614,40 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const tx = loadTransactions();
     const cat = loadCategories();
     const presets = loadQuickPresets();
-    const stocks = loadPortfolioStocks();
+    const loadedStocks = loadPortfolioStocks();
     const cfg = loadFIREConfig();
 
     setTransactions(tx);
     setCategories(cat);
     setQuickPresets(presets);
-    setPortfolioStocks(stocks);
+    setPortfolioStocks((prevLocal) => {
+      const localPriceMap = new Map<string, { currentPrice: number; previousClose?: number; lastUpdated?: string }>();
+      (prevLocal || []).forEach((ls) => {
+        const sym = ls.symbol.toUpperCase();
+        const raw = sym.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+        if (ls.currentPrice > 0) {
+          const info = {
+            currentPrice: ls.currentPrice,
+            previousClose: ls.previousClose,
+            lastUpdated: ls.lastUpdated,
+          };
+          localPriceMap.set(sym, info);
+          localPriceMap.set(raw, info);
+        }
+      });
+
+      return loadedStocks.map((s) => {
+        const sym = s.symbol.toUpperCase();
+        const raw = sym.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+        const localInfo = localPriceMap.get(sym) || localPriceMap.get(raw);
+        return syncStockCalculations({
+          ...s,
+          currentPrice: (localInfo && localInfo.currentPrice > 0) ? localInfo.currentPrice : (s.currentPrice || 0),
+          previousClose: (localInfo && localInfo.previousClose) ? localInfo.previousClose : s.previousClose,
+          lastUpdated: (localInfo && localInfo.lastUpdated) ? localInfo.lastUpdated : s.lastUpdated,
+        });
+      });
+    });
     setFireConfig(cfg);
     if (cfg.usdRate) {
       setUsdRate(cfg.usdRate);
