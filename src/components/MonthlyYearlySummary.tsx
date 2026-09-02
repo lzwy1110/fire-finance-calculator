@@ -127,6 +127,66 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
   const totalYearlyNetSavings = yStats.totalIncome - yStats.totalExpense;
   const yearlySavingsPct = yStats.totalIncome > 0 ? ((totalYearlyNetSavings / yStats.totalIncome) * 100).toFixed(1) : '0.0';
 
+  // Detailed month-by-month calculation for Yearly View
+  const yearlyDetailedMonths = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const monthNum = i + 1;
+      const monthKey = `${selectedYear}-${String(monthNum).padStart(2, '0')}`;
+      const mData = calculateMonthlyStats(transactions, monthKey);
+
+      // Stock buy & realized profit in this month
+      let stockBuy = 0;
+      let stockRealizedPnL = 0;
+
+      portfolioStocks.forEach((stock) => {
+        const rate = stock.currency === 'USD' ? usdRate : 1;
+        let cumulativeBuyQty = 0;
+        let cumulativeBuyCost = 0;
+
+        // Process stock transactions chronologically to calculate realized P&L on SELL
+        const sortedTx = [...(stock.transactions || [])].sort((a, b) => a.date.localeCompare(b.date));
+        sortedTx.forEach((tx) => {
+          if (tx.type === 'BUY') {
+            cumulativeBuyQty += tx.shares;
+            cumulativeBuyCost += tx.shares * tx.price;
+            if (tx.date.startsWith(monthKey)) {
+              stockBuy += Math.round(tx.shares * tx.price * rate);
+            }
+          } else if (tx.type === 'SELL') {
+            const avgCost = cumulativeBuyQty > 0 ? cumulativeBuyCost / cumulativeBuyQty : 0;
+            const pnl = (tx.price - avgCost) * tx.shares;
+            cumulativeBuyQty = Math.max(0, cumulativeBuyQty - tx.shares);
+            cumulativeBuyCost = cumulativeBuyQty * avgCost;
+
+            if (tx.date.startsWith(monthKey)) {
+              stockRealizedPnL += Math.round(pnl * rate);
+            }
+          }
+        });
+      });
+
+      const totalInvest = mData.totalInvestment + stockBuy;
+      const livingNet = mData.totalIncome - mData.totalExpense;
+      const hasActivity = mData.totalIncome > 0 || mData.totalExpense > 0 || totalInvest > 0 || mData.totalTax > 0 || stockRealizedPnL !== 0;
+
+      return {
+        monthKey,
+        monthLabel: `${monthNum}月`,
+        income: mData.totalIncome,
+        expense: mData.totalExpense,
+        tax: mData.totalTax,
+        invest: totalInvest,
+        stockRealizedPnL,
+        netSavings: livingNet,
+        hasActivity,
+      };
+    });
+  }, [selectedYear, transactions, portfolioStocks, usdRate]);
+
+  const totalYearlyRealizedPnL = useMemo(() => {
+    return yearlyDetailedMonths.reduce((acc, m) => acc + m.stockRealizedPnL, 0);
+  }, [yearlyDetailedMonths]);
+
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Header & View Date Selector */}
@@ -362,11 +422,11 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
           {/* Yearly High-level Summary (Unified 4-Card Matrix) */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
             <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
-              <span className="text-xs text-gray-400">{selectedYear} 全年總收入</span>
+              <span className="text-xs text-gray-400">{selectedYear} 全年生活收入</span>
               <div className="text-lg font-bold font-mono" style={{ color: currentTheme.primaryHex }}>
                 {sym} {formatNum(yStats.totalIncome)}
               </div>
-              <p className="text-[10px] text-gray-500 truncate">年度所有收入累計</p>
+              <p className="text-[10px] text-gray-500 truncate">年度薪資與生活收入</p>
             </div>
 
             <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
@@ -397,41 +457,132 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
               <div className="text-lg font-bold font-mono" style={{ color: currentTheme.primaryHex }}>
                 {yearlySavingsPct}%
               </div>
-              <p className="text-[10px] text-gray-500 truncate">全年淨儲蓄結餘</p>
+              <p className="text-[10px] text-gray-500 truncate">全年生活淨結餘</p>
             </div>
           </div>
 
           {/* Month-by-Month Annual Table */}
-          <div className="bg-[#0c0c0c] border border-white/5 rounded-3xl p-6 space-y-4">
-            <h3 className="text-lg font-bold text-white">
-              {selectedYear} 年度逐月財務結算明細
-            </h3>
+          <div className="bg-[#0c0c0c] border border-white/5 rounded-3xl p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-3">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <span>{selectedYear} 年度逐月財務結算明細</span>
+                </h3>
+                <p className="text-[11px] text-gray-500 hidden sm:block">
+                  完整呈現生活收支結餘、證券投資投入與股票賣出實現獲利
+                </p>
+              </div>
+              <span className="text-[11px] font-mono text-gray-400 bg-white/5 border border-white/10 px-2.5 py-1 rounded-xl whitespace-nowrap">
+                單位: NT$
+              </span>
+            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm text-gray-300">
+            {/* Realized Profit Announcement Banner (if any realized P&L this year) */}
+            {totalYearlyRealizedPnL !== 0 && (
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{selectedYear} 年度累計股票賣出實現獲利落袋：</span>
+                </div>
+                <span className="font-mono font-bold text-sm text-emerald-400">
+                  {totalYearlyRealizedPnL > 0 ? '+' : ''}NT$ {formatNum(totalYearlyRealizedPnL)}
+                </span>
+              </div>
+            )}
+
+            <div className="overflow-x-auto scrollbar-none">
+              <table className="w-full text-left text-xs sm:text-sm text-gray-300 min-w-[340px]">
                 <thead className="bg-black/60 text-gray-400 uppercase text-[11px] font-mono border-b border-white/10">
                   <tr>
-                    <th className="p-3">月份</th>
-                    <th className="p-3">收入</th>
-                    <th className="p-3">支出</th>
-                    <th className="p-3">稅金</th>
-                    <th className="p-3">投資額</th>
-                    <th className="p-3">月淨儲蓄</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">月份</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap text-right">生活收入</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap text-right">生活支出</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap text-right">投資投入</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap text-right">月淨結餘</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-mono">
-                  {yStats.monthlyBreakdown.map((row) => (
-                    <tr key={row.month} className="hover:bg-white/5 transition">
-                      <td className="p-3 font-bold text-white">{row.month}</td>
-                      <td className="p-3" style={{ color: currentTheme.primaryHex }}>{sym} {formatNum(row.income)}</td>
-                      <td className="p-3 text-orange-400">{sym} {formatNum(row.expense)}</td>
-                      <td className="p-3 text-purple-400">{sym} {formatNum(row.tax)}</td>
-                      <td className="p-3 text-purple-300">{sym} {formatNum(row.investment)}</td>
-                      <td className={`p-3 font-bold ${row.netSavings >= 0 ? '' : 'text-rose-500'}`} style={{ color: row.netSavings >= 0 ? currentTheme.primaryHex : undefined }}>
-                        {sym} {formatNum(row.netSavings)}
-                      </td>
-                    </tr>
-                  ))}
+                  {yearlyDetailedMonths.map((row) => {
+                    const isPositiveNet = row.netSavings >= 0;
+                    return (
+                      <tr
+                        key={row.monthKey}
+                        className={`transition hover:bg-white/5 ${
+                          row.hasActivity ? 'bg-white/[0.02]' : 'opacity-60'
+                        }`}
+                      >
+                        {/* Month & Badges */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`font-bold ${row.hasActivity ? 'text-white' : 'text-gray-500'}`}>
+                              {row.monthLabel}
+                            </span>
+                            {row.tax > 0 && (
+                              <span className="text-[9.5px] font-sans px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30" title={`已繳納稅費 NT$ ${formatNum(row.tax)}`}>
+                                稅{formatNum(row.tax)}
+                              </span>
+                            )}
+                            {row.stockRealizedPnL !== 0 && (
+                              <span
+                                className={`text-[9.5px] font-sans px-1.5 py-0.5 rounded-md border ${
+                                  row.stockRealizedPnL > 0
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                    : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                                }`}
+                                title={`股票賣出實現損益 ${row.stockRealizedPnL > 0 ? '+' : ''}${formatNum(row.stockRealizedPnL)}`}
+                              >
+                                賣股{row.stockRealizedPnL > 0 ? `+${formatNum(row.stockRealizedPnL)}` : formatNum(row.stockRealizedPnL)}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Living Income */}
+                        <td className="py-3 px-3 text-right whitespace-nowrap">
+                          {row.income > 0 ? (
+                            <span className="font-bold text-white" style={{ color: currentTheme.primaryHex }}>
+                              {formatNum(row.income)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-600 font-normal">-</span>
+                          )}
+                        </td>
+
+                        {/* Living Expense */}
+                        <td className="py-3 px-3 text-right whitespace-nowrap">
+                          {row.expense > 0 ? (
+                            <span className="font-bold text-orange-400">
+                              {formatNum(row.expense)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-600 font-normal">-</span>
+                          )}
+                        </td>
+
+                        {/* Investment Bought */}
+                        <td className="py-3 px-3 text-right whitespace-nowrap">
+                          {row.invest > 0 ? (
+                            <span className="font-bold text-cyan-400">
+                              {formatNum(row.invest)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-600 font-normal">-</span>
+                          )}
+                        </td>
+
+                        {/* Net Living Savings */}
+                        <td className="py-3 px-3 text-right whitespace-nowrap font-bold">
+                          {row.hasActivity ? (
+                            <span className={isPositiveNet ? 'text-emerald-400' : 'text-rose-400'}>
+                              {isPositiveNet ? '+' : ''}{formatNum(row.netSavings)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-600 font-normal">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
