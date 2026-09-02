@@ -224,11 +224,11 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
                       <span className="text-gray-300">現金:</span>
                       <div className="font-bold flex items-center gap-1.5 text-emerald-400">
-                        <span>🇹🇼 NT$ {formatNumber(twdCash)}</span>
+                        <span>NT$ {formatNumber(twdCash)}</span>
                         {usdCash > 0 && (
                           <>
                             <span className="text-gray-500 font-normal">•</span>
-                            <span className="text-cyan-300">🇺🇸 ${formatNumber(usdCash)}</span>
+                            <span className="text-cyan-300">USD ${formatNumber(usdCash)}</span>
                           </>
                         )}
                       </div>

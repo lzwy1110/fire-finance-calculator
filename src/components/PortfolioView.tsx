@@ -1077,17 +1077,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           <div className="bg-[#121216] border border-white/5 rounded-2xl p-3 flex sm:flex-col items-center sm:items-start justify-between">
             <span className="text-[11px] text-emerald-400/90 block font-medium">現金儲備 (Cash)</span>
             <div className="text-xs sm:text-sm font-black text-emerald-300 font-mono mt-0.5 whitespace-nowrap flex flex-wrap items-center gap-1.5">
-              <span className="flex items-center gap-1">
-                <span className="text-xs">🇹🇼</span>
-                <span>NT$ {formatNum(currentTWD)}</span>
-              </span>
+              <span>NT$ {formatNum(currentTWD)}</span>
               {currentUSD > 0 && (
                 <>
                   <span className="text-gray-600 font-normal">•</span>
-                  <span className="flex items-center gap-1 text-cyan-300">
-                    <span className="text-xs">🇺🇸</span>
-                    <span>${formatNum(currentUSD)}</span>
-                  </span>
+                  <span className="text-cyan-300">USD ${formatNum(currentUSD)}</span>
                 </>
               )}
             </div>
