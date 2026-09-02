@@ -316,6 +316,8 @@ function FIREAppContent() {
         {(activeTab === 'monthly' || activeTab === 'yearly') && (
           <MonthlyYearlySummary
             transactions={transactions}
+            portfolioStocks={portfolioStocks}
+            usdRate={usdRate}
             fireConfig={{
               ...fireConfig,
               currentNetWorth: totalNetWorth,

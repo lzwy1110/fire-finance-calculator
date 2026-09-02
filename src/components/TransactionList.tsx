@@ -536,10 +536,10 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
         {/* 2. Adaptive Summary Cards Ribbon */}
         {viewScope === 'living' && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 animate-fadeIn">
+          <div className={`grid gap-2 pt-1 animate-fadeIn ${scopeStats.livingTax > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
             <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
               <div className="text-[11px] text-gray-400 flex items-center justify-between">
-                <span>日常總收入</span>
+                <span>生活總收入</span>
                 <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
               </div>
               <div className="text-sm sm:text-base font-black font-mono text-emerald-400 mt-1 whitespace-nowrap">
@@ -549,7 +549,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
             <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
               <div className="text-[11px] text-gray-400 flex items-center justify-between">
-                <span>日常總支出</span>
+                <span>生活總支出</span>
                 <ArrowDownRight className="w-3.5 h-3.5 text-orange-400" />
               </div>
               <div className="text-sm sm:text-base font-black font-mono text-orange-400 mt-1 whitespace-nowrap">
@@ -557,15 +557,17 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               </div>
             </div>
 
-            <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
-              <div className="text-[11px] text-gray-400 flex items-center justify-between">
-                <span>稅金與規費</span>
-                <ReceiptText className="w-3.5 h-3.5 text-purple-400" />
+            {scopeStats.livingTax > 0 && (
+              <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
+                <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                  <span>稅金與規費</span>
+                  <ReceiptText className="w-3.5 h-3.5 text-purple-400" />
+                </div>
+                <div className="text-sm sm:text-base font-black font-mono text-purple-300 mt-1 whitespace-nowrap">
+                  -{sym} {formatNum(scopeStats.livingTax)}
+                </div>
               </div>
-              <div className="text-sm sm:text-base font-black font-mono text-purple-300 mt-1 whitespace-nowrap">
-                {sym} {formatNum(scopeStats.livingTax)}
-              </div>
-            </div>
+            )}
 
             <div className="bg-[#141416] border border-white/5 p-3 rounded-2xl">
               <div className="text-[11px] text-gray-400 flex items-center justify-between">

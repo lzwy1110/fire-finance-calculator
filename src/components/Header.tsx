@@ -130,22 +130,21 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Unified Desktop Navigation Tabs Bar (Hidden on Mobile) */}
         <nav className="hidden md:flex items-center gap-1 bg-[#111111] p-1.5 px-2 rounded-2xl border border-white/10 overflow-x-auto w-full md:w-auto justify-center scrollbar-none">
           {[
-            { id: 'dashboard', label: '儀表板', icon: LayoutDashboard },
-            { id: 'portfolio', label: '投資與分析', icon: TrendingUp },
-            { id: 'monthly', label: '財務總結', icon: Calendar },
-            { id: 'ledger', label: '收支管理', icon: ReceiptText },
+            { id: 'dashboard', label: '總覽', icon: LayoutDashboard },
+            { id: 'ledger', label: '明細', icon: ReceiptText },
+            { id: 'portfolio', label: '投資', icon: TrendingUp },
+            { id: 'analytics', label: '報表', icon: Calendar },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive =
               activeTab === tab.id ||
-              (tab.id === 'portfolio' && activeTab === 'analytics') ||
-              (tab.id === 'monthly' && (activeTab === 'monthly' || activeTab === 'yearly'));
+              (tab.id === 'analytics' && (activeTab === 'analytics' || activeTab === 'monthly' || activeTab === 'yearly'));
 
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
                   isActive
                     ? 'bg-white/15 border text-white shadow-lg'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'

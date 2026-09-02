@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Calendar,
   CalendarRange,
@@ -13,18 +13,22 @@ import {
   ChevronDown,
   Check,
 } from 'lucide-react';
-import { FIREConfig, Transaction } from '../types';
+import { FIREConfig, Transaction, PortfolioStock } from '../types';
 import { calculateMonthlyStats, calculateYearlyStats } from '../utils/fireCalculator';
 import { getThemePreset } from '../utils/theme';
 
 interface MonthlyYearlySummaryProps {
   transactions: Transaction[];
+  portfolioStocks?: PortfolioStock[];
+  usdRate?: number;
   fireConfig: FIREConfig;
   initialMode?: 'monthly' | 'yearly';
 }
 
 export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
   transactions,
+  portfolioStocks = [],
+  usdRate = 32.0,
   fireConfig,
   initialMode = 'monthly',
 }) => {
@@ -35,7 +39,7 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
   useEffect(() => {
     setViewMode(initialMode);
   }, [initialMode]);
-  
+
   // Available Months & Years extracted from transactions
   const availableMonths = Array.from(
     new Set<string>(transactions.map((t) => t.date.slice(0, 7)))
@@ -87,6 +91,42 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
   const mStats = calculateMonthlyStats(transactions, selectedMonth);
   const yStats = calculateYearlyStats(transactions, selectedYear);
 
+  // Include stock trades into monthly & yearly investment totals
+  const monthlyStockInvestment = useMemo(() => {
+    let total = 0;
+    portfolioStocks.forEach((stock) => {
+      stock.transactions?.forEach((tx) => {
+        if (tx.type === 'BUY' && tx.date.startsWith(selectedMonth)) {
+          const rate = stock.currency === 'USD' ? usdRate : 1;
+          total += Math.round(tx.shares * tx.price * rate);
+        }
+      });
+    });
+    return total;
+  }, [portfolioStocks, selectedMonth, usdRate]);
+
+  const yearlyStockInvestment = useMemo(() => {
+    let total = 0;
+    portfolioStocks.forEach((stock) => {
+      stock.transactions?.forEach((tx) => {
+        if (tx.type === 'BUY' && tx.date.startsWith(selectedYear)) {
+          const rate = stock.currency === 'USD' ? usdRate : 1;
+          total += Math.round(tx.shares * tx.price * rate);
+        }
+      });
+    });
+    return total;
+  }, [portfolioStocks, selectedYear, usdRate]);
+
+  const totalMonthlyInvest = mStats.totalInvestment + monthlyStockInvestment;
+  const totalYearlyInvest = yStats.totalInvestment + yearlyStockInvestment;
+
+  const totalMonthlyNetSavings = mStats.totalIncome - mStats.totalExpense;
+  const monthlySavingsPct = mStats.totalIncome > 0 ? ((totalMonthlyNetSavings / mStats.totalIncome) * 100).toFixed(1) : '0.0';
+
+  const totalYearlyNetSavings = yStats.totalIncome - yStats.totalExpense;
+  const yearlySavingsPct = yStats.totalIncome > 0 ? ((totalYearlyNetSavings / yStats.totalIncome) * 100).toFixed(1) : '0.0';
+
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Header & View Date Selector */}
@@ -106,7 +146,7 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
             )}
           </h2>
           <p className="text-xs text-gray-400">
-            整合結算收入、支出細類、稅金規費與投資儲蓄績效
+            整合結算收入、生活支出細類與證券投資累積績效
           </p>
         </div>
 
@@ -208,41 +248,45 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
       {/* MONTHLY SUMMARY VIEW */}
       {viewMode === 'monthly' && (
         <div className="space-y-6">
-          {/* Monthly High-level Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl">
+          {/* Monthly High-level Summary Cards (Unified 4-Card Matrix) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
               <span className="text-xs text-gray-400">當月總收入</span>
-              <div className="text-lg font-bold font-mono mt-1" style={{ color: currentTheme.primaryHex }}>
+              <div className="text-lg font-bold font-mono" style={{ color: currentTheme.primaryHex }}>
                 {sym} {formatNum(mStats.totalIncome)}
               </div>
+              <p className="text-[10px] text-gray-500 truncate">薪資與各類收入總和</p>
             </div>
 
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl">
-              <span className="text-xs text-gray-400">當月總支出</span>
-              <div className="text-lg font-bold font-mono text-orange-400 mt-1">
+            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
+              <span className="text-xs text-gray-400">生活總支出</span>
+              <div className="text-lg font-bold font-mono text-orange-400">
                 {sym} {formatNum(mStats.totalExpense)}
               </div>
+              <p className="text-[10px] text-orange-400/80 truncate">
+                占收入 {mStats.totalIncome > 0 ? ((mStats.totalExpense / mStats.totalIncome) * 100).toFixed(1) : 0}%
+              </p>
             </div>
 
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl">
-              <span className="text-xs text-gray-400">當月稅金規費</span>
-              <div className="text-lg font-bold font-mono text-purple-400 mt-1">
-                {sym} {formatNum(mStats.totalTax)}
+            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
+              <span className="text-xs text-gray-400">投資資產投入</span>
+              <div className="text-lg font-bold font-mono text-cyan-400">
+                {sym} {formatNum(totalMonthlyInvest)}
               </div>
+              <p className="text-[10px] text-cyan-400/80 truncate">含定期定額與買股累積</p>
             </div>
 
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl">
-              <span className="text-xs text-gray-400">當月投資投入</span>
-              <div className="text-lg font-bold font-mono text-purple-300 mt-1">
-                {sym} {formatNum(mStats.totalInvestment)}
+            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>淨儲蓄率</span>
+                <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                  +{sym}{formatNum(Math.max(0, totalMonthlyNetSavings))}
+                </span>
               </div>
-            </div>
-
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl col-span-2 lg:col-span-1">
-              <span className="text-xs text-gray-400">淨儲蓄率</span>
-              <div className="text-lg font-bold font-mono mt-1" style={{ color: currentTheme.primaryHex }}>
-                {mStats.savingsRate}%
+              <div className="text-lg font-bold font-mono" style={{ color: currentTheme.primaryHex }}>
+                {monthlySavingsPct}%
               </div>
+              <p className="text-[10px] text-gray-500 truncate">當月結餘比率</p>
             </div>
           </div>
 
@@ -259,7 +303,7 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
               ) : (
                 Object.entries(mStats.mainCategoryMap).map(([mainCat, amount]) => {
                   const percent = mStats.totalExpense > 0 ? ((amount / mStats.totalExpense) * 100).toFixed(1) : '0';
-                  
+
                   // Extract subcategories under this main category
                   const subCategoriesForMain = Object.entries(mStats.subCategoryMap)
                     .filter(([key]) => key.startsWith(`${mainCat} >`))
@@ -315,41 +359,45 @@ export const MonthlyYearlySummary: React.FC<MonthlyYearlySummaryProps> = ({
       {/* YEARLY SUMMARY VIEW */}
       {viewMode === 'yearly' && (
         <div className="space-y-6">
-          {/* Yearly High-level Summary */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl">
+          {/* Yearly High-level Summary (Unified 4-Card Matrix) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
               <span className="text-xs text-gray-400">{selectedYear} 全年總收入</span>
-              <div className="text-lg font-bold font-mono mt-1" style={{ color: currentTheme.primaryHex }}>
+              <div className="text-lg font-bold font-mono" style={{ color: currentTheme.primaryHex }}>
                 {sym} {formatNum(yStats.totalIncome)}
               </div>
+              <p className="text-[10px] text-gray-500 truncate">年度所有收入累計</p>
             </div>
 
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl">
-              <span className="text-xs text-gray-400">{selectedYear} 全年總支出</span>
-              <div className="text-lg font-bold font-mono text-orange-400 mt-1">
+            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
+              <span className="text-xs text-gray-400">{selectedYear} 全年生活支出</span>
+              <div className="text-lg font-bold font-mono text-orange-400">
                 {sym} {formatNum(yStats.totalExpense)}
               </div>
+              <p className="text-[10px] text-orange-400/80 truncate">
+                占收入 {yStats.totalIncome > 0 ? ((yStats.totalExpense / yStats.totalIncome) * 100).toFixed(1) : 0}%
+              </p>
             </div>
 
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl">
-              <span className="text-xs text-gray-400">{selectedYear} 全年稅金總額</span>
-              <div className="text-lg font-bold font-mono text-purple-400 mt-1">
-                {sym} {formatNum(yStats.totalTax)}
-              </div>
-            </div>
-
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl">
+            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
               <span className="text-xs text-gray-400">{selectedYear} 全年投資注入</span>
-              <div className="text-lg font-bold font-mono text-purple-300 mt-1">
-                {sym} {formatNum(yStats.totalInvestment)}
+              <div className="text-lg font-bold font-mono text-cyan-400">
+                {sym} {formatNum(totalYearlyInvest)}
               </div>
+              <p className="text-[10px] text-cyan-400/80 truncate">年度證券與定期定額投入</p>
             </div>
 
-            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl col-span-2 lg:col-span-1">
-              <span className="text-xs text-gray-400">全年平均淨儲蓄率</span>
-              <div className="text-lg font-bold font-mono mt-1" style={{ color: currentTheme.primaryHex }}>
-                {yStats.savingsRate}%
+            <div className="bg-[#111111] border border-white/5 p-4 rounded-2xl space-y-1">
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>年度平均淨儲蓄率</span>
+                <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                  +{sym}{formatNum(Math.max(0, totalYearlyNetSavings))}
+                </span>
               </div>
+              <div className="text-lg font-bold font-mono" style={{ color: currentTheme.primaryHex }}>
+                {yearlySavingsPct}%
+              </div>
+              <p className="text-[10px] text-gray-500 truncate">全年淨儲蓄結餘</p>
             </div>
           </div>
 

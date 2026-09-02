@@ -872,14 +872,37 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           transactions: remainingTx,
         });
 
-        // Refund/revert cash if deleting trade in matching currency
+        // Refund/revert cash if deleting trade in matching currency (including fee & tax)
         if (targetTx && onAdjustCashSavings) {
           const isUS = targetStock.market === 'US';
-          const tradeAmt = (targetTx.shares || 0) * (targetTx.price || 0);
+          const isTW = targetStock.market === 'TW';
+          const rawAmt = (targetTx.shares || 0) * (targetTx.price || 0);
+
+          let netAmt = rawAmt;
+          if (isTW) {
+            const feeRate = fireConfig?.twStockFeeRate ?? 0.0399;
+            const fee = Math.max(1, Math.round(rawAmt * (feeRate / 100)));
+            const isETF = targetStock.symbol.startsWith('00') || targetStock.name.includes('ETF') || targetStock.symbol.includes('00');
+            const tax = targetTx.type === 'SELL' ? Math.round(rawAmt * (isETF ? 0.001 : 0.003)) : 0;
+            if (targetTx.type === 'BUY') {
+              netAmt = rawAmt + fee;
+            } else {
+              netAmt = Math.max(0, rawAmt - fee - tax);
+            }
+          } else {
+            const usFeeRate = fireConfig?.usStockFeeRate ?? 0;
+            const fee = Number((rawAmt * (usFeeRate / 100)).toFixed(2));
+            if (targetTx.type === 'BUY') {
+              netAmt = rawAmt + fee;
+            } else {
+              netAmt = Math.max(0, rawAmt - fee);
+            }
+          }
+
           if (targetTx.type === 'BUY' && !targetTx.isInitialHoldings) {
-            onAdjustCashSavings(+tradeAmt, isUS ? 'USD' : 'TWD');
+            onAdjustCashSavings(+netAmt, isUS ? 'USD' : 'TWD');
           } else if (targetTx.type === 'SELL') {
-            onAdjustCashSavings(-tradeAmt, isUS ? 'USD' : 'TWD');
+            onAdjustCashSavings(-netAmt, isUS ? 'USD' : 'TWD');
           }
         }
 
