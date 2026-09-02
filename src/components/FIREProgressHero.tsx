@@ -220,16 +220,21 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                   </div>
 
                   <div className="text-xs text-gray-400 pt-2 border-t border-white/5 grid grid-cols-1 xs:grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1.5">
-                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2 py-1 rounded-xl whitespace-nowrap">
+                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2.5 py-1 rounded-xl whitespace-nowrap">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
                       <span className="text-gray-300">現金:</span>
-                      <strong className="text-emerald-400 font-bold flex items-center gap-1">
-                        <span>NT$ {formatNumber(twdCash)}</span>
-                        {usdCash > 0 && <span className="text-[10px] text-emerald-300 font-normal">| ${formatNumber(usdCash)}</span>}
-                      </strong>
+                      <div className="font-bold flex items-center gap-1.5 text-emerald-400">
+                        <span>🇹🇼 NT$ {formatNumber(twdCash)}</span>
+                        {usdCash > 0 && (
+                          <>
+                            <span className="text-gray-500 font-normal">•</span>
+                            <span className="text-cyan-300">🇺🇸 ${formatNumber(usdCash)}</span>
+                          </>
+                        )}
+                      </div>
                       <span className="text-[10px] text-gray-500 font-semibold">({cashPct}%)</span>
                     </div>
-                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2 py-1 rounded-xl whitespace-nowrap">
+                    <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs bg-white/5 px-2.5 py-1 rounded-xl whitespace-nowrap">
                       <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
                       <span className="text-gray-300">股票:</span>
                       <strong className="text-cyan-400 font-bold">{sym} {formatNumber(stockAmt)}</strong>

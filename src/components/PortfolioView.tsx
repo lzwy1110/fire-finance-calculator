@@ -1073,15 +1073,22 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             </div>
           </div>
 
-          {/* Col 2: Cash Reserves (Full Dual-Currency Display, NEVER truncated) */}
+          {/* Col 2: Cash Reserves (Full Dual-Currency Display, Balanced & Crisp) */}
           <div className="bg-[#121216] border border-white/5 rounded-2xl p-3 flex sm:flex-col items-center sm:items-start justify-between">
-            <span className="text-[11px] text-emerald-400/90 block font-medium">雙幣現金儲備</span>
-            <div className="text-sm sm:text-base font-black text-emerald-300 font-mono mt-0.5 whitespace-nowrap flex items-center gap-1.5">
-              <span>NT$ {formatNum(currentTWD)}</span>
+            <span className="text-[11px] text-emerald-400/90 block font-medium">現金儲備 (Cash)</span>
+            <div className="text-xs sm:text-sm font-black text-emerald-300 font-mono mt-0.5 whitespace-nowrap flex flex-wrap items-center gap-1.5">
+              <span className="flex items-center gap-1">
+                <span className="text-xs">🇹🇼</span>
+                <span>NT$ {formatNum(currentTWD)}</span>
+              </span>
               {currentUSD > 0 && (
-                <span className="text-xs text-gray-400 font-mono font-normal">
-                  (${formatNum(currentUSD)} USD)
-                </span>
+                <>
+                  <span className="text-gray-600 font-normal">•</span>
+                  <span className="flex items-center gap-1 text-cyan-300">
+                    <span className="text-xs">🇺🇸</span>
+                    <span>${formatNum(currentUSD)}</span>
+                  </span>
+                </>
               )}
             </div>
           </div>
