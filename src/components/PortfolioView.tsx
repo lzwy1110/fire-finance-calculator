@@ -1984,109 +1984,83 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 </div>
               </div>
 
-              {/* Trading Fee & Tax Configuration & Breakdown Box (for both TW and US) */}
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3.5 space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
-                    <span>🏷️ 交易手續費率 (%)</span>
+              {/* Trading Settlement & Fee Calculation Breakdown Sheet */}
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-2.5 text-xs">
+                {/* Header with Title and quick settings button */}
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <span className="font-bold text-gray-300 flex items-center gap-1.5">
+                    <span>🧾 費用與交割試算明細</span>
                   </span>
-
-                  {/* Direct % Input with quick fill chips */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <div className="relative w-24">
-                      <input
-                        type="number"
-                        step="0.0001"
-                        min="0"
-                        placeholder="0.0399"
-                        value={feeRateInput}
-                        onChange={(e) => setFeeRateInput(e.target.value)}
-                        className="w-full bg-black/60 border border-white/15 rounded-lg px-2 py-1 text-xs font-mono font-bold text-white focus:border-cyan-500 focus:outline-none text-right pr-5"
-                      />
-                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-mono">%</span>
-                    </div>
-
-                    {isTWTrade ? (
-                      <>
-                        {[
-                          { label: '0.0399%', val: '0.0399' },
-                          { label: '0.0713%', val: '0.0713' },
-                          { label: '0.1425%', val: '0.1425' },
-                          { label: '0%', val: '0' },
-                        ].map((item) => (
-                          <button
-                            key={item.label}
-                            type="button"
-                            onClick={() => setFeeRateInput(item.val)}
-                            className={`px-1.5 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer ${
-                              feeRateInput === item.val
-                                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm'
-                                : 'bg-white/5 text-gray-400 hover:text-gray-200 border border-transparent'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </>
-                    ) : (
-                      <>
-                        {[
-                          { label: '0%', val: '0' },
-                          { label: '0.08%', val: '0.08' },
-                          { label: '0.1%', val: '0.1' },
-                          { label: '0.2%', val: '0.2' },
-                        ].map((item) => (
-                          <button
-                            key={item.label}
-                            type="button"
-                            onClick={() => setFeeRateInput(item.val)}
-                            className={`px-1.5 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer ${
-                              feeRateInput === item.val
-                                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm'
-                                : 'bg-white/5 text-gray-400 hover:text-gray-200 border border-transparent'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsFeeSettingsModalOpen(true)}
+                    className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer transition hover:underline py-0.5 px-1.5 rounded-lg hover:bg-cyan-500/10"
+                    title="點擊設定預設手續費率"
+                  >
+                    <Settings className="w-3 h-3" />
+                    <span>券商費率: {feeRateInput || 0}%</span>
+                  </button>
                 </div>
 
-                {/* Real-time Calculation Breakdown if price/shares filled */}
-                {rawTradeTotal > 0 && (
-                  <div className="bg-black/40 border border-white/5 rounded-xl p-3 space-y-1.5 text-xs">
-                    <div className="flex justify-between text-gray-400">
-                      <span>成交總金額:</span>
-                      <span className="font-mono font-bold text-white">
-                        {isTWTrade ? 'NT$' : '$'} {formatNum(rawTradeTotal)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-gray-400">
-                      <span>預估交易手續費 ({feeRateInput || 0}%):</span>
-                      <span className="font-mono text-cyan-300">
-                        {tradeType === 'BUY' ? '+' : '-'} {isTWTrade ? 'NT$' : '$'} {formatNum(calculatedFee)}
-                      </span>
-                    </div>
-                    {isTWTrade && tradeType === 'SELL' && (
-                      <div className="flex justify-between text-gray-400">
-                        <span>證券交易稅 ({isETFTrade ? 'ETF 0.1%' : '個股 0.3%'}):</span>
-                        <span className="font-mono text-amber-300">- NT$ {formatNum(calculatedTax)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-baseline pt-1.5 border-t border-white/10 text-xs font-bold text-gray-200">
-                      <span>{tradeType === 'BUY' ? '預計扣除總現金:' : '預計實收淨額:'}</span>
-                      <span className={`font-mono text-sm font-black ${tradeType === 'BUY' ? 'text-white' : 'text-emerald-400'}`}>
-                        {isTWTrade ? 'NT$' : '$'} {formatNum(netTradeTotal)}
-                      </span>
-                    </div>
+                {/* Calculation Rows */}
+                <div className="space-y-2 pt-0.5">
+                  {/* Row 1: Gross Trade Total */}
+                  <div className="flex justify-between items-center text-gray-400">
+                    <span>成交總金額:</span>
+                    <span className="font-mono font-bold text-white text-xs">
+                      {rawTradeTotal > 0 ? (
+                        <>
+                          {isTWTrade ? 'NT$' : '$'} {formatNum(rawTradeTotal)}
+                          <span className="text-[10px] text-gray-500 font-normal ml-1">
+                            ({formatNum(parsedSharesNum)} 股 × ${formatDec(parsedCostNum)})
+                          </span>
+                        </>
+                      ) : (
+                        `${isTWTrade ? 'NT$' : '$'} 0`
+                      )}
+                    </span>
                   </div>
-                )}
+
+                  {/* Row 2: Brokerage Fee */}
+                  <div className="flex justify-between items-center text-gray-400">
+                    <span className="flex items-center gap-1">
+                      <span>預估券商手續費 ({feeRateInput || 0}%):</span>
+                    </span>
+                    <span className="font-mono text-cyan-300">
+                      {rawTradeTotal > 0 && calculatedFee > 0 ? (
+                        `${tradeType === 'BUY' ? '+' : '-'} ${isTWTrade ? 'NT$' : '$'} ${formatNum(calculatedFee)}`
+                      ) : (
+                        <span className="text-gray-500">免手續費 ($0)</span>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Row 3: Taiwan Stock Transaction Tax (ONLY for TW stock SELL) */}
+                  {isTWTrade && tradeType === 'SELL' && (
+                    <div className="flex justify-between items-center bg-amber-500/10 border border-amber-500/20 rounded-xl px-2.5 py-1.5 text-amber-300">
+                      <span className="flex items-center gap-1 font-medium">
+                        <span>🏷️ 證券交易稅 ({isETFTrade ? 'ETF 優惠 0.1%' : '一般個股 0.3%'}):</span>
+                      </span>
+                      <span className="font-mono font-bold">
+                        - NT$ {formatNum(calculatedTax)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Row 4: Final Settlement Cash Total */}
+                  <div className="flex justify-between items-baseline pt-2 border-t border-white/10 text-xs font-bold text-gray-200">
+                    <span className="flex items-center gap-1">
+                      {tradeType === 'BUY' ? '💳 預計交割扣款 (扣除現金):' : '💰 預計交割入帳 (實收淨額):'}
+                    </span>
+                    <span className={`font-mono text-base font-black ${tradeType === 'BUY' ? 'text-white' : 'text-emerald-400'}`}>
+                      {isTWTrade ? 'NT$' : '$'} {formatNum(netTradeTotal)}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Option to skip cash balance deduction for pre-existing stock holdings */}
-              {tradeType === 'BUY' && (
+              {/* Option to skip cash balance deduction for pre-existing stock holdings (only for new BUY trades) */}
+              {!editingTxId && tradeType === 'BUY' && (
                 <div className="bg-cyan-500/10 border border-cyan-500/25 rounded-2xl p-3.5 flex items-center justify-between gap-3">
                   <div className="space-y-0.5">
                     <label htmlFor="isInitialHoldingsToggle" className="text-xs font-black text-white flex items-center gap-1.5 cursor-pointer">
