@@ -59,6 +59,7 @@ function FIREAppContent() {
     deleteTransaction,
     updateCategories,
     updatePortfolioStocks,
+    updateLiveStockPricesOnly,
     saveSingleStock,
     deleteSingleStock,
     toggleStorageMode,
@@ -285,6 +286,7 @@ function FIREAppContent() {
               cashSavingsUSD={cashSavingsUSD}
               usdRate={usdRate}
               onUpdateStocks={updatePortfolioStocks}
+              onUpdateLiveQuotes={updateLiveStockPricesOnly}
               onSaveSingleStock={saveSingleStock}
               onDeleteSingleStock={deleteSingleStock}
               onSyncNetWorthToFIRE={() => {}}

@@ -51,6 +51,7 @@ interface PortfolioViewProps {
   cashSavingsUSD?: number;
   usdRate?: number;
   onUpdateStocks: (newStocks: PortfolioStock[], options?: { syncToCloud?: boolean }) => void;
+  onUpdateLiveQuotes?: (quotesMap: Record<string, { currentPrice: number; name?: string; previousClose?: number; sparkline?: number[] }>) => void;
   onSaveSingleStock?: (stock: PortfolioStock) => Promise<{ success: boolean; error?: string }>;
   onDeleteSingleStock?: (stockId: string) => Promise<{ success: boolean; error?: string }>;
   onSyncNetWorthToFIRE: (totalMarketValueTWD: number) => void;
@@ -65,6 +66,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   cashSavingsUSD,
   usdRate: propUsdRate,
   onUpdateStocks,
+  onUpdateLiveQuotes,
   onSaveSingleStock,
   onDeleteSingleStock,
   onSyncNetWorthToFIRE,
@@ -82,6 +84,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   const [lastSuccessfulSyncTime, setLastSuccessfulSyncTime] = useState<number>(Date.now());
   const consecutiveFailuresRef = useRef<number>(0);
   const [isSaving, setIsSaving] = useState(false);
+  const lastUserTradeTimeRef = useRef<number>(0);
+
+  // Quick Direct Stock Holding Edit Modal State (Directly adjust avgCost & shares in 1 step)
+  const [editingStockHolding, setEditingStockHolding] = useState<PortfolioStock | null>(null);
+  const [holdingCostInput, setHoldingCostInput] = useState<string>('');
+  const [holdingSharesInput, setHoldingSharesInput] = useState<string>('');
 
   // Add / Record Transaction Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -374,7 +382,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       });
 
       if (updatedCount > 0) {
-        onUpdateStocks(updatedStocks, { syncToCloud });
+        if (onUpdateLiveQuotes) {
+          onUpdateLiveQuotes(quotesMap);
+        } else {
+          onUpdateStocks(updatedStocks, { syncToCloud: false });
+        }
         consecutiveFailuresRef.current = 0;
         setLiveSyncState('ok');
         setLastSuccessfulSyncTime(Date.now());
@@ -420,6 +432,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     let timer: any = null;
 
     const doPoll = () => {
+      // Pause polling if user recently edited/traded within 6 seconds
+      if (Date.now() - lastUserTradeTimeRef.current < 6000) return;
       if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !isRefreshingRef.current) {
         handleRefreshQuotes(true, false);
       }
@@ -579,9 +593,73 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setIsAddModalOpen(true);
   };
 
+  // Quick Direct Stock Holding Edit (Directly adjust avgCost & shares in 1 step)
+  const handleSaveHolding = async () => {
+    if (!editingStockHolding) return;
+    const parsedCost = parseFloat(holdingCostInput) || 0;
+    const parsedShares = parseFloat(holdingSharesInput) || 0;
+    if (parsedCost <= 0 || parsedShares <= 0) {
+      setConfirmModal({
+        isOpen: true,
+        title: '請確認填寫內容',
+        message: '持有股數與平均買入成本皆需大於 0！',
+        type: 'warning',
+        isAlert: true,
+        confirmText: '我知道了',
+      });
+      return;
+    }
+
+    lastUserTradeTimeRef.current = Date.now();
+    setIsSaving(true);
+    try {
+      let updatedTxs: StockTransaction[];
+      const existingTxs = editingStockHolding.transactions || [];
+      if (existingTxs.length === 1) {
+        updatedTxs = [{
+          ...existingTxs[0],
+          shares: parsedShares,
+          price: parsedCost,
+        }];
+      } else {
+        updatedTxs = [{
+          id: `tx-adj-${Date.now()}`,
+          stockId: editingStockHolding.id,
+          type: 'BUY',
+          shares: parsedShares,
+          price: parsedCost,
+          date: new Date().toISOString().split('T')[0],
+          note: '手動直接校正持股均價與股數',
+          isInitialHoldings: true,
+        }];
+      }
+
+      const updatedStockObj = syncStockCalculations({
+        ...editingStockHolding,
+        shares: parsedShares,
+        avgCost: parsedCost,
+        transactions: updatedTxs,
+      });
+
+      if (onSaveSingleStock) {
+        await onSaveSingleStock(updatedStockObj);
+      } else {
+        const updatedList = syncedStocks.map((s) => (s.id === updatedStockObj.id ? updatedStockObj : s));
+        onUpdateStocks(updatedList);
+      }
+
+      setEditingStockHolding(null);
+    } catch (e) {
+      console.error('Failed to save holding adjustments:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Save Transaction (BUY / SELL / EDIT)
   const handleSaveTransaction = async (e?: React.FormEvent, overrideInitialHoldings?: boolean) => {
     if (e) e.preventDefault();
+    lastUserTradeTimeRef.current = Date.now();
     const cleanSym = symbolInput.trim().toUpperCase();
     const parsedShares = parseFloat(sharesInput) || 0;
     let parsedCost = parseFloat(costInput) || 0;
@@ -866,6 +944,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       title: '確定要刪除這筆交易明細？',
       message: `確定要刪除股票「${targetStock.name} (${targetStock.symbol})」的 ${txDesc} 交易紀錄嗎？刪除後持股與買入均價將重新計算。`,
       onConfirm: async () => {
+        lastUserTradeTimeRef.current = Date.now();
         const remainingTx = targetStock.transactions.filter((t) => t.id !== txId);
         const updatedStock = syncStockCalculations({
           ...targetStock,
@@ -937,6 +1016,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       title: '確定要整檔刪除此股票嗎？',
       message: `確定要整檔刪除「${stockName}」及其所有歷史買賣交易對帳紀錄嗎？\n\n（提示：整檔刪除僅清空庫存持股追蹤與歷史走勢，不會回退過去已扣除的現金儲備）`,
       onConfirm: async () => {
+        lastUserTradeTimeRef.current = Date.now();
         if (onDeleteSingleStock) {
           const res = await onDeleteSingleStock(id);
           if (!res.success) {
@@ -1550,17 +1630,43 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   </div>
 
                   {/* Metric 3: Position Shares */}
-                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
-                    <span className="text-[10px] text-gray-400 block font-medium">📦 持有股數</span>
-                    <div className="text-xs sm:text-sm font-mono font-bold text-gray-200 mt-0.5">
+                  <div
+                    onClick={() => {
+                      setEditingStockHolding(stock);
+                      setHoldingCostInput(String(stock.avgCost));
+                      setHoldingSharesInput(String(stock.shares));
+                    }}
+                    className="bg-black/40 border border-white/5 rounded-2xl p-2.5 hover:border-amber-500/40 hover:bg-amber-500/5 transition cursor-pointer group"
+                    title="點擊直接修改持有股數與買入成本"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-gray-400 block font-medium">📦 持有股數</span>
+                      <span className="text-[9px] text-amber-400/70 group-hover:text-amber-300 font-mono flex items-center gap-0.5">
+                        <Edit2 className="w-2.5 h-2.5" /> 編輯
+                      </span>
+                    </div>
+                    <div className="text-xs sm:text-sm font-mono font-bold text-gray-200 mt-0.5 group-hover:text-amber-300 transition">
                       {formatNum(metrics.shares)} 股
                     </div>
                   </div>
 
                   {/* Metric 4: Avg Cost vs Current Price */}
-                  <div className="bg-black/40 border border-white/5 rounded-2xl p-2.5">
-                    <span className="text-[10px] text-gray-400 block font-medium">⚖️ 加權平均持股成本</span>
-                    <div className="text-xs sm:text-sm font-mono font-bold text-gray-200 mt-0.5">
+                  <div
+                    onClick={() => {
+                      setEditingStockHolding(stock);
+                      setHoldingCostInput(String(stock.avgCost));
+                      setHoldingSharesInput(String(stock.shares));
+                    }}
+                    className="bg-black/40 border border-white/5 rounded-2xl p-2.5 hover:border-amber-500/40 hover:bg-amber-500/5 transition cursor-pointer group"
+                    title="點擊直接修改買入均價與持有股數"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-gray-400 block font-medium">⚖️ 加權平均成本</span>
+                      <span className="text-[9px] text-amber-400/70 group-hover:text-amber-300 font-mono flex items-center gap-0.5">
+                        <Edit2 className="w-2.5 h-2.5" /> 編輯
+                      </span>
+                    </div>
+                    <div className="text-xs sm:text-sm font-mono font-bold text-gray-200 mt-0.5 group-hover:text-amber-300 transition">
                       {currSymbol}{formatDec(metrics.avgCost)} / 股
                     </div>
                   </div>
@@ -1689,6 +1795,27 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   <div className="text-left">
                     <div className="text-sm font-black text-white">記錄買入 / 賣出交易</div>
                     <div className="text-xs text-cyan-400 font-normal">加碼存股或獲利減碼</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  const s = activeActionStock;
+                  setActiveActionStock(null);
+                  setEditingStockHolding(s);
+                  setHoldingCostInput(String(s.avgCost));
+                  setHoldingSharesInput(String(s.shares));
+                }}
+                className="p-3.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                    <Edit2 className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-black text-white">直接修改持股成本與股數</div>
+                    <div className="text-xs text-amber-400 font-normal">快速校正買入均價與現有股數</div>
                   </div>
                 </div>
               </button>
@@ -2555,6 +2682,94 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                 style={{ backgroundColor: currentTheme.primaryHex }}
               >
                 儲存費率設定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Direct Edit Stock Holding (Avg Cost & Shares) */}
+      {editingStockHolding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 relative">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                  <Edit2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">直接修改持股成本與股數</h3>
+                  <p className="text-xs text-gray-400 font-mono">
+                    {editingStockHolding.symbol} • {editingStockHolding.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingStockHolding(null)}
+                className="p-1.5 text-gray-400 hover:text-white bg-white/5 rounded-xl cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="space-y-4">
+              {/* Avg Cost */}
+              <div>
+                <label className="text-xs font-bold text-gray-300 block mb-1.5">
+                  ⚖️ 加權平均買入單價 ({editingStockHolding.currency === 'USD' ? 'USD $' : 'NT$'})
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={holdingCostInput}
+                  onChange={(e) => setHoldingCostInput(e.target.value)}
+                  placeholder="請輸入買入平均單價"
+                  className="w-full bg-black/60 border border-white/15 rounded-2xl px-4 py-3 text-base font-mono font-bold text-white focus:border-amber-500 focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              {/* Shares */}
+              <div>
+                <label className="text-xs font-bold text-gray-300 block mb-1.5">
+                  📦 現有持有股數 (股)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0.0001"
+                  value={holdingSharesInput}
+                  onChange={(e) => setHoldingSharesInput(e.target.value)}
+                  placeholder="請輸入目前持有股數"
+                  className="w-full bg-black/60 border border-white/15 rounded-2xl px-4 py-3 text-base font-mono font-bold text-white focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Information Note */}
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 text-[11px] text-amber-300/90 leading-relaxed">
+                💡 <strong>直覺校正提示</strong>：此處直接校正您目前真正的持股總量與買入均價，系統會自動校正底層交易紀錄，永不被線上行情覆蓋或還原！
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setEditingStockHolding(null)}
+                className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-2xl font-bold cursor-pointer text-xs"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={handleSaveHolding}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-2xl shadow-lg cursor-pointer text-xs transition active:scale-95 disabled:opacity-50"
+              >
+                {isSaving ? '儲存中...' : '確認更新持股成本'}
               </button>
             </div>
           </div>

@@ -43,7 +43,7 @@ import {
 } from '../utils/storage';
 import { fetchCloudData, saveStockToCloud, deleteStockFromCloud } from '../services/api';
 import { subscribeToRealtimeSync, broadcastDataSyncEvent } from '../services/realtimeSync';
-import { syncStockCalculations } from '../utils/portfolioMath';
+import { syncStockCalculations, mergeStockPortfolios } from '../utils/portfolioMath';
 import { calculateFIRE } from '../utils/fireCalculator';
 import { applyThemeToCSSVariables } from '../utils/theme';
 import { WidgetBridge } from '../services/widgetBridge';
@@ -92,6 +92,7 @@ interface FIREContextType {
   deleteTransaction: (id: string) => void;
   updateCategories: (cats: CategoryItem[]) => void;
   updatePortfolioStocks: (stocks: PortfolioStock[], options?: { syncToCloud?: boolean }) => void;
+  updateLiveStockPricesOnly: (quotesMap: Record<string, { currentPrice: number; name?: string; previousClose?: number; sparkline?: number[] }>) => void;
   saveSingleStock: (stock: PortfolioStock) => Promise<{ success: boolean; error?: string }>;
   deleteSingleStock: (stockId: string) => Promise<{ success: boolean; error?: string }>;
   updateQuickPresets: (presets: QuickPreset[]) => void;
@@ -502,28 +503,60 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     lastUserEditTimeRef.current = Date.now();
     const synced = stocks.map((s) => syncStockCalculations(s));
     setPortfolioStocks(synced);
-    savePortfolioStocks(synced);
 
-    if (syncToCloud && storageModeState === 'cloud') {
-      const code = syncCodeState || getOrCreateSyncCode();
-      synced.forEach((s) => {
-        saveStockToCloud(code, s).catch(() => {});
-      });
+    if (syncToCloud) {
+      savePortfolioStocks(synced);
+      if (storageModeState === 'cloud') {
+        const code = syncCodeState || getOrCreateSyncCode();
+        synced.forEach((s) => {
+          saveStockToCloud(code, s).catch(() => {});
+        });
+      }
+    } else {
+      savePortfolioStocksLocalOnly(synced);
     }
   }, [storageModeState, syncCodeState]);
+
+  // Dedicated function for 5-second online price polling: ONLY updates currentPrice/previousClose/sparkline in memory/localStorage without touching transactions, costs, or cloud!
+  const updateLiveStockPricesOnly = useCallback((quotesMap: Record<string, { currentPrice: number; name?: string; previousClose?: number; sparkline?: number[] }>) => {
+    // Skip if user recently edited within 6 seconds to avoid any conflict
+    if (Date.now() - lastUserEditTimeRef.current < 6000) return;
+
+    setPortfolioStocks((prev) => {
+      let hasChanges = false;
+      const nowIso = new Date().toISOString();
+      const updated = prev.map((stock) => {
+        const symUpper = stock.symbol.toUpperCase();
+        const rawCode = symUpper.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+        const quote = quotesMap[symUpper] || quotesMap[`${rawCode}.TW`] || quotesMap[rawCode] || quotesMap[`${rawCode}.TWO`];
+
+        if (quote && quote.currentPrice > 0 && Math.abs(quote.currentPrice - stock.currentPrice) > 0.0001) {
+          hasChanges = true;
+          return {
+            ...stock,
+            currentPrice: quote.currentPrice,
+            name: quote.name || stock.name,
+            previousClose: quote.previousClose || stock.previousClose,
+            sparkline: quote.sparkline || stock.sparkline,
+            lastUpdated: nowIso,
+          };
+        }
+        return stock;
+      });
+
+      if (hasChanges) {
+        savePortfolioStocksLocalOnly(updated);
+        return updated;
+      }
+      return prev;
+    });
+  }, []);
 
   const saveSingleStock = useCallback(async (stock: PortfolioStock): Promise<{ success: boolean; error?: string }> => {
     lastUserEditTimeRef.current = Date.now();
     const syncedStock = syncStockCalculations(stock);
 
-    if (storageModeState === 'cloud') {
-      const code = syncCodeState || getOrCreateSyncCode();
-      const res = await saveStockToCloud(code, syncedStock);
-      if (!res.success) {
-        return res;
-      }
-    }
-
+    // 1. Optimistic Update: Immediately update local state & LocalStorage!
     setPortfolioStocks((prev) => {
       const idx = prev.findIndex((s) => s.id === syncedStock.id || s.symbol.toUpperCase() === syncedStock.symbol.toUpperCase());
       let updated: PortfolioStock[];
@@ -533,9 +566,18 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         updated = [syncedStock, ...prev];
       }
-      savePortfolioStocks(updated);
+      savePortfolioStocksLocalOnly(updated);
       return updated;
     });
+
+    // 2. Direct Sync to Cloud if cloud mode
+    if (storageModeState === 'cloud') {
+      const code = syncCodeState || getOrCreateSyncCode();
+      const res = await saveStockToCloud(code, syncedStock);
+      if (!res.success) {
+        return res;
+      }
+    }
 
     return { success: true };
   }, [storageModeState, syncCodeState]);
@@ -543,6 +585,14 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteSingleStock = useCallback(async (stockId: string): Promise<{ success: boolean; error?: string }> => {
     lastUserEditTimeRef.current = Date.now();
 
+    // 1. Optimistic Update: Immediately remove from local state & LocalStorage!
+    setPortfolioStocks((prev) => {
+      const updated = prev.filter((s) => s.id !== stockId);
+      savePortfolioStocksLocalOnly(updated);
+      return updated;
+    });
+
+    // 2. Delete from Cloud if cloud mode
     if (storageModeState === 'cloud') {
       const code = syncCodeState || getOrCreateSyncCode();
       const res = await deleteStockFromCloud(code, stockId);
@@ -550,12 +600,6 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return res;
       }
     }
-
-    setPortfolioStocks((prev) => {
-      const updated = prev.filter((s) => s.id !== stockId);
-      savePortfolioStocks(updated);
-      return updated;
-    });
 
     return { success: true };
   }, [storageModeState, syncCodeState]);
@@ -693,7 +737,8 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
           saveQuickPresetsLocalOnly(cPresets);
         }
         if (Array.isArray(cStocks)) {
-          if (cStocks.length > 0 || Date.now() - lastUserEditTimeRef.current > 4000) {
+          // If user recently edited locally (within 6s), preserve local state and skip cloud portfolio overwrite!
+          if (Date.now() - lastUserEditTimeRef.current >= 6000) {
             setPortfolioStocks((prevLocal) => {
               // Map all existing local live prices & metadata
               const localPriceMap = new Map<string, { currentPrice: number; previousClose?: number; lastUpdated?: string; sparkline?: number[] }>();
@@ -712,19 +757,20 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
               });
 
-              // Merge cloud trade history with local live market prices (NEVER overwrite with cloud stale prices)
-              const merged = cStocks.map((cs) => {
-                const sym = cs.symbol.toUpperCase();
+              // CRDT-merge local stocks with cloud stocks (NEVER drop newly added local stocks)
+              const mergedPortfolio = mergeStockPortfolios(prevLocal || [], cStocks);
+              const merged = mergedPortfolio.map((s) => {
+                const sym = s.symbol.toUpperCase();
                 const raw = sym.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
                 const localInfo = localPriceMap.get(sym) || localPriceMap.get(raw);
 
-                const effectivePrice = (localInfo && localInfo.currentPrice > 0) ? localInfo.currentPrice : (cs.currentPrice || 0);
-                const effectivePrevClose = (localInfo && localInfo.previousClose) ? localInfo.previousClose : cs.previousClose;
-                const effectiveLastUpdated = (localInfo && localInfo.lastUpdated) ? localInfo.lastUpdated : cs.lastUpdated;
-                const effectiveSparkline = (localInfo && localInfo.sparkline) ? localInfo.sparkline : cs.sparkline;
+                const effectivePrice = (localInfo && localInfo.currentPrice > 0) ? localInfo.currentPrice : (s.currentPrice || 0);
+                const effectivePrevClose = (localInfo && localInfo.previousClose) ? localInfo.previousClose : s.previousClose;
+                const effectiveLastUpdated = (localInfo && localInfo.lastUpdated) ? localInfo.lastUpdated : s.lastUpdated;
+                const effectiveSparkline = (localInfo && localInfo.sparkline) ? localInfo.sparkline : s.sparkline;
 
                 return syncStockCalculations({
-                  ...cs,
+                  ...s,
                   currentPrice: effectivePrice,
                   previousClose: effectivePrevClose,
                   lastUpdated: effectiveLastUpdated,
@@ -989,6 +1035,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deleteTransaction,
     updateCategories,
     updatePortfolioStocks,
+    updateLiveStockPricesOnly,
     saveSingleStock,
     deleteSingleStock,
     updateQuickPresets,
@@ -1029,6 +1076,7 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deleteTransaction,
     updateCategories,
     updatePortfolioStocks,
+    updateLiveStockPricesOnly,
     saveSingleStock,
     deleteSingleStock,
     updateQuickPresets,
