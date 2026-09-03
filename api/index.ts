@@ -705,12 +705,15 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
     if (yRes.ok) {
       const data = await yRes.json();
       if (data && Array.isArray(data.quotes)) {
-        const results = data.quotes.map((q: any) => ({
-          symbol: q.symbol,
-          name: q.shortname || q.longname || q.symbol,
-          market: isTw ? 'TW' : 'US',
-          currency: isTw ? 'TWD' : 'USD',
-        }));
+        const results = data.quotes.map((q: any) => {
+          const isItemTw = typeof q.symbol === 'string' && (q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO'));
+          return {
+            symbol: q.symbol,
+            name: q.shortname || q.longname || q.symbol,
+            market: isItemTw ? 'TW' : (isTw ? 'TW' : 'US'),
+            currency: isItemTw ? 'TWD' : (isTw ? 'TWD' : 'USD'),
+          };
+        });
         return res.json({ success: true, results });
       }
     }
