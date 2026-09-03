@@ -46,7 +46,7 @@ async function httpGetJson(url: string): Promise<any> {
   // 2. Direct web fetch
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (res.ok) {
@@ -381,7 +381,7 @@ export async function searchStockSuggestionsAsync(
     const winner = await Promise.race([
       reqServerless.then((res) => (res.length > 0 ? res : new Promise<StockSearchResult[]>(() => {}))),
       reqDirect.then((res) => (res.length > 0 ? res : new Promise<StockSearchResult[]>(() => {}))),
-      new Promise<StockSearchResult[]>((resolve) => setTimeout(() => resolve([]), 2500)),
+      new Promise<StockSearchResult[]>((resolve) => setTimeout(() => resolve([]), 9000)),
     ]);
 
     if (Array.isArray(winner) && winner.length > 0) {

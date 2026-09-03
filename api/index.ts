@@ -526,8 +526,72 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
   const isTw = market === 'TW' || /^\d+[A-Za-z]?$/.test(clean) || hasChinese;
 
   if (isTw) {
-    // 1. Chinese Keyword Live Search via Official TWSE & TPEX OpenAPI (Zero Hardcoded Dictionaries)
+    // 1. Chinese Keyword Live Search via Official TWSE MIS API (Zero Hardcoded Dictionaries)
     if (hasChinese) {
+      try {
+        const misUrl = `https://mis.twse.com.tw/stock/api/getStockNames.jsp?n=${encodeURIComponent(keyword)}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const misRes = await fetch(misUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (misRes.ok) {
+          const rawText = await misRes.text();
+          const data = JSON.parse(rawText.trim());
+          if (data && Array.isArray(data.datas) && data.datas.length > 0) {
+            // Filter out warrants (warrants usually have 6 digits with letters or > 5 digits)
+            const filtered = data.datas
+              .filter((it: any) => it && it.c && (!/^\d{6}/.test(it.c) || it.c.startsWith('00')))
+              .slice(0, 8);
+
+            if (filtered.length > 0) {
+              const keys = filtered.map((it: any) => it.key).filter(Boolean).join('|');
+              const priceMap = new Map<string, number>();
+              if (keys) {
+                try {
+                  const pController = new AbortController();
+                  const pTimeout = setTimeout(() => pController.abort(), 4000);
+                  const priceRes = await fetch(`https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${keys}`, {
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    signal: pController.signal,
+                  });
+                  clearTimeout(pTimeout);
+                  if (priceRes.ok) {
+                    const pData = await priceRes.json();
+                    if (pData && Array.isArray(pData.msgArray)) {
+                      pData.msgArray.forEach((p: any) => {
+                        const price = parseFloat(p.z) || parseFloat(p.y) || parseFloat(p.o) || 0;
+                        if (p.c) priceMap.set(p.c, price);
+                      });
+                    }
+                  }
+                } catch (e) {}
+              }
+
+              const results = filtered.map((it: any) => {
+                const isOtc = it.key ? it.key.startsWith('otc_') : false;
+                return {
+                  symbol: `${it.c}.${isOtc ? 'TWO' : 'TW'}`,
+                  name: it.n || it.c,
+                  price: priceMap.get(it.c) || 0,
+                  market: 'TW',
+                  currency: 'TWD',
+                };
+              });
+
+              return res.json({ success: true, results });
+            }
+          }
+        }
+      } catch (e) {}
+
+      // Fallback: TWSE & TPEX OpenAPI
       try {
         const [twseRes, tpexRes] = await Promise.allSettled([
           fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL', {
@@ -574,7 +638,6 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
           }
         }
 
-        // Sort main stocks & ETFs (code <= 6 chars) first
         matches.sort((a, b) => {
           const codeA = a.symbol.split('.')[0];
           const codeB = b.symbol.split('.')[0];
