@@ -10,6 +10,7 @@ import {
   ArrowDownRight,
   HelpCircle,
   Smartphone,
+  Plus,
 } from 'lucide-react';
 import { PortfolioStock } from '../types';
 import { fetchStockHistoricalChart, CandleData } from '../services/stockPriceService';
@@ -19,6 +20,7 @@ interface StockChartModalProps {
   usdRate: number;
   currencySymbol: string;
   onUpdateStockPrice?: (symbol: string, latestPrice: number) => void;
+  onBuyStock?: (stock: PortfolioStock) => void;
   onClose: () => void;
 }
 
@@ -66,6 +68,7 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   stock,
   currencySymbol,
   onUpdateStockPrice,
+  onBuyStock,
   onClose,
 }) => {
   const [chartType, setChartType] = useState<ChartType>('line');
@@ -1002,12 +1005,25 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onBuyStock && (
+              <button
+                type="button"
+                onClick={() => onBuyStock(stock)}
+                className="px-2.5 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                title="以此股票直接開啟記一筆交易"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span className="hidden xs:inline">記交易</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Content Body */}
