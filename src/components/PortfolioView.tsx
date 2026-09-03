@@ -1753,7 +1753,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 relative overflow-visible">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                記一筆交易紀錄 📝
+                {editingTxId ? '編輯買賣交易明細 ✏️' : '記一筆交易紀錄 📝'}
               </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -2090,7 +2090,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   style={{ backgroundColor: currentTheme.primaryHex }}
                 >
                   {isSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
-                  <span>{isSaving ? '儲存同步中...' : tradeType === 'BUY' ? '確認新增買入紀錄' : '確認新增賣出紀錄'}</span>
+                  <span>{isSaving ? '儲存同步中...' : editingTxId ? '儲存修改' : tradeType === 'BUY' ? '確認新增買入紀錄' : '確認新增賣出紀錄'}</span>
                 </button>
               </div>
             </form>
