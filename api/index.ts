@@ -523,7 +523,8 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
   const clean = keyword.toUpperCase();
   const rawCode = clean.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   const hasChinese = /[\u4e00-\u9fa5]/.test(keyword);
-  const isTw = market === 'TW' || /^\d+[A-Za-z]?$/.test(clean) || hasChinese;
+  const isAlphaOnly = /^[A-Z]+$/.test(clean);
+  const isTw = !isAlphaOnly && (market === 'TW' || /^\d+[A-Za-z]?$/.test(clean) || hasChinese);
 
   if (isTw) {
     // 1. Chinese Keyword Live Search via Official TWSE MIS API (Zero Hardcoded Dictionaries)
@@ -710,8 +711,8 @@ app.get(['/api/search', '/search'], async (req: Request, res: Response) => {
           return {
             symbol: q.symbol,
             name: q.shortname || q.longname || q.symbol,
-            market: isItemTw ? 'TW' : (isTw ? 'TW' : 'US'),
-            currency: isItemTw ? 'TWD' : (isTw ? 'TWD' : 'USD'),
+            market: isItemTw ? 'TW' : 'US',
+            currency: isItemTw ? 'TWD' : 'USD',
           };
         });
         return res.json({ success: true, results });
