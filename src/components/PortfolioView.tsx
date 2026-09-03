@@ -1764,135 +1764,165 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             </div>
 
             <form onSubmit={handleSaveTransaction} className="space-y-4 text-xs">
-              {/* Buy / Sell Toggle Buttons */}
-              <div>
-                <label className="text-gray-400 block mb-1 font-bold">交易類型 (BUY / SELL):</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTradeType('BUY')}
-                    className={`py-2 rounded-xl font-extrabold border transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                      tradeType === 'BUY'
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-lg'
-                        : 'bg-black/40 border-white/5 text-gray-400'
-                    }`}
-                  >
-                    <span>🟢 買入 (BUY)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTradeType('SELL')}
-                    className={`py-2 rounded-xl font-extrabold border transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                      tradeType === 'SELL'
-                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-lg'
-                        : 'bg-black/40 border-white/5 text-gray-400'
-                    }`}
-                  >
-                    <span>🔴 賣出 (SELL)</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Market Type Switch */}
-              <div>
-                <label className="text-gray-400 block mb-1 font-bold">市場類別:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleMarketInputSwitch('US')}
-                    className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
-                      marketInput === 'US'
-                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                        : 'bg-black/40 border-white/5 text-gray-400'
-                    }`}
-                  >
-                    🇺🇸 美股 (USD)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleMarketInputSwitch('TW')}
-                    className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
-                      marketInput === 'TW'
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                        : 'bg-black/40 border-white/5 text-gray-400'
-                    }`}
-                  >
-                    🇹🇼 台股 (TWD)
-                  </button>
-                </div>
-              </div>
-
-              {/* Symbol Input with Autocomplete */}
-              <div className="relative">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-gray-400 font-bold flex items-center gap-1.5">
-                    <Search className="w-3.5 h-3.5 text-cyan-400" />
-                    {marketInput === 'US' ? '美股' : '台股'}關鍵字/代號:
-                  </label>
-                  {isSearching && (
-                    <span className="text-[10px] text-cyan-400 animate-pulse font-bold">搜尋中...</span>
-                  )}
-                </div>
-
-                <input
-                  type="text"
-                  placeholder={
-                    marketInput === 'US' ? '例如: NVDA, VOO, ASTS...' : '例如: 2330, 2377, 0050...'
-                  }
-                  value={symbolInput}
-                  onChange={(e) => handleSymbolInputChange(e.target.value)}
-                  onFocus={() => {
-                    if (symbolInput.trim()) {
-                      handleSymbolInputChange(symbolInput);
-                    }
-                  }}
-                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-mono font-bold uppercase focus:border-cyan-500 focus:outline-none"
-                  required
-                />
-
-                {/* Suggestions Dropdown List */}
-                {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#141414] border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden divide-y divide-white/5 max-h-56 overflow-y-auto animate-fadeIn">
-                    {searchSuggestions.map((item) => (
-                      <button
-                        key={item.symbol}
-                        type="button"
-                        onClick={() => handleSelectSuggestion(item)}
-                        className="w-full px-3.5 py-2.5 text-left hover:bg-cyan-500/15 flex items-center justify-between transition cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-base">{item.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
-                          <div>
-                            <strong className="text-cyan-300 font-mono font-bold text-xs group-hover:text-cyan-200 flex items-center gap-1.5">
-                              <span>{item.symbol}</span>
-                              {item.price ? (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                  ${item.price}
-                                </span>
-                              ) : null}
-                            </strong>
-                            <p className="text-[11px] text-gray-300 truncate max-w-[210px]">{item.name}</p>
-                          </div>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-gray-400 font-mono font-bold">
-                          {item.price ? '帶入最新價' : '點擊帶入'}
+              {editingTxId ? (
+                /* Edit Mode: Compact Header Banner (Read-only, clean, focused) */
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-2xl">{marketInput === 'US' ? '🇺🇸' : '🇹🇼'}</span>
+                    <div>
+                      <div className="text-sm font-black font-mono text-white flex items-center gap-2">
+                        <span>{symbolInput}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          tradeType === 'BUY'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        }`}>
+                          {tradeType === 'BUY' ? '🟢 買入紀錄' : '🔴 賣出紀錄'}
                         </span>
-                      </button>
-                    ))}
+                      </div>
+                      <div className="text-[11px] text-gray-400 truncate max-w-[210px]">
+                        {nameInput || symbolInput}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
+                  <span className="text-[10px] text-gray-400 font-mono px-2 py-1 bg-white/5 rounded-lg border border-white/5">
+                    {marketInput === 'US' ? 'USD 美元' : 'TWD 台幣'}
+                  </span>
+                </div>
+              ) : (
+                /* Add Mode: Full selectors for Type, Market, Symbol, Name */
+                <>
+                  {/* Buy / Sell Toggle Buttons */}
+                  <div>
+                    <label className="text-gray-400 block mb-1 font-bold">交易類型 (BUY / SELL):</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTradeType('BUY')}
+                        className={`py-2 rounded-xl font-extrabold border transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                          tradeType === 'BUY'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-lg'
+                            : 'bg-black/40 border-white/5 text-gray-400'
+                        }`}
+                      >
+                        <span>🟢 買入 (BUY)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTradeType('SELL')}
+                        className={`py-2 rounded-xl font-extrabold border transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                          tradeType === 'SELL'
+                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-lg'
+                            : 'bg-black/40 border-white/5 text-gray-400'
+                        }`}
+                      >
+                        <span>🔴 賣出 (SELL)</span>
+                      </button>
+                    </div>
+                  </div>
 
-              <div>
-                <label className="text-gray-400 block mb-1 font-bold">股票/基金全名:</label>
-                <input
-                  type="text"
-                  placeholder="可自動帶入或自行修改名稱"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-bold focus:border-cyan-500 focus:outline-none"
-                />
-              </div>
+                  {/* Market Type Switch */}
+                  <div>
+                    <label className="text-gray-400 block mb-1 font-bold">市場類別:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleMarketInputSwitch('US')}
+                        className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
+                          marketInput === 'US'
+                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                            : 'bg-black/40 border-white/5 text-gray-400'
+                        }`}
+                      >
+                        🇺🇸 美股 (USD)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMarketInputSwitch('TW')}
+                        className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
+                          marketInput === 'TW'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                            : 'bg-black/40 border-white/5 text-gray-400'
+                        }`}
+                      >
+                        🇹🇼 台股 (TWD)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Symbol Input with Autocomplete */}
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-gray-400 font-bold flex items-center gap-1.5">
+                        <Search className="w-3.5 h-3.5 text-cyan-400" />
+                        {marketInput === 'US' ? '美股' : '台股'}關鍵字/代號:
+                      </label>
+                      {isSearching && (
+                        <span className="text-[10px] text-cyan-400 animate-pulse font-bold">搜尋中...</span>
+                      )}
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder={
+                        marketInput === 'US' ? '例如: NVDA, VOO, ASTS...' : '例如: 2330, 2377, 0050...'
+                      }
+                      value={symbolInput}
+                      onChange={(e) => handleSymbolInputChange(e.target.value)}
+                      onFocus={() => {
+                        if (symbolInput.trim()) {
+                          handleSymbolInputChange(symbolInput);
+                        }
+                      }}
+                      className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-mono font-bold uppercase focus:border-cyan-500 focus:outline-none"
+                      required
+                    />
+
+                    {/* Suggestions Dropdown List */}
+                    {showSuggestions && searchSuggestions.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#141414] border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden divide-y divide-white/5 max-h-56 overflow-y-auto animate-fadeIn">
+                        {searchSuggestions.map((item) => (
+                          <button
+                            key={item.symbol}
+                            type="button"
+                            onClick={() => handleSelectSuggestion(item)}
+                            className="w-full px-3.5 py-2.5 text-left hover:bg-cyan-500/15 flex items-center justify-between transition cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-base">{item.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
+                              <div>
+                                <strong className="text-cyan-300 font-mono font-bold text-xs group-hover:text-cyan-200 flex items-center gap-1.5">
+                                  <span>{item.symbol}</span>
+                                  {item.price ? (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                      ${item.price}
+                                    </span>
+                                  ) : null}
+                                </strong>
+                                <p className="text-[11px] text-gray-300 truncate max-w-[210px]">{item.name}</p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-gray-400 font-mono font-bold">
+                              {item.price ? '帶入最新價' : '點擊帶入'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-gray-400 block mb-1 font-bold">股票/基金全名:</label>
+                    <input
+                      type="text"
+                      placeholder="可自動帶入或自行修改名稱"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-bold focus:border-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
