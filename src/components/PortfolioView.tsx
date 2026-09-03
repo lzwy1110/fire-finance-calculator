@@ -678,6 +678,19 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           return t;
         });
 
+        // Validate chronological timeline to prevent naked shorting / negative shares
+        const timelineCheck = validateTradeTimeline(updatedTxs);
+        if (!timelineCheck.isValid) {
+          setWarningModal({
+            isOpen: true,
+            title: '現股庫存不足警告 ⚠️',
+            message: timelineCheck.errorMessage || '修改此筆交易會導致歷史持股庫存變為負數！',
+            details: '【防裸賣防禦機制】系統依據交易時間軸檢核：此修改會導致該日期或後續日期的持股數量不足以支撐賣出。若要縮減買入或增加賣出，請先確認或調整後續的賣出明細。',
+          });
+          setIsSaving(false);
+          return;
+        }
+
         const updatedStockObj = syncStockCalculations({
           ...existingStock,
           name: nameInput.trim() || existingStock.name,
