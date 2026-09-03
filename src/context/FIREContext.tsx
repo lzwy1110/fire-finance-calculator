@@ -369,6 +369,22 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (cashDelta !== 0) {
       adjustCashSavings(cashDelta, 'TWD');
     }
+
+    // Automatically unmark linked tax checklist item if this transaction was linked to a tax
+    setFireConfig((prev) => {
+      const taxes = prev.annualTaxes;
+      if (taxes && taxes.some((t) => t.transactionId === id)) {
+        const updatedTaxes = taxes.map((t) =>
+          t.transactionId === id
+            ? { ...t, isPaid: false, paidDate: undefined, transactionId: undefined }
+            : t
+        );
+        const updated = { ...prev, annualTaxes: updatedTaxes };
+        saveFIREConfig(updated);
+        return updated;
+      }
+      return prev;
+    });
   }, [adjustCashSavings]);
 
   // ================= ANNUAL TAXES SYSTEM ================= //
@@ -439,17 +455,27 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Update fire config
       updateAnnualTaxes(updatedTaxes);
     } else {
-      // 2. Mark as unpaid, remove linked transaction
+      // 2. Mark as unpaid, remove linked transaction if still present
+      let shouldRefund = false;
       if (targetTax.transactionId) {
         setTransactions((prev) => {
-          const next = prev.filter((t) => t.id !== targetTax.transactionId);
-          saveTransactions(next);
-          return next;
+          const exists = prev.some((t) => t.id === targetTax.transactionId);
+          if (exists) {
+            shouldRefund = true;
+            const next = prev.filter((t) => t.id !== targetTax.transactionId);
+            saveTransactions(next);
+            return next;
+          }
+          return prev;
         });
+      } else {
+        shouldRefund = true;
       }
 
-      // Refund cash savings TWD
-      adjustCashSavings(targetTax.amount, 'TWD');
+      // Refund cash savings TWD only if the linked transaction was not already deleted
+      if (shouldRefund) {
+        adjustCashSavings(targetTax.amount, 'TWD');
+      }
 
       const updatedTaxes = currentTaxes.map((t) =>
         t.id === taxId

@@ -111,10 +111,13 @@ export function validateTradeTimeline(transactions: StockTransaction[]): {
       runningShares += count;
     } else if (tx.type === 'SELL') {
       runningShares -= count;
-      if (runningShares < 0) {
+      // Handle floating point micro-dust (e.g. 0.1 + 0.7 - 0.8 = -1e-16)
+      if (Math.abs(runningShares) < 1e-7) {
+        runningShares = 0;
+      } else if (runningShares < -1e-6) {
         return {
           isValid: false,
-          errorMessage: `庫存不足：於 ${tx.date} 賣出 ${count} 股後，剩餘庫存變為 ${runningShares} 股。`,
+          errorMessage: `庫存不足：於 ${tx.date} 賣出 ${count} 股後，剩餘庫存變為 ${Number(runningShares.toFixed(6))} 股。`,
           dipDate: tx.date,
           dipShares: runningShares,
         };
@@ -213,17 +216,29 @@ export function mergeStockPortfolios(
     if (!existingLocal) {
       mergedMap.set(key, cStock);
     } else {
-      // Merge transaction trade logs by ID
-      const txMap = new Map<string, StockTransaction>();
-      (existingLocal.transactions || []).forEach((t) => txMap.set(t.id, t));
-      (cStock.transactions || []).forEach((t) => txMap.set(t.id, t));
+      const localTime = new Date(existingLocal.lastUpdated || 0).getTime();
+      const cloudTime = new Date(cStock.lastUpdated || 0).getTime();
 
-      const mergedTx = Array.from(txMap.values());
+      let targetTransactions: StockTransaction[];
+      if (localTime > cloudTime) {
+        // Local is strictly newer (e.g. user just deleted or edited trades locally)
+        targetTransactions = existingLocal.transactions || [];
+      } else if (cloudTime > localTime) {
+        // Cloud is strictly newer (e.g. updated from another device)
+        targetTransactions = cStock.transactions || [];
+      } else {
+        // Indeterminate/identical: union deduplicate
+        const txMap = new Map<string, StockTransaction>();
+        (cStock.transactions || []).forEach((t) => txMap.set(t.id, t));
+        (existingLocal.transactions || []).forEach((t) => txMap.set(t.id, t));
+        targetTransactions = Array.from(txMap.values());
+      }
+
       const updatedStock = syncStockCalculations({
         ...existingLocal,
         name: cStock.name || existingLocal.name,
         currentPrice: cStock.currentPrice > 0 ? cStock.currentPrice : existingLocal.currentPrice,
-        transactions: mergedTx,
+        transactions: targetTransactions,
       });
 
       mergedMap.set(key, updatedStock);

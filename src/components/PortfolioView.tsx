@@ -611,6 +611,19 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       return;
     }
 
+    // Taiwan Stock Integer Shares Validation (No fractional shares in TW market)
+    if (marketInput === 'TW' && !Number.isInteger(parsedShares)) {
+      setConfirmModal({
+        isOpen: true,
+        title: '股數格式不正確 ⚠️',
+        message: '台股交易單位必須為整數（最小單位為 1 股），不支援小數點碎股！\n若為零股交易，請輸入整數股數（例如 1 ~ 999 股）。',
+        type: 'warning',
+        isAlert: true,
+        confirmText: '我知道了',
+      });
+      return;
+    }
+
     const useInitialHoldings =
       typeof overrideInitialHoldings === 'boolean'
         ? overrideInitialHoldings
@@ -621,7 +634,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     // Validate cash balance for BUY trade if deducting cash (only on new add)
     if (!editingTxId && tradeType === 'BUY' && !useInitialHoldings && typeof overrideInitialHoldings === 'undefined') {
       const isUS = marketInput === 'US';
-      const tradeCost = parsedShares * parsedCost;
+      const tradeCost = netTradeTotal > 0 ? netTradeTotal : parsedShares * parsedCost;
       const availableCash = isUS ? currentUSD : currentTWD;
 
       if (availableCash < tradeCost) {
@@ -659,8 +672,6 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       if (editingTxId && existingStock) {
         // Editing existing transaction
         const oldTx = (existingStock.transactions || []).find((t) => t.id === editingTxId);
-        const oldTradeAmt = oldTx ? (oldTx.shares || 0) * (oldTx.price || 0) : 0;
-        const newTradeAmt = parsedShares * parsedCost;
         const isUS = marketInput === 'US';
 
         const updatedTxs = (existingStock.transactions || []).map((t) => {
@@ -717,17 +728,35 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           onUpdateStocks(updatedStocksList);
         }
 
-        // Cash reconciliation
+        // Precise Cash reconciliation (Conserving fees and taxes)
         if (onAdjustCashSavings && oldTx) {
+          const calcNetAmt = (tx: StockTransaction, isUsStock: boolean) => {
+            const raw = (tx.shares || 0) * (tx.price || 0);
+            if (isUsStock) {
+              const feeRate = fireConfig?.usStockFeeRate ?? 0;
+              const fee = Number((raw * (feeRate / 100)).toFixed(2));
+              return tx.type === 'BUY' ? raw + fee : Math.max(0, raw - fee);
+            } else {
+              const feeRate = fireConfig?.twStockFeeRate ?? 0.0399;
+              const fee = Math.max(1, Math.round(raw * (feeRate / 100)));
+              const isETF = existingStock.symbol.startsWith('00') || existingStock.name.includes('ETF') || existingStock.symbol.includes('00');
+              const tax = tx.type === 'SELL' ? Math.round(raw * (isETF ? 0.001 : 0.003)) : 0;
+              return tx.type === 'BUY' ? raw + fee : Math.max(0, raw - fee - tax);
+            }
+          };
+
+          const oldNetAmt = calcNetAmt(oldTx, isUS);
+          const newNetAmt = netTradeTotal > 0 ? netTradeTotal : parsedShares * parsedCost;
+
           if (oldTx.type === 'BUY' && !oldTx.isInitialHoldings) {
-            onAdjustCashSavings(+oldTradeAmt, isUS ? 'USD' : 'TWD');
+            onAdjustCashSavings(+oldNetAmt, isUS ? 'USD' : 'TWD');
           } else if (oldTx.type === 'SELL') {
-            onAdjustCashSavings(-oldTradeAmt, isUS ? 'USD' : 'TWD');
+            onAdjustCashSavings(-oldNetAmt, isUS ? 'USD' : 'TWD');
           }
           if (tradeType === 'BUY' && !useInitialHoldings) {
-            onAdjustCashSavings(-newTradeAmt, isUS ? 'USD' : 'TWD');
+            onAdjustCashSavings(-newNetAmt, isUS ? 'USD' : 'TWD');
           } else if (tradeType === 'SELL') {
-            onAdjustCashSavings(+newTradeAmt, isUS ? 'USD' : 'TWD');
+            onAdjustCashSavings(+newNetAmt, isUS ? 'USD' : 'TWD');
           }
         }
 
@@ -1944,8 +1973,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   </label>
                   <input
                     type="number"
-                    step="any"
-                    placeholder="例如: 1000"
+                    step={marketInput === 'TW' ? '1' : 'any'}
+                    min="0"
+                    placeholder={marketInput === 'TW' ? '例如: 1000' : '例如: 1.5'}
                     value={sharesInput}
                     onChange={(e) => setSharesInput(e.target.value)}
                     className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
