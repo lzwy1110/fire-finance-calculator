@@ -57,7 +57,10 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
   // Dividend per share
   const [perShareAmount, setPerShareAmount] = useState<number>(() => {
     if (typeof dividendEvent?.amount === 'number' && dividendEvent.amount > 0) {
-      return dividendEvent.amount;
+      if (Math.abs(dividendEvent.amount - Math.round(dividendEvent.amount)) < 0.00005) {
+        return Math.round(dividendEvent.amount);
+      }
+      return parseFloat(dividendEvent.amount.toFixed(4));
     }
     return isUS ? 0.5 : 1.0;
   });

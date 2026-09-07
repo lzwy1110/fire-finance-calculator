@@ -899,6 +899,11 @@ app.get(['/api/dividends', '/dividends'], async (req: Request, res: Response): P
         }),
       ]);
 
+      const cleanDivAmt = (v: number) => {
+        if (Math.abs(v - Math.round(v)) < 0.00005) return Math.round(v);
+        return parseFloat(v.toFixed(4));
+      };
+
       if (twseRes.status === 'fulfilled' && twseRes.value.ok) {
         const twseData = await twseRes.value.json();
         if (Array.isArray(twseData)) {
@@ -909,6 +914,7 @@ app.get(['/api/dividends', '/dividends'], async (req: Request, res: Response): P
             if (amt <= 0 && dividends.length > 0) {
               amt = dividends[0].amount || 0;
             }
+            amt = cleanDivAmt(amt);
             if (dateStr && !seenDates.has(dateStr)) {
               seenDates.add(dateStr);
               dividends.push({ date: dateStr, amount: amt });
@@ -927,6 +933,7 @@ app.get(['/api/dividends', '/dividends'], async (req: Request, res: Response): P
             if (amt <= 0 && dividends.length > 0) {
               amt = dividends[0].amount || 0;
             }
+            amt = cleanDivAmt(amt);
             if (dateStr && !seenDates.has(dateStr)) {
               seenDates.add(dateStr);
               dividends.push({ date: dateStr, amount: amt });

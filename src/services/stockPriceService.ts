@@ -601,6 +601,11 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
     return `${adYear}-${mm}-${dd}`;
   };
 
+  const cleanDivAmt = (v: number) => {
+    if (Math.abs(v - Math.round(v)) < 0.00005) return Math.round(v);
+    return parseFloat(v.toFixed(4));
+  };
+
   const dividends: StockDividendEvent[] = [];
   const seenDates = new Set<string>();
 
@@ -624,7 +629,7 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
         const divItem = item as any;
         const dateSec = divItem.date || parseInt(timestampKey, 10);
         const dateStr = new Date(dateSec * 1000).toISOString().split('T')[0];
-        const amount = Number(divItem.amount) || 0;
+        const amount = cleanDivAmt(Number(divItem.amount) || 0);
 
         if (amount > 0 && !seenDates.has(dateStr)) {
           seenDates.add(dateStr);
@@ -660,6 +665,7 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
               const dateStr = parseTwseDate(item.Date);
               let amt = parseFloat(item.CashDividend) || 0;
               if (amt <= 0 && dividends.length > 0) amt = dividends[0].amount;
+              amt = cleanDivAmt(amt);
               if (dateStr && !seenDates.has(dateStr)) {
                 seenDates.add(dateStr);
                 dividends.push({
@@ -681,6 +687,7 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
               const dateStr = parseTwseDate(item.ExRrightsExDividendDate);
               let amt = parseFloat(item.CashDividend) || 0;
               if (amt <= 0 && dividends.length > 0) amt = dividends[0].amount;
+              amt = cleanDivAmt(amt);
               if (dateStr && !seenDates.has(dateStr)) {
                 seenDates.add(dateStr);
                 dividends.push({
@@ -706,6 +713,7 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
     if (data && data.success && Array.isArray(data.dividends) && data.dividends.length > 0) {
       return data.dividends.map((d: any) => ({
         ...d,
+        amount: cleanDivAmt(Number(d.amount) || 0),
         status: d.date > todayStr ? 'upcoming' : 'effective_pending',
       }));
     }
@@ -723,7 +731,7 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
         const item = twseData.find((it: any) => it && it.Code === cleanCode);
         if (item && ((item.Exdividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
           const dateStr = parseTwseDate(item.Date);
-          const amt = parseFloat(item.CashDividend) || 0;
+          let amt = cleanDivAmt(parseFloat(item.CashDividend) || 0);
           if (dateStr && !seenDates.has(dateStr)) {
             seenDates.add(dateStr);
             dividends.push({
@@ -739,7 +747,7 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
         const item = tpexData.find((it: any) => it && it.SecuritiesCompanyCode === cleanCode);
         if (item && ((item.ExRrightsExDividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
           const dateStr = parseTwseDate(item.ExRrightsExDividendDate);
-          const amt = parseFloat(item.CashDividend) || 0;
+          let amt = cleanDivAmt(parseFloat(item.CashDividend) || 0);
           if (dateStr && !seenDates.has(dateStr)) {
             seenDates.add(dateStr);
             dividends.push({
