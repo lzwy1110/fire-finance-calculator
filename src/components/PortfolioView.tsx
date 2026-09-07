@@ -2158,8 +2158,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             const isUpcomingRight = pendingRight?.status === 'upcoming';
             const isPendingRight = pendingRight?.status === 'effective_pending';
 
+            const isPendingBoth = isPendingDiv && isPendingRight;
+
             const cardBorderClass = isPendingSplit
               ? 'border-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.35)]'
+              : isPendingBoth
+              ? 'border-teal-400 shadow-[0_0_30px_rgba(20,184,166,0.45),0_0_15px_rgba(14,165,233,0.3)]'
               : isPendingDiv
               ? 'border-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.35)]'
               : isPendingRight
