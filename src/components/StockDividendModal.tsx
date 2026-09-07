@@ -102,10 +102,13 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
     return Math.max(0, Number((grossDividend - taxWithheld).toFixed(2)));
   }, [grossDividend, taxWithheld]);
 
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const isUpcoming = exDate > todayStr || dividendEvent?.status === 'upcoming';
+
   if (!isOpen) return null;
 
   const handleConfirm = () => {
-    if (!hasEligibleShares || netCashInflow <= 0) return;
+    if (!hasEligibleShares || netCashInflow <= 0 || isUpcoming) return;
     onConfirm({
       amountPerShare: perShareAmount,
       eligibleShares,
@@ -124,24 +127,44 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto">
-      <div className="bg-[#121216] border border-emerald-500/30 w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl text-gray-200 animate-scaleUp my-auto">
+      <div
+        className={`bg-[#121216] border w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl text-gray-200 animate-scaleUp my-auto ${
+          isUpcoming ? 'border-amber-500/40 shadow-amber-500/10' : 'border-emerald-500/30 shadow-emerald-500/10'
+        }`}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
           <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <Coins className="w-5 h-5 stroke-[2.5]" />
+            <div
+              className={`p-2.5 rounded-2xl border ${
+                isUpcoming
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+              }`}
+            >
+              {isUpcoming ? <Calendar className="w-5 h-5 stroke-[2.5]" /> : <Coins className="w-5 h-5 stroke-[2.5]" />}
             </div>
             <div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="text-base sm:text-lg font-black text-white">股票除息與現金入帳試算</h3>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <h3 className="text-base sm:text-lg font-black text-white">
+                  {isUpcoming ? '股票除息預報與收益試算' : '股票除息與現金入帳確認'}
+                </h3>
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
+                    isUpcoming
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  }`}
+                >
                   {stock.symbol}
                 </span>
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300">
                   {isUS ? '🇺🇸 美股' : '🇹🇼 台股'}
                 </span>
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">{stock.name}</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {isUpcoming ? `預定於 ${exDate} 進行除息，此處提供收益試算預估` : stock.name}
+              </p>
             </div>
           </div>
           <button
@@ -282,23 +305,33 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
             {/* Row 4: Net Cash Inflow */}
             <div className="flex items-center justify-between pt-2 border-t border-white/10">
               <span className="font-bold text-gray-200 flex items-center gap-1.5">
-                <PiggyBank className="w-4 h-4 text-emerald-400" />
-                <span>預計現金實收入帳 (Net Inflow):</span>
+                <PiggyBank className={`w-4 h-4 ${isUpcoming ? 'text-amber-400' : 'text-emerald-400'}`} />
+                <span>{isUpcoming ? '預計實收現金 (未到入帳日):' : '預計現金實收入帳 (Net Inflow):'}</span>
               </span>
-              <span className="font-mono text-base font-black text-emerald-400">
+              <span className={`font-mono text-base font-black ${isUpcoming ? 'text-amber-400' : 'text-emerald-400'}`}>
                 + {currSym}{formatDec(netCashInflow)} {isUS ? 'USD' : 'TWD'}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Security & Passive Income Notice */}
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-3 text-[11px] text-emerald-200/90 flex items-start gap-2">
-          <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">
-            確認入帳後，系統將自動為您的 <span className="font-bold text-white">{isUS ? '美金 (USD)' : '台幣 (TWD)'} 現金儲備</span> 增補此筆現金，並同步計入記帳本當月被動生活收入。持股股數與持股成本池保持不變。
-          </p>
-        </div>
+        {/* Security & Notice Banner */}
+        {isUpcoming ? (
+          <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3 text-[11px] text-amber-200/90 flex items-start gap-2">
+            <Calendar className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <span className="font-bold text-amber-300">⏳ 未到除息日（預報試算模式）：</span>
+              目前尚未到達除息基準日（{exDate}），此為未來現金流試算。待到達除息日（或發放日）當天，首頁卡片將自動切換為綠色入帳提示，屆時即可一鍵確認入帳。
+            </div>
+          </div>
+        ) : (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-3 text-[11px] text-emerald-200/90 flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              確認入帳後，系統將自動為您的 <span className="font-bold text-white">{isUS ? '美金 (USD)' : '台幣 (TWD)'} 現金儲備</span> 增補此筆現金，並同步計入記帳本當月被動生活收入。持股股數與持股成本池保持不變。
+            </p>
+          </div>
+        )}
 
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-2.5 pt-1">
@@ -307,25 +340,36 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
             onClick={onClose}
             className="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-bold transition cursor-pointer"
           >
-            稍後再說
+            {isUpcoming ? '關閉試算' : '稍後再說'}
           </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={!hasEligibleShares || netCashInflow <= 0}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 ${
-              !hasEligibleShares || netCashInflow <= 0
-                ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed border border-white/5'
-                : 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-lg shadow-emerald-600/30 cursor-pointer'
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-            <span>
-              {!hasEligibleShares
-                ? '除息日無持股，無法領息'
-                : `確認股息入帳 (+${currSym}${formatDec(netCashInflow)})`}
-            </span>
-          </button>
+          {isUpcoming ? (
+            <button
+              type="button"
+              disabled
+              className="px-5 py-2.5 rounded-2xl text-xs font-bold bg-amber-500/15 text-amber-300/80 border border-amber-500/30 cursor-not-allowed flex items-center gap-1.5"
+            >
+              <Calendar className="w-4 h-4" />
+              <span>待 {exDate} 除息日開放領取</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={!hasEligibleShares || netCashInflow <= 0}
+              className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 ${
+                !hasEligibleShares || netCashInflow <= 0
+                  ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed border border-white/5'
+                  : 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-lg shadow-emerald-600/30 cursor-pointer'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+              <span>
+                {!hasEligibleShares
+                  ? '除息日無持股，無法領息'
+                  : `確認股息入帳 (+${currSym}${formatDec(netCashInflow)})`}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </div>
