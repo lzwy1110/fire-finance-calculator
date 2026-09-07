@@ -144,6 +144,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       const stockCurrency = isUS ? '$' : 'NT$';
 
       (stock.transactions || []).forEach((st) => {
+        if (st.type === 'SPLIT') return; // Skip non-cash stock splits
+
         let displayDate = st.date;
         if (st.date.length >= 10) {
           displayDate = st.date.slice(5, 10).replace('-', '/'); // MM/DD
@@ -151,6 +153,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
         const isBuy = st.type === 'BUY';
         const isSell = st.type === 'SELL';
+        const isDiv = st.type === 'DIVIDEND';
 
         let typeActionLabel = '買入';
         let icon = '📈';
@@ -170,13 +173,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           isPositive = true;
         }
 
-        const totalTradeVal = st.shares * st.price;
+        const totalTradeVal = isDiv
+          ? (st.dividendTotalCash ?? ((st.shares || 0) * (st.dividendPerShare || st.price || 0)))
+          : (st.shares * st.price);
+
+        const titleText = isDiv
+          ? `${stock.symbol} 現金股利每股 ${stockCurrency}${st.dividendPerShare ?? st.price}`
+          : `${stock.symbol} ${typeActionLabel} ${formatNum(st.shares)} 股`;
 
         items.push({
           id: `stock-${st.id}`,
           source: 'stock',
           displayDate,
-          title: `${stock.symbol} ${typeActionLabel} ${formatNum(st.shares)} 股`,
+          title: titleText,
           category: isUS ? `美股 • ${stock.name}` : `台股 • ${stock.name}`,
           tag: isUS ? '美股' : '台股',
           amountFormatted: `${isPositive ? '+' : '-'} ${stockCurrency}${formatDec(totalTradeVal)}`,

@@ -832,4 +832,108 @@ app.get(['/api/splits', '/splits'], async (req: Request, res: Response): Promise
   return res.json({ success: true, symbol, splits: [] });
 });
 
+/**
+ * Stock Dividends Endpoint
+ */
+app.get(['/api/dividends', '/dividends'], async (req: Request, res: Response): Promise<any> => {
+  const rawSymbol = (req.query.symbol as string || '').trim().toUpperCase();
+  if (!rawSymbol) {
+    return res.status(400).json({ success: false, error: 'Symbol is required' });
+  }
+
+  const isTW = rawSymbol.endsWith('.TW') || rawSymbol.endsWith('.TWO') || /^\d{4,6}$/.test(rawSymbol);
+  const yahooSymbol = isTW && !rawSymbol.includes('.') ? `${rawSymbol}.TW` : rawSymbol;
+  const dividends: Array<{ date: string; amount: number; paymentDate?: string }> = [];
+  const seenDates = new Set<string>();
+
+  // 1. Fetch from Yahoo Finance Chart events
+  try {
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=2y&interval=1d&events=div%2Csplit`;
+    const yRes = await fetch(yahooUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (yRes.ok) {
+      const data = await yRes.json();
+      const result = data?.chart?.result?.[0];
+      const divsRaw = result?.events?.dividends || {};
+
+      for (const [timestampKey, item] of Object.entries(divsRaw)) {
+        const divItem = item as any;
+        const dateSec = divItem.date || parseInt(timestampKey, 10);
+        const dateStr = new Date(dateSec * 1000).toISOString().split('T')[0];
+        const amount = Number(divItem.amount) || 0;
+        if (amount > 0 && !seenDates.has(dateStr)) {
+          seenDates.add(dateStr);
+          dividends.push({
+            date: dateStr,
+            amount,
+          });
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 2. For Taiwan stocks, supplement with TWSE / TPEx upcoming ex-dividend tables
+  if (isTW) {
+    const cleanCode = rawSymbol.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+    try {
+      const parseTwseDate = (dStr: string) => {
+        if (!dStr || dStr.length < 6) return null;
+        const yearLen = dStr.length - 4;
+        const rocYear = parseInt(dStr.slice(0, yearLen), 10);
+        const adYear = rocYear + 1911;
+        const mm = dStr.slice(yearLen, yearLen + 2);
+        const dd = dStr.slice(yearLen + 2);
+        return `${adYear}-${mm}-${dd}`;
+      };
+
+      const [twseRes, tpexRes] = await Promise.allSettled([
+        fetch('https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL', {
+          headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+        }),
+        fetch('https://www.tpex.org.tw/openapi/v1/tpex_exright_prepost', {
+          headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+        }),
+      ]);
+
+      if (twseRes.status === 'fulfilled' && twseRes.value.ok) {
+        const twseData = await twseRes.value.json();
+        if (Array.isArray(twseData)) {
+          const item = twseData.find((it: any) => it && it.Code === cleanCode);
+          if (item) {
+            const dateStr = parseTwseDate(item.Date);
+            const amt = parseFloat(item.CashDividend) || 0;
+            if (dateStr && amt > 0 && !seenDates.has(dateStr)) {
+              seenDates.add(dateStr);
+              dividends.push({ date: dateStr, amount: amt });
+            }
+          }
+        }
+      }
+
+      if (tpexRes.status === 'fulfilled' && tpexRes.value.ok) {
+        const tpexData = await tpexRes.value.json();
+        if (Array.isArray(tpexData)) {
+          const item = tpexData.find((it: any) => it && it.SecuritiesCompanyCode === cleanCode);
+          if (item) {
+            const dateStr = parseTwseDate(item.ExRrightsExDividendDate);
+            const amt = parseFloat(item.CashDividend) || 0;
+            if (dateStr && amt > 0 && !seenDates.has(dateStr)) {
+              seenDates.add(dateStr);
+              dividends.push({ date: dateStr, amount: amt });
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Sort newest first
+  dividends.sort((a, b) => b.date.localeCompare(a.date));
+  return res.json({ success: true, symbol: rawSymbol, dividends });
+});
+
 export default app;

@@ -36,7 +36,7 @@ export function calculateStockMetrics(
     if (timeA !== timeB) {
       return timeA - timeB;
     }
-    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, SELL: 3 };
+    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, DIVIDEND: 3, SELL: 4 };
     const pA = typePriority[a.type] ?? 2;
     const pB = typePriority[b.type] ?? 2;
     if (pA !== pB) return pA - pB;
@@ -69,6 +69,8 @@ export function calculateStockMetrics(
         currentShares = currentShares * ratio;
         // Total invested capital pool (totalCostPool) remains strictly invariant
       }
+    } else if (tx.type === 'DIVIDEND') {
+      // Cash dividends do not consume shares or modify trading cost basis
     }
   }
 
@@ -108,7 +110,7 @@ export function validateTradeTimeline(transactions: StockTransaction[]): {
     if (timeA !== timeB) {
       return timeA - timeB;
     }
-    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, SELL: 3 };
+    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, DIVIDEND: 3, SELL: 4 };
     const pA = typePriority[a.type] ?? 2;
     const pB = typePriority[b.type] ?? 2;
     if (pA !== pB) return pA - pB;
@@ -141,6 +143,8 @@ export function validateTradeTimeline(transactions: StockTransaction[]): {
       if (ratio > 0) {
         runningShares *= ratio;
       }
+    } else if (tx.type === 'DIVIDEND') {
+      // Dividends do not consume or alter share count
     }
   }
 

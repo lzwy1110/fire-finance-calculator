@@ -1,5 +1,5 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
-import { MarketType, StockSplitEvent } from '../types/portfolio';
+import { MarketType, StockSplitEvent, StockDividendEvent } from '../types/portfolio';
 
 export interface StockQuote {
   symbol: string;
@@ -578,4 +578,69 @@ export async function fetchStockSplits(symbol: string): Promise<StockSplitEvent[
 
   return [];
 }
+
+/**
+ * Fetch Stock Cash Dividends (Both scheduled upcoming and historical)
+ */
+export async function fetchStockDividends(symbol: string): Promise<StockDividendEvent[]> {
+  const sym = symbol.trim().toUpperCase();
+  if (!sym) return [];
+
+  const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || /^\d{4,6}$/.test(sym);
+  const yahooSymbol = isTW && !sym.includes('.') ? `${sym}.TW` : sym;
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // 1. Android Native via CapacitorHttp
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=2y&interval=1d&events=div%2Csplit`;
+      const res = await CapacitorHttp.get({
+        url,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+        },
+      });
+
+      const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+      const divsRaw = data?.chart?.result?.[0]?.events?.dividends || {};
+      const dividends: StockDividendEvent[] = [];
+      const seenDates = new Set<string>();
+
+      for (const [timestampKey, item] of Object.entries(divsRaw)) {
+        const divItem = item as any;
+        const dateSec = divItem.date || parseInt(timestampKey, 10);
+        const dateStr = new Date(dateSec * 1000).toISOString().split('T')[0];
+        const amount = Number(divItem.amount) || 0;
+
+        if (amount > 0 && !seenDates.has(dateStr)) {
+          seenDates.add(dateStr);
+          dividends.push({
+            date: dateStr,
+            amount,
+            status: dateStr > todayStr ? 'upcoming' : 'effective_pending',
+          });
+        }
+      }
+
+      dividends.sort((a, b) => b.date.localeCompare(a.date));
+      return dividends;
+    } catch (e) {}
+  }
+
+  // 2. Web Browser via Serverless Proxy /api/dividends
+  try {
+    const proxyUrl = `/api/dividends?symbol=${encodeURIComponent(yahooSymbol)}`;
+    const data = await httpGetJson(proxyUrl);
+    if (data && data.success && Array.isArray(data.dividends)) {
+      return data.dividends.map((d: any) => ({
+        ...d,
+        status: d.date > todayStr ? 'upcoming' : 'effective_pending',
+      }));
+    }
+  } catch (e) {}
+
+  return [];
+}
+
 

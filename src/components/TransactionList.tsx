@@ -67,7 +67,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const allTransactions = useMemo(() => {
     const list: (Transaction & {
       isStockTrade?: boolean;
-      stockTradeType?: 'BUY' | 'SELL' | 'DIVIDEND';
+      stockTradeType?: 'BUY' | 'SELL' | 'SPLIT' | 'DIVIDEND';
       stockMarket?: 'US' | 'TW';
       stockOriginalAmount?: number;
       stockOriginalCurrency?: string;
@@ -78,23 +78,32 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       const stockCurrency = isUS ? '$' : 'NT$';
 
       (stock.transactions || []).forEach((st) => {
-        const totalTradeVal = st.shares * st.price;
-        const amountTWD = isUS ? Math.round(totalTradeVal * (usdRate || 32.0)) : totalTradeVal;
+        if (st.type === 'SPLIT') return; // Skip non-cash stock splits from ledger
 
         const isBuy = st.type === 'BUY';
         const isSell = st.type === 'SELL';
-        const txType: Transaction['type'] = isBuy ? 'investment' : (isSell ? 'investment' : 'income');
-        const actionLabel = isBuy ? '買入' : isSell ? '賣出' : '股利發放';
+        const isDiv = st.type === 'DIVIDEND';
+
+        const totalTradeVal = isDiv
+          ? (st.dividendTotalCash ?? ((st.shares || 0) * (st.dividendPerShare || st.price || 0)))
+          : (st.shares * st.price);
+        const amountTWD = isUS ? Math.round(totalTradeVal * (usdRate || 32.0)) : totalTradeVal;
+
+        const txType: Transaction['type'] = isDiv ? 'income' : 'investment';
+        const actionLabel = isBuy ? '買入' : isSell ? '賣出' : '現金股利';
+        const noteText = isDiv
+          ? `${formatNum(st.shares)} 股除息 • 每股 ${stockCurrency}${st.dividendPerShare ?? st.price}${st.taxWithheld && st.taxWithheld > 0 ? ` (預扣稅 ${stockCurrency}${formatNum(st.taxWithheld)})` : ''}${st.note ? ` • ${st.note}` : ''}`
+          : `${formatNum(st.shares)} 股 @ ${stockCurrency}${st.price}${st.note ? ` • ${st.note}` : ''}`;
 
         list.push({
           id: `stock-${st.id}`,
           date: st.date,
           type: txType,
           amount: amountTWD,
-          mainCategory: '證券投資',
+          mainCategory: isDiv ? '投資收入' : '證券投資',
           subCategory: `${stock.symbol} ${actionLabel}`,
-          note: `${formatNum(st.shares)} 股 @ ${stockCurrency}${st.price}${st.note ? ` • ${st.note}` : ''}`,
-          tags: [isUS ? '美股' : '台股', '證券交易'],
+          note: noteText,
+          tags: [isUS ? '美股' : '台股', isDiv ? '股息入帳' : '證券交易'],
           isStockTrade: true,
           stockTradeType: st.type,
           stockMarket: stock.market,

@@ -27,17 +27,19 @@ import {
   Settings,
   Scissors,
 } from 'lucide-react';
-import { FIREConfig, MarketType, PortfolioStock, StockTransaction, StockSplitEvent } from '../types';
+import { FIREConfig, MarketType, PortfolioStock, StockTransaction, StockSplitEvent, StockDividendEvent } from '../types';
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
 import { useFIRE } from '../context/FIREContext';
 import { StockChartModal } from './StockChartModal';
 import { StockSplitModal } from './StockSplitModal';
+import { StockDividendModal } from './StockDividendModal';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
   searchStockSuggestionsAsync,
   fetchStockSplits,
+  fetchStockDividends,
   StockSearchResult,
 } from '../services/stockPriceService';
 import {
@@ -164,6 +166,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     splitEvent: StockSplitEvent | null;
   } | null>(null);
   const [detectedSplitsMap, setDetectedSplitsMap] = useState<Record<string, StockSplitEvent>>({});
+
+  // Stock Cash Dividend Modal State
+  const [activeDividendModal, setActiveDividendModal] = useState<{
+    stock: PortfolioStock;
+    dividendEvent: StockDividendEvent | null;
+  } | null>(null);
+  const [detectedDividendsMap, setDetectedDividendsMap] = useState<Record<string, StockDividendEvent>>({});
 
   // Quick Action Sheet Modal for Compact List
   const [activeActionStock, setActiveActionStock] = useState<PortfolioStock | null>(null);
@@ -478,18 +487,21 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     };
   }, [syncedStocks.length]);
 
-  // Check for upcoming or unapplied stock splits across held stocks
+  // Check for upcoming or unapplied stock splits & dividends across held stocks
   const splitApiCacheRef = useRef<Record<string, StockSplitEvent[]>>({});
+  const dividendApiCacheRef = useRef<Record<string, StockDividendEvent[]>>({});
   useEffect(() => {
     if (syncedStocks.length === 0) return;
 
-    const checkAllSplits = async () => {
+    const checkAllCorporateActions = async () => {
       const todayStr = new Date().toISOString().split('T')[0];
-      const newMap: Record<string, StockSplitEvent> = {};
+      const newSplitsMap: Record<string, StockSplitEvent> = {};
+      const newDivsMap: Record<string, StockDividendEvent> = {};
 
       for (const stock of syncedStocks) {
         if (!stock.symbol || (stock.shares || 0) <= 0) continue;
 
+        // 1. Check Splits
         try {
           let splits = splitApiCacheRef.current[stock.symbol];
           if (!splits) {
@@ -500,8 +512,6 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           if (splits.length > 0) {
             for (const sp of splits) {
               const isUpcoming = sp.date > todayStr;
-
-              // Check if split event was already applied in transaction history
               const alreadyApplied = (stock.transactions || []).some(
                 (t) =>
                   t.type === 'SPLIT' &&
@@ -510,20 +520,48 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
               if (alreadyApplied) continue;
 
-              // Timeline Defense:
-              // For historical splits (sp.date <= todayStr), verify the user actually held shares on or before sp.date!
-              // If all purchases occurred AFTER sp.date, the user bought post-split shares and this split must NOT be alerted.
               if (!isUpcoming) {
                 const txsOnOrBeforeSplit = (stock.transactions || []).filter((t) => t.date <= sp.date);
                 const metricsAtSplit = calculateStockMetrics(txsOnOrBeforeSplit, 0);
-                if (metricsAtSplit.shares <= 0) {
-                  // User had 0 shares on split date (bought post-split or sold out before split)
-                  continue;
-                }
+                if (metricsAtSplit.shares <= 0) continue;
               }
 
-              newMap[stock.id] = {
+              newSplitsMap[stock.id] = {
                 ...sp,
+                status: isUpcoming ? 'upcoming' : 'effective_pending',
+              };
+              break;
+            }
+          }
+        } catch (e) {}
+
+        // 2. Check Dividends
+        try {
+          let divs = dividendApiCacheRef.current[stock.symbol];
+          if (!divs) {
+            divs = await fetchStockDividends(stock.symbol);
+            dividendApiCacheRef.current[stock.symbol] = divs;
+          }
+
+          if (divs.length > 0) {
+            for (const d of divs) {
+              const isUpcoming = d.date > todayStr;
+              const alreadyApplied = (stock.transactions || []).some(
+                (t) => t.type === 'DIVIDEND' && t.date === d.date
+              );
+
+              if (alreadyApplied) continue;
+
+              // Timeline Defense:
+              // For historical dividends, user MUST have held shares on or before ex-dividend date!
+              if (!isUpcoming) {
+                const txsOnOrBeforeDiv = (stock.transactions || []).filter((t) => t.date <= d.date);
+                const metricsAtDiv = calculateStockMetrics(txsOnOrBeforeDiv, 0);
+                if (metricsAtDiv.shares <= 0) continue;
+              }
+
+              newDivsMap[stock.id] = {
+                ...d,
                 status: isUpcoming ? 'upcoming' : 'effective_pending',
               };
               break;
@@ -532,10 +570,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         } catch (e) {}
       }
 
-      setDetectedSplitsMap(newMap);
+      setDetectedSplitsMap(newSplitsMap);
+      setDetectedDividendsMap(newDivsMap);
     };
 
-    const timer = setTimeout(checkAllSplits, 800);
+    const timer = setTimeout(checkAllCorporateActions, 800);
     return () => clearTimeout(timer);
   }, [syncedStocks]);
 
@@ -584,6 +623,62 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setActiveSplitModal(null);
     setRefreshStatus(`✅ 已成功套用 ${targetStock.symbol} 股票分割！持股已校正為 ${updatedStock.shares} 股`);
     setTimeout(() => setRefreshStatus(null), 3000);
+  };
+
+  // Handle Confirmed Stock Cash Dividend Payout Execution
+  const handleConfirmDividend = async (
+    targetStock: PortfolioStock,
+    divData: {
+      amountPerShare: number;
+      eligibleShares: number;
+      totalGross: number;
+      taxWithheld: number;
+      netCash: number;
+      exDate: string;
+      paymentDate: string;
+      notes?: string;
+    }
+  ) => {
+    const newTx: StockTransaction = {
+      id: `div-${targetStock.symbol}-${Date.now()}`,
+      stockId: targetStock.id,
+      type: 'DIVIDEND',
+      shares: divData.eligibleShares,
+      price: divData.amountPerShare,
+      date: divData.paymentDate,
+      dividendPerShare: divData.amountPerShare,
+      dividendTotalCash: divData.netCash,
+      taxWithheld: divData.taxWithheld,
+      note: divData.notes || `${targetStock.symbol} 現金股利每股 $${divData.amountPerShare}`,
+    };
+
+    const existingTxs = targetStock.transactions || [];
+    const updatedTxs = [...existingTxs, newTx];
+
+    const updatedStock = syncStockCalculations({
+      ...targetStock,
+      transactions: updatedTxs,
+      lastUpdated: new Date().toISOString(),
+    });
+
+    const updatedList = syncedStocks.map((s) => (s.id === targetStock.id ? updatedStock : s));
+    onUpdateStocks(updatedList);
+
+    // Credit cash balance into user's savings account!
+    if (onAdjustCashSavings && divData.netCash > 0) {
+      onAdjustCashSavings(+divData.netCash, targetStock.market === 'US' ? 'USD' : 'TWD');
+    }
+
+    setDetectedDividendsMap((prev) => {
+      const copy = { ...prev };
+      delete copy[targetStock.id];
+      return copy;
+    });
+
+    setActiveDividendModal(null);
+    const currSym = targetStock.currency === 'USD' ? '$' : 'NT$';
+    setRefreshStatus(`✅ 已成功入帳 ${targetStock.symbol} 現金股利 +${currSym}${formatNum(divData.netCash)}！`);
+    setTimeout(() => setRefreshStatus(null), 3500);
   };
 
   // Fast Live Search Input Change (Connected via /api/search Proxy on Web & CapacitorHttp on Mobile)
@@ -1131,6 +1226,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     const txDesc = targetTx
       ? targetTx.type === 'SPLIT'
         ? `股票分割 (${targetTx.splitRatio ? (targetTx.splitRatio >= 1 ? `1 拆 ${targetTx.splitRatio}` : `${1 / targetTx.splitRatio} 併 1`) : '1 拆 10'})`
+        : targetTx.type === 'DIVIDEND'
+        ? `現金股息 (${targetStock.market === 'US' ? '$' : 'NT$'}${formatNum(targetTx.dividendTotalCash || (targetTx.shares * (targetTx.dividendPerShare || targetTx.price || 0)))})`
         : `${targetTx.type === 'BUY' ? '買入' : '賣出'} ${targetTx.shares} 股 @ $${targetTx.price}`
       : '這筆交易';
 
@@ -1149,34 +1246,41 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         // Refund/revert cash if deleting trade in matching currency (including fee & tax)
         if (targetTx && onAdjustCashSavings) {
           const isUS = targetStock.market === 'US';
-          const isTW = targetStock.market === 'TW';
-          const rawAmt = (targetTx.shares || 0) * (targetTx.price || 0);
-
-          let netAmt = rawAmt;
-          if (isTW) {
-            const feeRate = fireConfig?.twStockFeeRate ?? 0.0399;
-            const fee = Math.max(1, Math.round(rawAmt * (feeRate / 100)));
-            const isETF = targetStock.symbol.startsWith('00') || targetStock.name.includes('ETF') || targetStock.symbol.includes('00');
-            const tax = targetTx.type === 'SELL' ? Math.round(rawAmt * (isETF ? 0.001 : 0.003)) : 0;
-            if (targetTx.type === 'BUY') {
-              netAmt = rawAmt + fee;
-            } else {
-              netAmt = Math.max(0, rawAmt - fee - tax);
+          if (targetTx.type === 'DIVIDEND') {
+            const divCash = targetTx.dividendTotalCash ?? ((targetTx.shares || 0) * (targetTx.dividendPerShare || targetTx.price || 0));
+            if (divCash > 0) {
+              onAdjustCashSavings(-divCash, isUS ? 'USD' : 'TWD');
             }
           } else {
-            const usFeeRate = fireConfig?.usStockFeeRate ?? 0;
-            const fee = Number((rawAmt * (usFeeRate / 100)).toFixed(2));
-            if (targetTx.type === 'BUY') {
-              netAmt = rawAmt + fee;
-            } else {
-              netAmt = Math.max(0, rawAmt - fee);
-            }
-          }
+            const isTW = targetStock.market === 'TW';
+            const rawAmt = (targetTx.shares || 0) * (targetTx.price || 0);
 
-          if (targetTx.type === 'BUY' && !targetTx.isInitialHoldings) {
-            onAdjustCashSavings(+netAmt, isUS ? 'USD' : 'TWD');
-          } else if (targetTx.type === 'SELL') {
-            onAdjustCashSavings(-netAmt, isUS ? 'USD' : 'TWD');
+            let netAmt = rawAmt;
+            if (isTW) {
+              const feeRate = fireConfig?.twStockFeeRate ?? 0.0399;
+              const fee = Math.max(1, Math.round(rawAmt * (feeRate / 100)));
+              const isETF = targetStock.symbol.startsWith('00') || targetStock.name.includes('ETF') || targetStock.symbol.includes('00');
+              const tax = targetTx.type === 'SELL' ? Math.round(rawAmt * (isETF ? 0.001 : 0.003)) : 0;
+              if (targetTx.type === 'BUY') {
+                netAmt = rawAmt + fee;
+              } else {
+                netAmt = Math.max(0, rawAmt - fee - tax);
+              }
+            } else {
+              const usFeeRate = fireConfig?.usStockFeeRate ?? 0;
+              const fee = Number((rawAmt * (usFeeRate / 100)).toFixed(2));
+              if (targetTx.type === 'BUY') {
+                netAmt = rawAmt + fee;
+              } else {
+                netAmt = Math.max(0, rawAmt - fee);
+              }
+            }
+
+            if (targetTx.type === 'BUY' && !targetTx.isInitialHoldings) {
+              onAdjustCashSavings(+netAmt, isUS ? 'USD' : 'TWD');
+            } else if (targetTx.type === 'SELL') {
+              onAdjustCashSavings(-netAmt, isUS ? 'USD' : 'TWD');
+            }
           }
         }
 
@@ -1760,6 +1864,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             const todayChangePct =
               stock.previousClose && stock.previousClose > 0 ? (todayChangeVal / stock.previousClose) * 100 : 0;
             const pendingSplit = detectedSplitsMap[stock.id];
+            const pendingDiv = detectedDividendsMap[stock.id];
 
             return (
               <div
@@ -1794,6 +1899,24 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                           >
                             <Scissors className="w-3 h-3" />
                             <span>待確認分割</span>
+                          </button>
+                        )
+                      )}
+                      {pendingDiv && (
+                        pendingDiv.status === 'upcoming' ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                            💰 {pendingDiv.date} 除息 ${pendingDiv.amount}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDividendModal({ stock, dividendEvent: pendingDiv });
+                            }}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/25 hover:bg-emerald-500/40 border border-emerald-500/50 text-emerald-200 flex items-center gap-1 transition cursor-pointer animate-pulse"
+                          >
+                            <span>💰 待確認股息</span>
                           </button>
                         )
                       )}
@@ -1860,9 +1983,15 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             const isUpcomingSplit = pendingSplit?.status === 'upcoming';
             const isPendingSplit = pendingSplit?.status === 'effective_pending';
 
+            const pendingDiv = detectedDividendsMap[stock.id];
+            const isUpcomingDiv = pendingDiv?.status === 'upcoming';
+            const isPendingDiv = pendingDiv?.status === 'effective_pending';
+
             const cardBorderClass = isPendingSplit
               ? 'border-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.35)]'
-              : isUpcomingSplit
+              : isPendingDiv
+              ? 'border-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.35)]'
+              : (isUpcomingSplit || isUpcomingDiv)
               ? 'border-amber-500/70 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
               : 'border-white/10 hover:border-white/20 shadow-xl';
 
@@ -1942,6 +2071,44 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                         className="px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-black text-xs transition shadow-md shadow-purple-600/30 cursor-pointer flex items-center gap-1 shrink-0"
                       >
                         <span>點此校正 ➔</span>
+                      </button>
+                    </div>
+                  )
+                )}
+
+                {/* Option A: Stock Cash Dividend Alert Bar */}
+                {pendingDiv && (
+                  isUpcomingDiv ? (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-2.5 flex items-center justify-between text-xs text-amber-300">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">⏳</span>
+                        <span>預定 {pendingDiv.date} 除息每股 ${pendingDiv.amount}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveDividendModal({ stock, dividendEvent: pendingDiv })}
+                        className="px-2 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-bold transition cursor-pointer"
+                      >
+                        預估
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-500/15 border border-emerald-500/40 rounded-2xl p-2.5 flex items-center justify-between text-xs text-emerald-200 shadow-md">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-300 animate-pulse text-sm">
+                          💰
+                        </div>
+                        <div className="truncate">
+                          <span className="font-bold text-white">今日已除息！</span>
+                          <span className="text-[11px] text-emerald-300 ml-1">(每股 ${pendingDiv.amount})</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveDividendModal({ stock, dividendEvent: pendingDiv })}
+                        className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs transition shadow-md shadow-emerald-600/30 cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <span>收到股息！確認入帳 ➔</span>
                       </button>
                     </div>
                   )
@@ -2158,6 +2325,29 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                       {detectedSplitsMap[activeActionStock.id]
                         ? `待確認：${detectedSplitsMap[activeActionStock.id].splitRatioText}`
                         : '自訂比例如 1 拆 10、反向併股試算與校正'}
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  const s = activeActionStock;
+                  setActiveActionStock(null);
+                  setActiveDividendModal({ stock: s, dividendEvent: detectedDividendsMap[s.id] || null });
+                }}
+                className="p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-base">
+                    💰
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-black text-white">記錄除息與現金入帳 (Cash Dividend)</div>
+                    <div className="text-xs text-emerald-400 font-normal">
+                      {detectedDividendsMap[activeActionStock.id]
+                        ? `待確認：每股 $${detectedDividendsMap[activeActionStock.id].amount}`
+                        : '輸入配息金額與入帳試算'}
                     </div>
                   </div>
                 </div>
@@ -2631,6 +2821,16 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     onClick={() => {
                       const st = activeHistoryStock;
                       setActiveHistoryStock(null);
+                      setActiveDividendModal({ stock: st, dividendEvent: detectedDividendsMap[st.id] || null });
+                    }}
+                    className="text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>💰 記錄除息</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const st = activeHistoryStock;
+                      setActiveHistoryStock(null);
                       handleOpenAddModal(st);
                     }}
                     className="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
@@ -2647,7 +2847,27 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     key={tx.id}
                     className="bg-white/5 border border-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:border-white/15 transition text-xs"
                   >
-                    {tx.type === 'SPLIT' ? (
+                    {tx.type === 'DIVIDEND' ? (
+                      <div className="flex items-center gap-3">
+                        <span className="px-2 py-1 rounded-xl font-mono font-black text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                          <span>💰 股息 DIVIDEND</span>
+                        </span>
+
+                        <div>
+                          <div className="font-mono font-bold text-emerald-400">
+                            每股 ${tx.dividendPerShare ?? tx.price} • 實收現金 +{activeHistoryStock.currency === 'USD' ? '$' : 'NT$'}{formatNum(tx.dividendTotalCash || (tx.shares * (tx.dividendPerShare || tx.price || 0)))}
+                            {tx.taxWithheld && tx.taxWithheld > 0 ? (
+                              <span className="text-[10px] text-gray-400 font-normal ml-1.5">(預扣稅 ${formatNum(tx.taxWithheld)})</span>
+                            ) : null}
+                          </div>
+                          <div className="text-[11px] text-gray-400 flex items-center gap-2">
+                            <span>📅 {tx.date}</span>
+                            <span className="text-emerald-300/80">除息持有 {formatNum(tx.shares)} 股</span>
+                            {tx.note && <span className="text-gray-500">({tx.note})</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ) : tx.type === 'SPLIT' ? (
                       <div className="flex items-center gap-3">
                         <span className="px-2 py-1 rounded-xl font-mono font-black text-[11px] bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
                           <Scissors className="w-3 h-3" />
@@ -2690,7 +2910,26 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     )}
 
                     <div className="flex items-center gap-1">
-                      {tx.type === 'SPLIT' ? (
+                      {tx.type === 'DIVIDEND' ? (
+                        <button
+                          onClick={() => {
+                            const st = activeHistoryStock;
+                            setActiveHistoryStock(null);
+                            setActiveDividendModal({
+                              stock: st,
+                              dividendEvent: {
+                                date: tx.date,
+                                amount: tx.dividendPerShare || tx.price || 0,
+                                status: 'applied',
+                              },
+                            });
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-xl transition cursor-pointer"
+                          title="重新試算/校正股息"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      ) : tx.type === 'SPLIT' ? (
                         <button
                           onClick={() => {
                             const st = activeHistoryStock;
@@ -3087,6 +3326,18 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           currencySymbol={activeSplitModal.stock.currency === 'USD' ? '$' : sym}
           onConfirm={(splitData) => handleConfirmSplit(activeSplitModal.stock, splitData)}
           onClose={() => setActiveSplitModal(null)}
+        />
+      )}
+
+      {/* Modal: Interactive Stock Cash Dividend Modal */}
+      {activeDividendModal && (
+        <StockDividendModal
+          isOpen={Boolean(activeDividendModal)}
+          stock={activeDividendModal.stock}
+          dividendEvent={activeDividendModal.dividendEvent}
+          currencySymbol={activeDividendModal.stock.currency === 'USD' ? '$' : sym}
+          onConfirm={(divData) => handleConfirmDividend(activeDividendModal.stock, divData)}
+          onClose={() => setActiveDividendModal(null)}
         />
       )}
     </div>

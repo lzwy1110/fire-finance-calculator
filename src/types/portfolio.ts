@@ -4,7 +4,7 @@ export type CurrencyType = 'USD' | 'TWD';
 export interface StockTransaction {
   id: string;
   stockId?: string;
-  type: 'BUY' | 'SELL' | 'SPLIT';
+  type: 'BUY' | 'SELL' | 'SPLIT' | 'DIVIDEND';
   shares: number;
   price: number;
   date: string; // YYYY-MM-DD
@@ -13,6 +13,9 @@ export interface StockTransaction {
   splitRatio?: number;        // e.g. 10 for 1:10 split, 0.1 for 10:1 reverse split
   splitNumerator?: number;   // e.g. 10
   splitDenominator?: number; // e.g. 1
+  dividendPerShare?: number;  // Cash dividend per share (e.g. NT$ 1.5 or $0.85)
+  dividendTotalCash?: number; // Actual cash credited into savings
+  taxWithheld?: number;       // Tax withheld (e.g. US 30% dividend tax)
 }
 
 export interface StockSplitEvent {
@@ -22,6 +25,13 @@ export interface StockSplitEvent {
   denominator: number;        // e.g. 1
   splitRatioText: string;     // e.g. "1 拆 10" or "10:1"
   status: 'upcoming' | 'effective_pending' | 'applied';
+}
+
+export interface StockDividendEvent {
+  date: string;               // Ex-dividend date (YYYY-MM-DD)
+  amount: number;             // Cash dividend per share
+  status: 'upcoming' | 'effective_pending' | 'applied';
+  paymentDate?: string;       // Estimated or actual payment date
 }
 
 export interface PortfolioStock {
@@ -40,6 +50,7 @@ export interface PortfolioStock {
   realizedPnL?: number;       // Realized Profit/Loss locked from sell trades
   sparkline?: number[];       // Sampled recent intraday price points for mini chart
   pendingSplit?: StockSplitEvent; // Optional pending or upcoming split event detected
+  pendingDividend?: StockDividendEvent; // Optional pending or upcoming dividend event detected
 }
 
 export interface PortfolioSummary {
