@@ -41,6 +41,7 @@ export const DividendRecoveryTracker: React.FC<DividendRecoveryTrackerProps> = (
       stock: PortfolioStock;
       exDate: string;
       dividendAmount: number;
+      stockDividendRatio?: number;
     }[] = [];
 
     for (const stock of stocks) {
@@ -68,11 +69,24 @@ export const DividendRecoveryTracker: React.FC<DividendRecoveryTrackerProps> = (
         }
       }
 
+      let foundRightRatio = 0;
+      if (stock.pendingRight && stock.pendingRight.date === foundExDate) {
+        foundRightRatio = stock.pendingRight.stockDividendRatio || 0;
+      } else if (Array.isArray(stock.transactions)) {
+        const sameDayRightTx = stock.transactions.find(
+          (t) => t.type === 'STOCK_DIVIDEND' && t.date === foundExDate
+        );
+        if (sameDayRightTx && sameDayRightTx.stockDividendRatio) {
+          foundRightRatio = sameDayRightTx.stockDividendRatio;
+        }
+      }
+
       if (foundExDate && foundDivAmt > 0) {
         list.push({
           stock,
           exDate: foundExDate,
           dividendAmount: foundDivAmt,
+          stockDividendRatio: foundRightRatio,
         });
       }
     }
@@ -88,14 +102,15 @@ export const DividendRecoveryTracker: React.FC<DividendRecoveryTrackerProps> = (
     const newMap: Record<string, DividendRecoveryInfo> = {};
 
     await Promise.all(
-      candidateStocks.map(async ({ stock, exDate, dividendAmount }) => {
+      candidateStocks.map(async ({ stock, exDate, dividendAmount, stockDividendRatio }) => {
         try {
           const info = await fetchDividendRecoveryData(
             stock.symbol,
             exDate,
             dividendAmount,
             stock.currentPrice || stock.avgCost,
-            stock.name
+            stock.name,
+            stockDividendRatio
           );
 
           if (info) {
@@ -113,6 +128,7 @@ export const DividendRecoveryTracker: React.FC<DividendRecoveryTrackerProps> = (
                 market: stock.market,
                 currency: stock.currency,
                 exDate,
+                stockDividendRatio,
               }
             );
           }
@@ -128,6 +144,7 @@ export const DividendRecoveryTracker: React.FC<DividendRecoveryTrackerProps> = (
               market: stock.market,
               currency: stock.currency,
               exDate,
+              stockDividendRatio,
             }
           );
         }
@@ -145,7 +162,7 @@ export const DividendRecoveryTracker: React.FC<DividendRecoveryTrackerProps> = (
   // 3. Filter and sort results
   const items = useMemo(() => {
     return candidateStocks
-      .map(({ stock, exDate, dividendAmount }) => {
+      .map(({ stock, exDate, dividendAmount, stockDividendRatio }) => {
         const info = recoveryDataMap[stock.symbol] || calculateDividendRecovery(
           stock.currentPrice || stock.avgCost,
           dividendAmount,
@@ -156,6 +173,7 @@ export const DividendRecoveryTracker: React.FC<DividendRecoveryTrackerProps> = (
             market: stock.market,
             currency: stock.currency,
             exDate,
+            stockDividendRatio,
           }
         );
         return { stock, info };

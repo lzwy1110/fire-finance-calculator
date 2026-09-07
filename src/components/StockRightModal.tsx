@@ -71,13 +71,25 @@ export const StockRightModal: React.FC<StockRightModalProps> = ({
     return parseFloat((perShare / 10).toFixed(6));
   }, [perShare]);
 
-  // Holding shares on or before exDate
+  // Holding shares on exDate cutoff
+  // Financial Rule: Stock dividends are based on shares held prior to ex-date.
   const eligibleShares = useMemo(() => {
     const txs = stock.transactions || [];
     if (txs.length === 0) return 0;
-    const txsBefore = txs.filter((t) => t.date <= exDate);
+    const txsBefore = txs.filter((t) => {
+      if (t.date < exDate) return true;
+      if (t.date === exDate) {
+        return Boolean(t.isInitialHoldings);
+      }
+      return false;
+    });
     const m = calculateStockMetrics(txsBefore, 0);
-    return Math.max(0, m.shares);
+    if (m.shares > 0) return m.shares;
+
+    // Fallback if initial position was logged on exDate
+    const fallbackTxs = txs.filter((t) => t.date <= exDate && t.type !== 'STOCK_DIVIDEND' && t.type !== 'DIVIDEND');
+    const fallbackM = calculateStockMetrics(fallbackTxs, 0);
+    return Math.max(0, fallbackM.shares);
   }, [stock.transactions, exDate]);
 
   const hasEligibleShares = eligibleShares > 0;

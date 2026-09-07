@@ -76,13 +76,26 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
     return `${stock.symbol} 現金股利發放入帳`;
   });
 
-  // Calculate eligible holding shares on or before exDate
+  // Calculate eligible holding shares on exDate cutoff
+  // Financial Rule: Cash dividends are based on shares held prior to ex-date.
+  // Same-day stock dividend (配股) or same-day buys do NOT increase dividend entitlement.
   const eligibleShares = useMemo(() => {
     const txs = stock.transactions || [];
     if (txs.length === 0) return 0;
-    const txsBefore = txs.filter((t) => t.date <= exDate);
+    const txsBefore = txs.filter((t) => {
+      if (t.date < exDate) return true;
+      if (t.date === exDate) {
+        return Boolean(t.isInitialHoldings);
+      }
+      return false;
+    });
     const m = calculateStockMetrics(txsBefore, 0);
-    return Math.max(0, m.shares);
+    if (m.shares > 0) return m.shares;
+
+    // Fallback if initial position was logged on exDate
+    const fallbackTxs = txs.filter((t) => t.date <= exDate && t.type !== 'STOCK_DIVIDEND' && t.type !== 'DIVIDEND');
+    const fallbackM = calculateStockMetrics(fallbackTxs, 0);
+    return Math.max(0, fallbackM.shares);
   }, [stock.transactions, exDate]);
 
   const hasEligibleShares = eligibleShares > 0;

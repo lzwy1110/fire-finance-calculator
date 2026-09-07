@@ -241,18 +241,23 @@ export function calculateDividendRecovery(
     market?: MarketType;
     currency?: 'USD' | 'TWD';
     exDate?: string;
+    stockDividendRatio?: number; // Optional stock dividend ratio R for simultaneous ex-rights & ex-dividend
     closesHistory?: number[];
     timestampsHistory?: number[];
     exTimestamp?: number;
   }
 ): DividendRecoveryInfo {
   const divAmt = Math.max(0.0001, dividendAmount);
-  const exRefPrice = Math.max(0, preClosePrice - divAmt);
+  const ratio = Math.max(0, meta?.stockDividendRatio || 0);
+
+  // Official TWSE Ex-rights & Ex-dividend Reference Price: (PreClose - CashDiv) / (1 + Ratio)
+  const exRefPrice = Math.max(0, (preClosePrice - divAmt) / (1 + ratio));
   const priceGap = currentPrice - preClosePrice;
   const isRecovered = currentPrice >= preClosePrice;
 
-  // Recovery Rate formula: ((Current - ExRef) / DividendAmount) * 100
-  const rawRecoveryRate = ((currentPrice - exRefPrice) / divAmt) * 100;
+  // Recovery Rate formula: ((Current - ExRef) / Total Drop) * 100
+  const totalDrop = Math.max(0.0001, preClosePrice - exRefPrice);
+  const rawRecoveryRate = ((currentPrice - exRefPrice) / totalDrop) * 100;
   const recoveryRate = parseFloat(rawRecoveryRate.toFixed(1));
 
   let status: 'recovered' | 'recovering' | 'discount' = 'discount';

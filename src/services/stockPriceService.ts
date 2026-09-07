@@ -935,7 +935,8 @@ export async function fetchDividendRecoveryData(
   exDate: string,
   dividendAmount: number,
   currentPriceFallback?: number,
-  stockName?: string
+  stockName?: string,
+  stockDividendRatio?: number
 ): Promise<DividendRecoveryInfo | null> {
   const sym = symbol.trim().toUpperCase();
   if (!sym || !exDate || dividendAmount <= 0) return null;
@@ -982,6 +983,7 @@ export async function fetchDividendRecoveryData(
           market: isTW ? 'TW' : 'US',
           currency: isTW ? 'TWD' : 'USD',
           exDate,
+          stockDividendRatio,
           closesHistory: closes,
           timestampsHistory: timestamps,
           exTimestamp: timestamps[exIdx],
@@ -999,6 +1001,7 @@ export async function fetchDividendRecoveryData(
       market: isTW ? 'TW' : 'US',
       currency: isTW ? 'TWD' : 'USD',
       exDate,
+      stockDividendRatio,
     });
   }
 
