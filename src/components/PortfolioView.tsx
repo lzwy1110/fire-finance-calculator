@@ -479,7 +479,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   }, [syncedStocks.length]);
 
   // Check for upcoming or unapplied stock splits across held stocks
-  const checkedSplitsSymbolsRef = useRef<Set<string>>(new Set());
+  const splitApiCacheRef = useRef<Record<string, StockSplitEvent[]>>({});
   useEffect(() => {
     if (syncedStocks.length === 0) return;
 
@@ -489,38 +489,53 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
       for (const stock of syncedStocks) {
         if (!stock.symbol || (stock.shares || 0) <= 0) continue;
-        if (checkedSplitsSymbolsRef.current.has(stock.symbol)) continue;
-        checkedSplitsSymbolsRef.current.add(stock.symbol);
 
         try {
-          const splits = await fetchStockSplits(stock.symbol);
+          let splits = splitApiCacheRef.current[stock.symbol];
+          if (!splits) {
+            splits = await fetchStockSplits(stock.symbol);
+            splitApiCacheRef.current[stock.symbol] = splits;
+          }
+
           if (splits.length > 0) {
             for (const sp of splits) {
+              const isUpcoming = sp.date > todayStr;
+
+              // Check if split event was already applied in transaction history
               const alreadyApplied = (stock.transactions || []).some(
                 (t) =>
                   t.type === 'SPLIT' &&
                   (t.date === sp.date || Math.abs((t.splitRatio || 1) - sp.ratio) < 0.001)
               );
 
-              if (!alreadyApplied) {
-                const isUpcoming = sp.date > todayStr;
-                newMap[stock.id] = {
-                  ...sp,
-                  status: isUpcoming ? 'upcoming' : 'effective_pending',
-                };
-                break;
+              if (alreadyApplied) continue;
+
+              // Timeline Defense:
+              // For historical splits (sp.date <= todayStr), verify the user actually held shares on or before sp.date!
+              // If all purchases occurred AFTER sp.date, the user bought post-split shares and this split must NOT be alerted.
+              if (!isUpcoming) {
+                const txsOnOrBeforeSplit = (stock.transactions || []).filter((t) => t.date <= sp.date);
+                const metricsAtSplit = calculateStockMetrics(txsOnOrBeforeSplit, 0);
+                if (metricsAtSplit.shares <= 0) {
+                  // User had 0 shares on split date (bought post-split or sold out before split)
+                  continue;
+                }
               }
+
+              newMap[stock.id] = {
+                ...sp,
+                status: isUpcoming ? 'upcoming' : 'effective_pending',
+              };
+              break;
             }
           }
         } catch (e) {}
       }
 
-      if (Object.keys(newMap).length > 0) {
-        setDetectedSplitsMap((prev) => ({ ...prev, ...newMap }));
-      }
+      setDetectedSplitsMap(newMap);
     };
 
-    const timer = setTimeout(checkAllSplits, 1500);
+    const timer = setTimeout(checkAllSplits, 800);
     return () => clearTimeout(timer);
   }, [syncedStocks]);
 

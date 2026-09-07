@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Sparkles,
   ArrowRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { PortfolioStock, StockSplitEvent } from '../types/portfolio';
 import { calculateStockMetrics } from '../utils/portfolioMath';
@@ -91,6 +92,16 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
     return calculateStockMetrics(simulatedTxs, stock.currentPrice);
   }, [stock.transactions, stock.currentPrice, splitDate, ratio, numerator, denominator]);
 
+  // Check if the split date is before any holding existed (user held 0 shares on splitDate)
+  const isSplitBeforeHolding = useMemo(() => {
+    if (ratio === 1) return false;
+    const txs = stock.transactions || [];
+    if (txs.length === 0) return false;
+    const txsBefore = txs.filter((t) => t.date <= splitDate);
+    const m = calculateStockMetrics(txsBefore, 0);
+    return m.shares <= 0;
+  }, [stock.transactions, splitDate, ratio]);
+
   if (!isOpen) return null;
 
   const handleApplyPreset = (p: typeof PRESET_RATIOS[0]) => {
@@ -100,7 +111,7 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
   };
 
   const handleConfirm = () => {
-    if (ratio <= 0 || isNaN(ratio)) return;
+    if (ratio <= 0 || isNaN(ratio) || isSplitBeforeHolding) return;
     onConfirm({
       ratio,
       numerator,
@@ -224,6 +235,19 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
           </div>
         </div>
 
+        {/* Zero Shares Timeline Warning */}
+        {isSplitBeforeHolding && (
+          <div className="bg-amber-500/15 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-300 flex items-start gap-2.5 animate-fadeIn">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <div className="font-bold text-white">⚠️ 分割基準日當天持股為 0 股</div>
+              <p className="leading-relaxed text-[11px] text-amber-200/90">
+                您選擇的分割基準日（{splitDate}）當天您尚未持有任何庫存，您的買入紀錄均在此日期之後。此歷史分割不會影響您後續買進的部位，因此試算數據保持不變。
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Dynamic Before vs After Comparison Table */}
         <div className="bg-black/60 border border-purple-500/20 rounded-2xl overflow-hidden shadow-inner divide-y divide-white/5">
           <div className="px-3.5 py-2 bg-purple-500/10 text-purple-300 font-bold text-[11px] flex justify-between items-center">
@@ -323,10 +347,15 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
           <button
             type="button"
             onClick={handleConfirm}
-            className="px-5 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-bold transition shadow-lg shadow-purple-600/30 cursor-pointer flex items-center gap-1.5"
+            disabled={ratio <= 0 || isNaN(ratio) || isSplitBeforeHolding}
+            className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 ${
+              isSplitBeforeHolding
+                ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed border border-white/5'
+                : 'bg-purple-600 hover:bg-purple-500 active:scale-95 text-white shadow-lg shadow-purple-600/30 cursor-pointer'
+            }`}
           >
             <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-            <span>確認套用分割</span>
+            <span>{isSplitBeforeHolding ? '分割日無持股，無需套用' : '確認套用分割'}</span>
           </button>
         </div>
       </div>
