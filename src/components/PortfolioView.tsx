@@ -498,18 +498,33 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       const newSplitsMap: Record<string, StockSplitEvent> = {};
       const newDivsMap: Record<string, StockDividendEvent> = {};
 
-      for (const stock of syncedStocks) {
-        if (!stock.symbol || (stock.shares || 0) <= 0) continue;
+      await Promise.all(
+        syncedStocks.map(async (stock) => {
+          if (!stock.symbol || (stock.shares || 0) <= 0) return;
 
-        // 1. Check Splits
-        try {
-          let splits = splitApiCacheRef.current[stock.symbol];
-          if (!splits) {
-            splits = await fetchStockSplits(stock.symbol);
-            splitApiCacheRef.current[stock.symbol] = splits;
-          }
+          // Parallel query for both Splits and Dividends for this stock
+          const [splitsResult, divsResult] = await Promise.allSettled([
+            (async () => {
+              let splits = splitApiCacheRef.current[stock.symbol];
+              if (!splits) {
+                splits = await fetchStockSplits(stock.symbol);
+                splitApiCacheRef.current[stock.symbol] = splits;
+              }
+              return splits;
+            })(),
+            (async () => {
+              let divs = dividendApiCacheRef.current[stock.symbol];
+              if (!divs) {
+                divs = await fetchStockDividends(stock.symbol);
+                dividendApiCacheRef.current[stock.symbol] = divs;
+              }
+              return divs;
+            })(),
+          ]);
 
-          if (splits.length > 0) {
+          // Process Splits
+          if (splitsResult.status === 'fulfilled' && Array.isArray(splitsResult.value)) {
+            const splits = splitsResult.value;
             for (const sp of splits) {
               const isUpcoming = sp.date > todayStr;
               const alreadyApplied = (stock.transactions || []).some(
@@ -533,17 +548,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               break;
             }
           }
-        } catch (e) {}
 
-        // 2. Check Dividends
-        try {
-          let divs = dividendApiCacheRef.current[stock.symbol];
-          if (!divs) {
-            divs = await fetchStockDividends(stock.symbol);
-            dividendApiCacheRef.current[stock.symbol] = divs;
-          }
-
-          if (divs.length > 0) {
+          // Process Dividends
+          if (divsResult.status === 'fulfilled' && Array.isArray(divsResult.value)) {
+            const divs = divsResult.value;
             for (const d of divs) {
               const isUpcoming = d.date > todayStr;
               const alreadyApplied = (stock.transactions || []).some(
@@ -567,14 +575,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               break;
             }
           }
-        } catch (e) {}
-      }
+        })
+      );
 
       setDetectedSplitsMap(newSplitsMap);
       setDetectedDividendsMap(newDivsMap);
     };
 
-    const timer = setTimeout(checkAllCorporateActions, 800);
+    const timer = setTimeout(checkAllCorporateActions, 100);
     return () => clearTimeout(timer);
   }, [syncedStocks]);
 

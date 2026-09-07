@@ -832,6 +832,69 @@ app.get(['/api/splits', '/splits'], async (req: Request, res: Response): Promise
   return res.json({ success: true, symbol, splits: [] });
 });
 
+// In-memory cache for TWSE & TPEx tables on serverless instance
+let serverTwseCache: { timestamp: number; data: any[] } | null = null;
+let serverTpexCache: { timestamp: number; data: any[] } | null = null;
+let serverPendingTwse: Promise<any[]> | null = null;
+let serverPendingTpex: Promise<any[]> | null = null;
+const SERVER_TABLE_CACHE_TTL = 10 * 60 * 1000;
+
+async function getServerTwseTable(): Promise<any[]> {
+  const now = Date.now();
+  if (serverTwseCache && now - serverTwseCache.timestamp < SERVER_TABLE_CACHE_TTL) {
+    return serverTwseCache.data;
+  }
+  if (serverPendingTwse) return serverPendingTwse;
+  serverPendingTwse = (async () => {
+    try {
+      const res = await fetch('https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL', {
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          serverTwseCache = { timestamp: Date.now(), data };
+          return data;
+        }
+      }
+      return serverTwseCache?.data || [];
+    } catch (e) {
+      return serverTwseCache?.data || [];
+    } finally {
+      serverPendingTwse = null;
+    }
+  })();
+  return serverPendingTwse;
+}
+
+async function getServerTpexTable(): Promise<any[]> {
+  const now = Date.now();
+  if (serverTpexCache && now - serverTpexCache.timestamp < SERVER_TABLE_CACHE_TTL) {
+    return serverTpexCache.data;
+  }
+  if (serverPendingTpex) return serverPendingTpex;
+  serverPendingTpex = (async () => {
+    try {
+      const res = await fetch('https://www.tpex.org.tw/openapi/v1/tpex_exright_prepost', {
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          serverTpexCache = { timestamp: Date.now(), data };
+          return data;
+        }
+      }
+      return serverTpexCache?.data || [];
+    } catch (e) {
+      return serverTpexCache?.data || [];
+    } finally {
+      serverPendingTpex = null;
+    }
+  })();
+  return serverPendingTpex;
+}
+
 /**
  * Stock Dividends Endpoint
  */
@@ -890,13 +953,9 @@ app.get(['/api/dividends', '/dividends'], async (req: Request, res: Response): P
         return `${adYear}-${mm}-${dd}`;
       };
 
-      const [twseRes, tpexRes] = await Promise.allSettled([
-        fetch('https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL', {
-          headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
-        }),
-        fetch('https://www.tpex.org.tw/openapi/v1/tpex_exright_prepost', {
-          headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
-        }),
+      const [twseData, tpexData] = await Promise.all([
+        getServerTwseTable(),
+        getServerTpexTable(),
       ]);
 
       const cleanDivAmt = (v: number) => {
@@ -904,40 +963,34 @@ app.get(['/api/dividends', '/dividends'], async (req: Request, res: Response): P
         return parseFloat(v.toFixed(4));
       };
 
-      if (twseRes.status === 'fulfilled' && twseRes.value.ok) {
-        const twseData = await twseRes.value.json();
-        if (Array.isArray(twseData)) {
-          const item = twseData.find((it: any) => it && it.Code === cleanCode);
-          if (item && ((item.Exdividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
-            const dateStr = parseTwseDate(item.Date);
-            let amt = parseFloat(item.CashDividend) || 0;
-            if (amt <= 0 && dividends.length > 0) {
-              amt = dividends[0].amount || 0;
-            }
-            amt = cleanDivAmt(amt);
-            if (dateStr && !seenDates.has(dateStr)) {
-              seenDates.add(dateStr);
-              dividends.push({ date: dateStr, amount: amt });
-            }
+      if (Array.isArray(twseData)) {
+        const item = twseData.find((it: any) => it && it.Code === cleanCode);
+        if (item && ((item.Exdividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
+          const dateStr = parseTwseDate(item.Date);
+          let amt = parseFloat(item.CashDividend) || 0;
+          if (amt <= 0 && dividends.length > 0) {
+            amt = dividends[0].amount || 0;
+          }
+          amt = cleanDivAmt(amt);
+          if (dateStr && !seenDates.has(dateStr)) {
+            seenDates.add(dateStr);
+            dividends.push({ date: dateStr, amount: amt });
           }
         }
       }
 
-      if (tpexRes.status === 'fulfilled' && tpexRes.value.ok) {
-        const tpexData = await tpexRes.value.json();
-        if (Array.isArray(tpexData)) {
-          const item = tpexData.find((it: any) => it && it.SecuritiesCompanyCode === cleanCode);
-          if (item && ((item.ExRrightsExDividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
-            const dateStr = parseTwseDate(item.ExRrightsExDividendDate);
-            let amt = parseFloat(item.CashDividend) || 0;
-            if (amt <= 0 && dividends.length > 0) {
-              amt = dividends[0].amount || 0;
-            }
-            amt = cleanDivAmt(amt);
-            if (dateStr && !seenDates.has(dateStr)) {
-              seenDates.add(dateStr);
-              dividends.push({ date: dateStr, amount: amt });
-            }
+      if (Array.isArray(tpexData)) {
+        const item = tpexData.find((it: any) => it && it.SecuritiesCompanyCode === cleanCode);
+        if (item && ((item.ExRrightsExDividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
+          const dateStr = parseTwseDate(item.ExRrightsExDividendDate);
+          let amt = parseFloat(item.CashDividend) || 0;
+          if (amt <= 0 && dividends.length > 0) {
+            amt = dividends[0].amount || 0;
+          }
+          amt = cleanDivAmt(amt);
+          if (dateStr && !seenDates.has(dateStr)) {
+            seenDates.add(dateStr);
+            dividends.push({ date: dateStr, amount: amt });
           }
         }
       }
