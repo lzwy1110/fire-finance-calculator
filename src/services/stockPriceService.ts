@@ -524,7 +524,7 @@ export async function fetchStockSplits(symbol: string): Promise<StockSplitEvent[
   // 1. Android Native via CapacitorHttp
   if (Capacitor.isNativePlatform()) {
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2y&interval=1d&events=div%2Csplit`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=5y&interval=1d&events=div%2Csplit`;
       const res = await CapacitorHttp.get({
         url,
         headers: {
