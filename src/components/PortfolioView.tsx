@@ -38,6 +38,11 @@ import { StockSplitModal } from './StockSplitModal';
 import { StockDividendModal } from './StockDividendModal';
 import { StockRightModal } from './StockRightModal';
 import { DividendCalendarView } from './DividendCalendarView';
+import { StockTradeModal, StockTradeFormData } from './portfolio/StockTradeModal';
+import { StockHistoryModal } from './portfolio/StockHistoryModal';
+import { StockFeeSettingsModal } from './portfolio/StockFeeSettingsModal';
+import { StockActionSheetModal } from './portfolio/StockActionSheetModal';
+import { InsufficientCashModal } from './portfolio/InsufficientCashModal';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
@@ -99,66 +104,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
   // Add / Record Transaction Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingTxId, setEditingTxId] = useState<string | null>(null);
-  const [tradeType, setTradeType] = useState<'BUY' | 'SELL'>('BUY');
-  const [symbolInput, setSymbolInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
-  const [marketInput, setMarketInput] = useState<MarketType>('US');
-  const [sharesInput, setSharesInput] = useState<string>('');
-  const [costInput, setCostInput] = useState<string>('');
-  const [priceInput, setPriceInput] = useState<number>(0);
-  const [dateInput, setDateInput] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [noteInput, setNoteInput] = useState<string>('');
-  const [isInitialHoldingsInput, setIsInitialHoldingsInput] = useState<boolean>(false);
+  const [editingTradeStock, setEditingTradeStock] = useState<PortfolioStock | null>(null);
+  const [editingTradeTx, setEditingTradeTx] = useState<StockTransaction | null>(null);
   const { updateFIREConfig } = useFIRE();
 
   // Global Fee Settings Modal State
   const [isFeeSettingsModalOpen, setIsFeeSettingsModalOpen] = useState(false);
-  const [twDefaultFeeRate, setTwDefaultFeeRate] = useState<string>(() =>
-    String(typeof fireConfig?.twStockFeeRate === 'number' ? fireConfig.twStockFeeRate : 0.0399)
-  );
-  const [usDefaultFeeRate, setUsDefaultFeeRate] = useState<string>(() =>
-    String(typeof fireConfig?.usStockFeeRate === 'number' ? fireConfig.usStockFeeRate : 0)
-  );
-
-  const [feeRateInput, setFeeRateInput] = useState<string>(() =>
-    String(marketInput === 'TW' ? (fireConfig.twStockFeeRate ?? 0.0399) : (fireConfig.usStockFeeRate ?? 0))
-  );
-
-  // Computed live transaction fee & net total
-  const parsedSharesNum = parseFloat(sharesInput) || 0;
-  const parsedCostNum = parseFloat(costInput) || 0;
-  const rawTradeTotal = parsedSharesNum * parsedCostNum;
-  const isTWTrade = marketInput === 'TW';
-  const isETFTrade = isTWTrade && (symbolInput.startsWith('00') || nameInput.includes('ETF') || symbolInput.includes('00'));
-  const twTaxRate = isETFTrade ? 0.001 : 0.003;
-
-  const parsedFeeRateNum = parseFloat(feeRateInput) || 0;
-
-  const calculatedFee = useMemo(() => {
-    if (!rawTradeTotal || rawTradeTotal <= 0) return 0;
-    const fee = rawTradeTotal * (parsedFeeRateNum / 100);
-    if (isTWTrade) {
-      return Math.max(1, Math.round(fee));
-    }
-    return Number(fee.toFixed(2));
-  }, [rawTradeTotal, isTWTrade, parsedFeeRateNum]);
-
-  const calculatedTax = useMemo(() => {
-    if (!rawTradeTotal || rawTradeTotal <= 0 || tradeType !== 'SELL') return 0;
-    if (isTWTrade) {
-      return Math.round(rawTradeTotal * twTaxRate);
-    }
-    return 0;
-  }, [rawTradeTotal, tradeType, isTWTrade, twTaxRate]);
-
-  const netTradeTotal = useMemo(() => {
-    if (tradeType === 'BUY') {
-      return rawTradeTotal + calculatedFee;
-    } else {
-      return Math.max(0, rawTradeTotal - calculatedFee - calculatedTax);
-    }
-  }, [rawTradeTotal, calculatedFee, calculatedTax, tradeType]);
 
   // Transaction History Modal State
   const [activeHistoryStock, setActiveHistoryStock] = useState<PortfolioStock | null>(null);
@@ -201,13 +152,6 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     onConfirmInitialHoldings: () => void;
     onConfirmForceDeduct: () => void;
   } | null>(null);
-
-  // Autocomplete Suggestions State (for Transaction Modal)
-  const [searchSuggestions, setSearchSuggestions] = useState<StockSearchResult[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const searchSeqRef = useRef<number>(0);
 
   // Quick Stock Search & Trend Chart Explorer State
   const [chartSearchQuery, setChartSearchQuery] = useState('');
@@ -785,88 +729,6 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     setTimeout(() => setRefreshStatus(null), 3500);
   };
 
-  // Fast Live Search Input Change (Connected via /api/search Proxy on Web & CapacitorHttp on Mobile)
-  const handleSymbolInputChange = (val: string, currentMarket: MarketType = marketInput) => {
-    setSymbolInput(val);
-    const currentSeq = ++searchSeqRef.current;
-
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    if (!val.trim()) {
-      setSearchSuggestions([]);
-      setShowSuggestions(false);
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    searchTimeoutRef.current = setTimeout(async () => {
-      const finalVal = val.trim();
-      if (!finalVal || currentSeq !== searchSeqRef.current) {
-        if (currentSeq === searchSeqRef.current) setIsSearching(false);
-        return;
-      }
-      try {
-        const matches = await searchStockSuggestionsAsync(finalVal, currentMarket);
-        if (currentSeq === searchSeqRef.current) {
-          setSearchSuggestions(matches);
-          setShowSuggestions(matches.length > 0);
-          setIsSearching(false);
-        }
-      } catch (e) {
-        if (currentSeq === searchSeqRef.current) {
-          setSearchSuggestions([]);
-          setShowSuggestions(false);
-          setIsSearching(false);
-        }
-      }
-    }, 80);
-  };
-
-  // Market Tab Switch in Modal
-  const handleMarketInputSwitch = (newMarket: MarketType) => {
-    setMarketInput(newMarket);
-    setFeeRateInput(String(newMarket === 'TW' ? (fireConfig.twStockFeeRate ?? 0.0399) : (fireConfig.usStockFeeRate ?? 0)));
-    if (symbolInput.trim()) {
-      handleSymbolInputChange(symbolInput, newMarket);
-    }
-  };
-
-  // Select Suggestion Item from Autocomplete Dropdown List
-  const handleSelectSuggestion = async (item: StockSearchResult) => {
-    setSymbolInput(item.symbol);
-    setNameInput(item.name);
-    setMarketInput(item.market);
-    setFeeRateInput(String(item.market === 'TW' ? (fireConfig.twStockFeeRate ?? 0.0399) : (fireConfig.usStockFeeRate ?? 0)));
-    setShowSuggestions(false);
-
-    if (item.price && item.price > 0) {
-      setPriceInput(item.price);
-      if (!costInput || parseFloat(costInput) <= 0) {
-        setCostInput(String(item.price));
-      }
-      setRefreshStatus(`✅ 已帶入 ${item.symbol} 最新實時股價 $${item.price}`);
-      setTimeout(() => setRefreshStatus(null), 2000);
-      return;
-    }
-
-    setRefreshStatus(`正在連線數據源獲取 ${item.symbol} 最新成交價格...`);
-    const quote = await fetchSingleStockQuote(item.symbol, item.market);
-    if (quote && quote.currentPrice > 0) {
-      setPriceInput(quote.currentPrice);
-      if (!costInput || parseFloat(costInput) <= 0) {
-        setCostInput(String(quote.currentPrice));
-      }
-      if (quote.name) setNameInput(quote.name);
-      setRefreshStatus(`✅ 已獲取 ${item.symbol} 最新市價 $${quote.currentPrice}`);
-    } else {
-      setRefreshStatus(null);
-    }
-    setTimeout(() => setRefreshStatus(null), 2000);
-  };
-
   // Quick Stock Search & Trend Chart Handlers
   const handleChartSearchChange = (val: string) => {
     setChartSearchQuery(val);
@@ -960,59 +822,40 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
   // Open Modal for Add New Transaction / Stock
   const handleOpenAddModal = (targetStock?: PortfolioStock) => {
-    setEditingTxId(null);
-    setTradeType('BUY');
-    const targetMkt = targetStock ? targetStock.market : (filterMarket === 'TW' ? 'TW' : 'US');
-    if (targetStock) {
-      setSymbolInput(targetStock.symbol);
-      setNameInput(targetStock.name);
-      setMarketInput(targetStock.market);
-      setPriceInput(targetStock.currentPrice);
-      setCostInput(targetStock.currentPrice > 0 ? String(targetStock.currentPrice) : '');
-    } else {
-      setSymbolInput('');
-      setNameInput('');
-      setMarketInput(targetMkt);
-      setPriceInput(0);
-      setCostInput('');
-    }
-    setFeeRateInput(String(targetMkt === 'TW' ? (fireConfig.twStockFeeRate ?? 0.0399) : (fireConfig.usStockFeeRate ?? 0)));
-    setSharesInput('');
-    setDateInput(new Date().toISOString().split('T')[0]);
-    setNoteInput('');
-    setIsInitialHoldingsInput(false);
-    setSearchSuggestions([]);
-    setShowSuggestions(false);
+    setEditingTradeStock(targetStock || null);
+    setEditingTradeTx(null);
     setIsAddModalOpen(true);
   };
 
   // Open Modal for Editing an Existing Transaction Record
   const handleOpenEditModal = (targetStock: PortfolioStock, tx: StockTransaction) => {
-    setEditingTxId(tx.id);
-    setTradeType(tx.type);
-    setSymbolInput(targetStock.symbol);
-    setNameInput(targetStock.name);
-    setMarketInput(targetStock.market);
-    setSharesInput(String(tx.shares));
-    setCostInput(String(tx.price));
-    setDateInput(tx.date || new Date().toISOString().split('T')[0]);
-    setNoteInput(tx.note || '');
-    setIsInitialHoldingsInput(Boolean(tx.isInitialHoldings));
-    setPriceInput(targetStock.currentPrice);
-    setSearchSuggestions([]);
-    setShowSuggestions(false);
+    setEditingTradeStock(targetStock);
+    setEditingTradeTx(tx);
     setIsAddModalOpen(true);
   };
 
   // Save Transaction (BUY / SELL / EDIT)
-  const handleSaveTransaction = async (e?: React.FormEvent, overrideInitialHoldings?: boolean) => {
-    if (e) e.preventDefault();
+  const handleSaveTransaction = async (formData: StockTradeFormData, overrideInitialHoldings?: boolean) => {
     lastUserTradeTimeRef.current = Date.now();
-    const cleanSym = symbolInput.trim().toUpperCase();
-    const parsedShares = parseFloat(sharesInput) || 0;
-    let parsedCost = parseFloat(costInput) || 0;
-    if (parsedCost <= 0 && priceInput > 0) {
-      parsedCost = priceInput;
+    const {
+      editingTxId,
+      tradeType,
+      symbol,
+      name,
+      market: tradeMarket,
+      shares: parsedShares,
+      cost: parsedCostRaw,
+      price: priceVal,
+      date: tradeDate,
+      note: tradeNote,
+      isInitialHoldings: initialHoldingsFlag,
+      netTradeTotal,
+    } = formData;
+
+    const cleanSym = symbol.trim().toUpperCase();
+    let parsedCost = parsedCostRaw;
+    if (parsedCost <= 0 && priceVal > 0) {
+      parsedCost = priceVal;
     }
 
     if (!cleanSym || parsedShares <= 0 || parsedCost <= 0) {
@@ -1027,8 +870,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       return;
     }
 
-    // Taiwan Stock Integer Shares Validation (No fractional shares in TW market)
-    if (marketInput === 'TW' && !Number.isInteger(parsedShares)) {
+    // Taiwan Stock Integer Shares Validation
+    if (tradeMarket === 'TW' && !Number.isInteger(parsedShares)) {
       setConfirmModal({
         isOpen: true,
         title: '股數格式不正確 ⚠️',
@@ -1044,12 +887,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       typeof overrideInitialHoldings === 'boolean'
         ? overrideInitialHoldings
         : tradeType === 'BUY'
-        ? isInitialHoldingsInput
+        ? initialHoldingsFlag
         : false;
 
     // Validate cash balance for BUY trade if deducting cash (only on new add)
     if (!editingTxId && tradeType === 'BUY' && !useInitialHoldings && typeof overrideInitialHoldings === 'undefined') {
-      const isUS = marketInput === 'US';
+      const isUS = tradeMarket === 'US';
       const tradeCost = netTradeTotal > 0 ? netTradeTotal : parsedShares * parsedCost;
       const availableCash = isUS ? currentUSD : currentTWD;
 
@@ -1057,25 +900,25 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         const shortage = tradeCost - availableCash;
         setCashAlertModal({
           isOpen: true,
-          stockName: nameInput.trim() || cleanSym,
+          stockName: name.trim() || cleanSym,
           isUS,
           tradeCost,
           currentCash: availableCash,
           shortage,
           onConfirmInitialHoldings: () => {
             setCashAlertModal(null);
-            handleSaveTransaction(undefined, true);
+            handleSaveTransaction(formData, true);
           },
           onConfirmForceDeduct: () => {
             setCashAlertModal(null);
-            handleSaveTransaction(undefined, false);
+            handleSaveTransaction(formData, false);
           },
         });
         return;
       }
     }
 
-    const initialPrice = priceInput > 0 ? priceInput : parsedCost;
+    const initialPrice = priceVal > 0 ? priceVal : parsedCost;
 
     // Check if stock already exists in portfolio
     const existingStockIndex = syncedStocks.findIndex(
@@ -1088,7 +931,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       if (editingTxId && existingStock) {
         // Editing existing transaction
         const oldTx = (existingStock.transactions || []).find((t) => t.id === editingTxId);
-        const isUS = marketInput === 'US';
+        const isUS = tradeMarket === 'US';
 
         const updatedTxs = (existingStock.transactions || []).map((t) => {
           if (t.id === editingTxId) {
@@ -1097,8 +940,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               type: tradeType,
               shares: parsedShares,
               price: parsedCost,
-              date: dateInput || t.date,
-              note: noteInput.trim(),
+              date: tradeDate || t.date,
+              note: tradeNote.trim(),
               isInitialHoldings: useInitialHoldings,
             };
           }
@@ -1120,7 +963,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
         const updatedStockObj = syncStockCalculations({
           ...existingStock,
-          name: nameInput.trim() || existingStock.name,
+          name: name.trim() || existingStock.name,
           currentPrice: initialPrice > 0 ? initialPrice : existingStock.currentPrice,
           transactions: updatedTxs,
         });
@@ -1177,7 +1020,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         }
 
         setIsAddModalOpen(false);
-        setEditingTxId(null);
+        setEditingTradeStock(null);
+        setEditingTradeTx(null);
 
         if (activeHistoryStock && activeHistoryStock.id === existingStock.id) {
           setActiveHistoryStock(updatedStockObj);
@@ -1190,8 +1034,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         type: tradeType,
         shares: parsedShares,
         price: parsedCost,
-        date: dateInput || new Date().toISOString().split('T')[0],
-        note: noteInput.trim(),
+        date: tradeDate || new Date().toISOString().split('T')[0],
+        note: tradeNote.trim(),
         isInitialHoldings: useInitialHoldings,
       };
 
@@ -1216,7 +1060,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         const updatedTxArray = [newTx, ...(existingStock.transactions || [])];
         targetStockObj = syncStockCalculations({
           ...existingStock,
-          name: nameInput.trim() || existingStock.name,
+          name: name.trim() || existingStock.name,
           currentPrice: initialPrice,
           transactions: updatedTxArray,
         });
@@ -1224,12 +1068,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         const newStockObj: PortfolioStock = {
           id: `port-${Date.now()}`,
           symbol: cleanSym,
-          name: nameInput.trim() || cleanSym,
-          market: marketInput,
+          name: name.trim() || cleanSym,
+          market: tradeMarket,
           shares: parsedShares,
           avgCost: parsedCost,
           currentPrice: initialPrice,
-          currency: marketInput === 'US' ? 'USD' : 'TWD',
+          currency: tradeMarket === 'US' ? 'USD' : 'TWD',
           lastUpdated: new Date().toISOString(),
           transactions: [newTx],
         };
@@ -1262,7 +1106,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
       // Adjust cash savings according to the stock trade and currency (including fee/tax)
       let cashDelta = 0;
-      const isUS = marketInput === 'US';
+      const isUS = tradeMarket === 'US';
       const tradeValue = netTradeTotal > 0 ? netTradeTotal : parsedShares * parsedCost;
       if (tradeType === 'BUY') {
         if (!useInitialHoldings) {
@@ -1276,11 +1120,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         onAdjustCashSavings(cashDelta, isUS ? 'USD' : 'TWD');
       }
 
-      if (filterMarket !== 'ALL' && filterMarket !== marketInput) {
+      if (filterMarket !== 'ALL' && filterMarket !== tradeMarket) {
         setFilterMarket('ALL');
       }
       setIsAddModalOpen(false);
-      setEditingTxId(null);
+      setEditingTradeStock(null);
+      setEditingTradeTx(null);
 
       if (activeHistoryStock && activeHistoryStock.id === targetStockObj.id) {
         setActiveHistoryStock(targetStockObj);
@@ -1776,11 +1621,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             {/* Fee Settings Button */}
             <button
               type="button"
-              onClick={() => {
-                setTwDefaultFeeRate(String(fireConfig.twStockFeeRate ?? 0.0399));
-                setUsDefaultFeeRate(String(fireConfig.usStockFeeRate ?? 0));
-                setIsFeeSettingsModalOpen(true);
-              }}
+              onClick={() => setIsFeeSettingsModalOpen(true)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm border bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border-white/10"
               title="設定台股與美股預設交易手續費率 (%)"
             >
@@ -2444,985 +2285,76 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       )}
 
       {/* Modal: Quick Action Sheet for Compact List Row Tap */}
-      {activeActionStock && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
-          onClick={() => setActiveActionStock(null)}
-        >
-          <div
-            className="bg-[#0e0e0e] border border-white/10 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 space-y-4 shadow-2xl text-gray-200 relative animate-slideUp sm:animate-none"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Mobile Drag Indicator Handle */}
-            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-2 sm:hidden" />
+      <StockActionSheetModal
+        stock={activeActionStock}
+        detectedSplitsMap={detectedSplitsMap}
+        detectedDividendsMap={detectedDividendsMap}
+        detectedRightsMap={detectedRightsMap}
+        onClose={() => setActiveActionStock(null)}
+        onOpenChart={(stock) => setActiveChartStock(stock)}
+        onOpenTrade={(stock) => handleOpenAddModal(stock)}
+        onOpenHistory={(stock) => setActiveHistoryStock(stock)}
+        onOpenSplit={(stock, splitEvent) => setActiveSplitModal({ stock, splitEvent })}
+        onOpenDividend={(stock, dividendEvent) => setActiveDividendModal({ stock, dividendEvent })}
+        onOpenRight={(stock, rightEvent) => setActiveRightModal({ stock, rightEvent })}
+        onViewDividendCalendar={() => setPortfolioSubTab('dividend_calendar')}
+        onDeleteStock={(stockId) => handleDeleteStockEntirely(stockId)}
+      />
 
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{activeActionStock.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
-                <div>
-                  <h3 className="text-lg font-black font-mono text-white tracking-tight">
-                    {activeActionStock.symbol}
-                  </h3>
-                  <p className="text-xs text-gray-400 truncate max-w-[220px]">{activeActionStock.name}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setActiveActionStock(null)}
-                className="p-2 text-gray-400 hover:text-white bg-white/5 rounded-2xl cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* Modal: Add / Edit Transaction Form */}
+      <StockTradeModal
+        isOpen={isAddModalOpen}
+        editingStock={editingTradeStock}
+        editingTx={editingTradeTx}
+        defaultMarket={filterMarket === 'TW' ? 'TW' : 'US'}
+        twStockFeeRate={fireConfig?.twStockFeeRate ?? 0.0399}
+        usStockFeeRate={fireConfig?.usStockFeeRate ?? 0}
+        themePrimaryHex={currentTheme.primaryHex}
+        isSaving={isSaving}
+        onOpenFeeSettings={() => setIsFeeSettingsModalOpen(true)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingTradeStock(null);
+          setEditingTradeTx(null);
+        }}
+        onSave={(data, overrideInitialHoldings) => handleSaveTransaction(data, overrideInitialHoldings)}
+      />
 
-            {/* 4 Large Action Buttons */}
-            <div className="grid grid-cols-1 gap-2.5 pt-1">
-              <button
-                onClick={() => {
-                  const s = activeActionStock;
-                  setActiveActionStock(null);
-                  setActiveChartStock(s);
-                }}
-                className="p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-black text-white">查看歷史走勢與 K 線圖</div>
-                    <div className="text-xs text-emerald-400 font-normal">即時報價、分時與均線分析</div>
-                  </div>
-                </div>
-              </button>
+      {/* Modal: Stock Transaction History & Detail Breakdown */}
+      <StockHistoryModal
+        stock={activeHistoryStock}
+        detectedSplitsMap={detectedSplitsMap}
+        detectedDividendsMap={detectedDividendsMap}
+        detectedRightsMap={detectedRightsMap}
+        onClose={() => setActiveHistoryStock(null)}
+        onOpenAddTrade={(stock) => handleOpenAddModal(stock)}
+        onOpenEditTrade={(stock, tx) => handleOpenEditModal(stock, tx)}
+        onDeleteTrade={(stockId, txId) => handleDeleteSingleTransaction(stockId, txId)}
+        onOpenSplit={(stock, splitEvent) => setActiveSplitModal({ stock, splitEvent })}
+        onOpenDividend={(stock, dividendEvent) => setActiveDividendModal({ stock, dividendEvent })}
+        onOpenRight={(stock, rightEvent) => setActiveRightModal({ stock, rightEvent })}
+      />
 
-              <button
-                onClick={() => {
-                  const s = activeActionStock;
-                  setActiveActionStock(null);
-                  handleOpenAddModal(s);
-                }}
-                className="p-3.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center">
-                    <PlusCircle className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-black text-white">記錄買入 / 賣出交易</div>
-                    <div className="text-xs text-cyan-400 font-normal">加碼存股或獲利減碼</div>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  const s = activeActionStock;
-                  setActiveActionStock(null);
-                  setActiveHistoryStock(s);
-                }}
-                className="p-3.5 bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-gray-300">
-                    <History className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-black text-white">檢視歷史交易明細</div>
-                    <div className="text-xs text-gray-400 font-normal">共 {activeActionStock.transactions?.length || 0} 筆過往買賣紀錄</div>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  const s = activeActionStock;
-                  setActiveActionStock(null);
-                  setActiveSplitModal({ stock: s, splitEvent: detectedSplitsMap[s.id] || null });
-                }}
-                className="p-3.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                    <Scissors className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-black text-white">記錄股票分割 (Stock Split)</div>
-                    <div className="text-xs text-purple-400 font-normal">
-                      {detectedSplitsMap[activeActionStock.id]
-                        ? `待確認：${detectedSplitsMap[activeActionStock.id].splitRatioText}`
-                        : '自訂比例如 1 拆 10、反向併股試算與校正'}
-                    </div>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  const s = activeActionStock;
-                  setActiveActionStock(null);
-                  setActiveDividendModal({ stock: s, dividendEvent: detectedDividendsMap[s.id] || null });
-                }}
-                className="p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-base">
-                    💰
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-black text-white">記錄除息與現金入帳 (Cash Dividend)</div>
-                    <div className="text-xs text-emerald-400 font-normal">
-                      {detectedDividendsMap[activeActionStock.id]
-                        ? `待確認：每股 $${detectedDividendsMap[activeActionStock.id].amount}`
-                        : '輸入配息金額與入帳試算'}
-                    </div>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  const s = activeActionStock;
-                  setActiveActionStock(null);
-                  setActiveRightModal({ stock: s, rightEvent: detectedRightsMap[s.id] || null });
-                }}
-                className="p-3.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 flex items-center justify-center text-base">
-                    📈
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-black text-white">記錄除權與配股 (Stock Dividend)</div>
-                    <div className="text-xs text-sky-400 font-normal">
-                      {detectedRightsMap[activeActionStock.id]
-                        ? `待確認：每股配 $${detectedRightsMap[activeActionStock.id].stockDividendPerShare} 元`
-                        : '無償配發新股、成本守恆與均價除權'}
-                    </div>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveActionStock(null);
-                  setPortfolioSubTab('dividend_calendar');
-                }}
-                className="p-3.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 flex items-center justify-center text-base">
-                    📅
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-black text-white">查看股息日曆與填息分析</div>
-                    <div className="text-xs text-sky-400 font-normal">
-                      年度被動現金流與除權息復原力追蹤
-                    </div>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  const s = activeActionStock;
-                  setActiveActionStock(null);
-                  handleDeleteStockEntirely(s.id);
-                }}
-                className="p-3.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-rose-500/20 flex items-center justify-center">
-                    <Trash2 className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-black text-white">刪除此股票持股</div>
-                    <div className="text-xs text-rose-400 font-normal">從庫存中完整移除</div>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 1: Add / Record Transaction Form */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 relative overflow-visible">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                {editingTxId ? '編輯買賣交易明細 ✏️' : '記一筆交易紀錄 📝'}
-              </h3>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 text-gray-400 hover:text-white bg-white/5 rounded-xl cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveTransaction} className="space-y-4 text-xs">
-              {editingTxId ? (
-                /* Edit Mode: Compact Header Banner (Read-only, clean, focused) */
-                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-2xl">{marketInput === 'US' ? '🇺🇸' : '🇹🇼'}</span>
-                    <div>
-                      <div className="text-sm font-black font-mono text-white flex items-center gap-2">
-                        <span>{symbolInput}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                          tradeType === 'BUY'
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                        }`}>
-                          {tradeType === 'BUY' ? '🟢 買入紀錄' : '🔴 賣出紀錄'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-gray-400 truncate max-w-[210px]">
-                        {nameInput || symbolInput}
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-gray-400 font-mono px-2 py-1 bg-white/5 rounded-lg border border-white/5">
-                    {marketInput === 'US' ? 'USD 美元' : 'TWD 台幣'}
-                  </span>
-                </div>
-              ) : (
-                /* Add Mode: Full selectors for Type, Market, Symbol, Name */
-                <>
-                  {/* Buy / Sell Toggle Buttons */}
-                  <div>
-                    <label className="text-gray-400 block mb-1 font-bold">交易類型 (BUY / SELL):</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setTradeType('BUY')}
-                        className={`py-2 rounded-xl font-extrabold border transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                          tradeType === 'BUY'
-                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-lg'
-                            : 'bg-black/40 border-white/5 text-gray-400'
-                        }`}
-                      >
-                        <span>🟢 買入 (BUY)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTradeType('SELL')}
-                        className={`py-2 rounded-xl font-extrabold border transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                          tradeType === 'SELL'
-                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-lg'
-                            : 'bg-black/40 border-white/5 text-gray-400'
-                        }`}
-                      >
-                        <span>🔴 賣出 (SELL)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Market Type Switch */}
-                  <div>
-                    <label className="text-gray-400 block mb-1 font-bold">市場類別:</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleMarketInputSwitch('US')}
-                        className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
-                          marketInput === 'US'
-                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                            : 'bg-black/40 border-white/5 text-gray-400'
-                        }`}
-                      >
-                        🇺🇸 美股 (USD)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMarketInputSwitch('TW')}
-                        className={`py-2 rounded-xl font-bold border transition cursor-pointer ${
-                          marketInput === 'TW'
-                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                            : 'bg-black/40 border-white/5 text-gray-400'
-                        }`}
-                      >
-                        🇹🇼 台股 (TWD)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Symbol Input with Autocomplete */}
-                  <div className="relative">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-gray-400 font-bold flex items-center gap-1.5">
-                        <Search className="w-3.5 h-3.5 text-cyan-400" />
-                        {marketInput === 'US' ? '美股' : '台股'}關鍵字/代號:
-                      </label>
-                      {isSearching && (
-                        <span className="text-[10px] text-cyan-400 animate-pulse font-bold">搜尋中...</span>
-                      )}
-                    </div>
-
-                    <input
-                      type="text"
-                      placeholder={
-                        marketInput === 'US' ? '例如: NVDA, VOO, ASTS...' : '例如: 2330, 2377, 0050...'
-                      }
-                      value={symbolInput}
-                      onChange={(e) => handleSymbolInputChange(e.target.value)}
-                      onFocus={() => {
-                        if (symbolInput.trim()) {
-                          handleSymbolInputChange(symbolInput);
-                        }
-                      }}
-                      className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-mono font-bold uppercase focus:border-cyan-500 focus:outline-none"
-                      required
-                    />
-
-                    {/* Suggestions Dropdown List */}
-                    {showSuggestions && searchSuggestions.length > 0 && (
-                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#141414] border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden divide-y divide-white/5 max-h-56 overflow-y-auto animate-fadeIn">
-                        {searchSuggestions.map((item) => (
-                          <button
-                            key={item.symbol}
-                            type="button"
-                            onClick={() => handleSelectSuggestion(item)}
-                            className="w-full px-3.5 py-2.5 text-left hover:bg-cyan-500/15 flex items-center justify-between transition cursor-pointer group"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-base">{item.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
-                              <div>
-                                <strong className="text-cyan-300 font-mono font-bold text-xs group-hover:text-cyan-200 flex items-center gap-1.5">
-                                  <span>{item.symbol}</span>
-                                  {item.price ? (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                      ${item.price}
-                                    </span>
-                                  ) : null}
-                                </strong>
-                                <p className="text-[11px] text-gray-300 truncate max-w-[210px]">{item.name}</p>
-                              </div>
-                            </div>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-gray-400 font-mono font-bold">
-                              {item.price ? '帶入最新價' : '點擊帶入'}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="text-gray-400 block mb-1 font-bold">股票/基金全名:</label>
-                    <input
-                      type="text"
-                      placeholder="可自動帶入或自行修改名稱"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-white font-bold focus:border-cyan-500 focus:outline-none"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-gray-400 block mb-1 font-bold">
-                    {tradeType === 'BUY' ? '買入股數:' : '賣出股數:'}
-                  </label>
-                  <input
-                    type="number"
-                    step={marketInput === 'TW' ? '1' : 'any'}
-                    min="0"
-                    placeholder={marketInput === 'TW' ? '例如: 1000' : '例如: 1.5'}
-                    value={sharesInput}
-                    onChange={(e) => setSharesInput(e.target.value)}
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-gray-400 block mb-1 font-bold">
-                    {tradeType === 'BUY' ? '買入單價:' : '賣出單價:'}
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="例如: 150.5"
-                    value={costInput}
-                    onChange={(e) => setCostInput(e.target.value)}
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-gray-400 block mb-1 font-bold flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-cyan-400" />
-                    交易日期:
-                  </label>
-                  <input
-                    type="date"
-                    max={new Date().toISOString().slice(0, 10)}
-                    value={dateInput}
-                    onChange={(e) => setDateInput(e.target.value)}
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-gray-400 block mb-1 font-bold">備註 (可選):</label>
-                  <input
-                    type="text"
-                    placeholder="例如: 分批加碼"
-                    value={noteInput}
-                    onChange={(e) => setNoteInput(e.target.value)}
-                    className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-2 text-white font-bold focus:border-cyan-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Trading Settlement & Fee Calculation Breakdown Sheet */}
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-2.5 text-xs">
-                {/* Header with Title and quick settings button */}
-                <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                  <span className="font-bold text-gray-300 flex items-center gap-1.5">
-                    <span>🧾 費用與交割試算明細</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsFeeSettingsModalOpen(true)}
-                    className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer transition hover:underline py-0.5 px-1.5 rounded-lg hover:bg-cyan-500/10"
-                    title="點擊設定預設手續費率"
-                  >
-                    <Settings className="w-3 h-3" />
-                    <span>券商費率: {feeRateInput || 0}%</span>
-                  </button>
-                </div>
-
-                {/* Calculation Rows */}
-                <div className="space-y-2 pt-0.5">
-                  {/* Row 1: Gross Trade Total */}
-                  <div className="flex justify-between items-center text-gray-400">
-                    <span>成交總金額:</span>
-                    <span className="font-mono font-bold text-white text-xs">
-                      {rawTradeTotal > 0 ? (
-                        <>
-                          {isTWTrade ? 'NT$' : '$'} {formatNum(rawTradeTotal)}
-                          <span className="text-[10px] text-gray-500 font-normal ml-1">
-                            ({formatNum(parsedSharesNum)} 股 × ${formatDec(parsedCostNum)})
-                          </span>
-                        </>
-                      ) : (
-                        `${isTWTrade ? 'NT$' : '$'} 0`
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Row 2: Brokerage Fee */}
-                  <div className="flex justify-between items-center text-gray-400">
-                    <span className="flex items-center gap-1">
-                      <span>預估券商手續費 ({feeRateInput || 0}%):</span>
-                    </span>
-                    <span className="font-mono text-cyan-300">
-                      {rawTradeTotal > 0 && calculatedFee > 0 ? (
-                        `${tradeType === 'BUY' ? '+' : '-'} ${isTWTrade ? 'NT$' : '$'} ${formatNum(calculatedFee)}`
-                      ) : (
-                        <span className="text-gray-500">免手續費 ($0)</span>
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Row 3: Taiwan Stock Transaction Tax (ONLY for TW stock SELL) */}
-                  {isTWTrade && tradeType === 'SELL' && (
-                    <div className="flex justify-between items-center bg-amber-500/10 border border-amber-500/20 rounded-xl px-2.5 py-1.5 text-amber-300">
-                      <span className="flex items-center gap-1 font-medium">
-                        <span>🏷️ 證券交易稅 ({isETFTrade ? 'ETF 優惠 0.1%' : '一般個股 0.3%'}):</span>
-                      </span>
-                      <span className="font-mono font-bold">
-                        - NT$ {formatNum(calculatedTax)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Row 4: Final Settlement Cash Total */}
-                  <div className="flex justify-between items-baseline pt-2 border-t border-white/10 text-xs font-bold text-gray-200">
-                    <span className="flex items-center gap-1">
-                      {tradeType === 'BUY' ? '💳 預計交割扣款 (扣除現金):' : '💰 預計交割入帳 (實收淨額):'}
-                    </span>
-                    <span className={`font-mono text-base font-black ${tradeType === 'BUY' ? 'text-white' : 'text-emerald-400'}`}>
-                      {isTWTrade ? 'NT$' : '$'} {formatNum(netTradeTotal)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Option to skip cash balance deduction for pre-existing stock holdings (only for new BUY trades) */}
-              {!editingTxId && tradeType === 'BUY' && (
-                <div className="bg-cyan-500/10 border border-cyan-500/25 rounded-2xl p-3.5 flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <label htmlFor="isInitialHoldingsToggle" className="text-xs font-black text-white flex items-center gap-1.5 cursor-pointer">
-                      <span>📦 歷史現有持股建倉 (不扣除現金儲蓄)</span>
-                    </label>
-                    <p className="text-[11px] text-cyan-300/80">若為使用 App 前已擁有的舊持股，請勾選以避免重複扣除現金</p>
-                  </div>
-                  <input
-                    id="isInitialHoldingsToggle"
-                    type="checkbox"
-                    checked={isInitialHoldingsInput}
-                    onChange={(e) => setIsInitialHoldingsInput(e.target.checked)}
-                    className="w-5 h-5 accent-cyan-400 rounded cursor-pointer shrink-0"
-                  />
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl font-bold cursor-pointer"
-                >
-                  取消
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2 font-black rounded-xl text-black shadow-lg cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                  style={{ backgroundColor: currentTheme.primaryHex }}
-                >
-                  {isSaving && <RefreshCw className="w-4 h-4 animate-spin" />}
-                  <span>{isSaving ? '儲存同步中...' : editingTxId ? '儲存修改' : tradeType === 'BUY' ? '確認新增買入紀錄' : '確認新增賣出紀錄'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal 2: Stock Transaction History & Detail Breakdown */}
-      {activeHistoryStock && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-xl rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 relative overflow-hidden">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{activeHistoryStock.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
-                <div>
-                  <h3 className="text-lg font-black text-white font-mono flex items-center gap-2">
-                    <span>{activeHistoryStock.symbol}</span>
-                    <span className="text-xs font-normal text-gray-400">({activeHistoryStock.name})</span>
-                  </h3>
-                  <p className="text-xs text-cyan-300">買賣交易歷史與損益明細對帳單</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setActiveHistoryStock(null)}
-                className="p-1.5 text-gray-400 hover:text-white bg-white/5 rounded-xl cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Summary Header inside Modal */}
-            {(() => {
-              const m = calculateStockMetrics(
-                activeHistoryStock.transactions,
-                activeHistoryStock.currentPrice
-              );
-              const currSym = activeHistoryStock.market === 'US' ? '$' : 'NT$';
-
-              return (
-                <div className="bg-black/60 border border-white/5 rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <span className="text-gray-400 text-[10px] block">目前持有股數</span>
-                    <strong className="text-white font-mono text-sm">{formatNum(m.shares)} 股</strong>
-                  </div>
-
-                  <div>
-                    <span className="text-gray-400 text-[10px] block">加權買入均價</span>
-                    <strong className="text-gray-200 font-mono text-sm">{currSym}{formatDec(m.avgCost)}</strong>
-                  </div>
-
-                  <div>
-                    <span className="text-gray-400 text-[10px] block">未實現損益</span>
-                    <strong
-                      className={`font-mono text-sm font-bold ${
-                        m.unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                      }`}
-                    >
-                      {m.unrealizedPnL >= 0 ? '+' : ''}{currSym}{formatNum(m.unrealizedPnL)}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span className="text-gray-400 text-[10px] block">已實現損益</span>
-                    <strong
-                      className={`font-mono text-sm font-bold ${
-                        m.realizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                      }`}
-                    >
-                      {m.realizedPnL >= 0 ? '+' : ''}{currSym}{formatNum(m.realizedPnL)}
-                    </strong>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Transactions List */}
-            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-              <div className="flex items-center justify-between text-xs font-bold text-gray-400 px-1">
-                <span>交易明細紀錄列表 ({activeHistoryStock.transactions?.length || 0} 筆):</span>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      const st = activeHistoryStock;
-                      setActiveHistoryStock(null);
-                      setActiveSplitModal({ stock: st, splitEvent: detectedSplitsMap[st.id] || null });
-                    }}
-                    className="text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <Scissors className="w-3.5 h-3.5" />
-                    <span>記錄分割</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const st = activeHistoryStock;
-                      setActiveHistoryStock(null);
-                      setActiveDividendModal({ stock: st, dividendEvent: detectedDividendsMap[st.id] || null });
-                    }}
-                    className="text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>💰 記錄除息</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const st = activeHistoryStock;
-                      setActiveHistoryStock(null);
-                      setActiveRightModal({ stock: st, rightEvent: detectedRightsMap[st.id] || null });
-                    }}
-                    className="text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>📈 記錄除權</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const st = activeHistoryStock;
-                      setActiveHistoryStock(null);
-                      handleOpenAddModal(st);
-                    }}
-                    className="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>新增交易</span>
-                  </button>
-                </div>
-              </div>
-
-              {activeHistoryStock.transactions && activeHistoryStock.transactions.length > 0 ? (
-                activeHistoryStock.transactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="bg-white/5 border border-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:border-white/15 transition text-xs"
-                  >
-                    {tx.type === 'DIVIDEND' ? (
-                      <div className="flex items-center gap-3">
-                        <span className="px-2 py-1 rounded-xl font-mono font-black text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                          <span>💰 股息 DIVIDEND</span>
-                        </span>
-
-                        <div>
-                          <div className="font-mono font-bold text-emerald-400">
-                            每股 ${tx.dividendPerShare ?? tx.price} • 實收現金 +{activeHistoryStock.currency === 'USD' ? '$' : 'NT$'}{formatNum(tx.dividendTotalCash || (tx.shares * (tx.dividendPerShare || tx.price || 0)))}
-                            {tx.taxWithheld && tx.taxWithheld > 0 ? (
-                              <span className="text-[10px] text-gray-400 font-normal ml-1.5">(預扣稅 ${formatNum(tx.taxWithheld)})</span>
-                            ) : null}
-                          </div>
-                          <div className="text-[11px] text-gray-400 flex items-center gap-2">
-                            <span>📅 {tx.date}</span>
-                            <span className="text-emerald-300/80">除息持有 {formatNum(tx.shares)} 股</span>
-                            {tx.note && <span className="text-gray-500">({tx.note})</span>}
-                          </div>
-                        </div>
-                      </div>
-                    ) : tx.type === 'SPLIT' ? (
-                      <div className="flex items-center gap-3">
-                        <span className="px-2 py-1 rounded-xl font-mono font-black text-[11px] bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                          <Scissors className="w-3 h-3" />
-                          <span>分割 SPLIT</span>
-                        </span>
-
-                        <div>
-                          <div className="font-mono font-bold text-white">
-                            分割比例: {tx.splitRatio ? (tx.splitRatio >= 1 ? `1 拆 ${tx.splitRatio}` : `${1 / tx.splitRatio} 併 1`) : '1 拆 10'} ({tx.splitRatio || 1}x)
-                          </div>
-                          <div className="text-[11px] text-gray-400 flex items-center gap-2">
-                            <span>📅 {tx.date}</span>
-                            <span className="text-purple-300/80">總投入成本保證不變</span>
-                            {tx.note && <span className="text-gray-500">({tx.note})</span>}
-                          </div>
-                        </div>
-                      </div>
-                    ) : tx.type === 'STOCK_DIVIDEND' ? (
-                      <div className="flex items-center gap-3">
-                        <span className="px-2 py-1 rounded-xl font-mono font-black text-[11px] bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1">
-                          <Gift className="w-3 h-3" />
-                          <span>配股 STOCK_DIV</span>
-                        </span>
-
-                        <div>
-                          <div className="font-mono font-bold text-sky-300">
-                            無償配發 +{formatNum(tx.shares)} 股 {tx.stockDividendPerShare ? `(每股配 $${tx.stockDividendPerShare} 元)` : ''}
-                          </div>
-                          <div className="text-[11px] text-gray-400 flex items-center gap-2">
-                            <span>📅 {tx.date}</span>
-                            <span className="text-sky-300/80">總投入成本守恆 · 均價除權稀釋</span>
-                            {tx.note && <span className="text-gray-500">({tx.note})</span>}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`px-2 py-1 rounded-xl font-mono font-black text-[11px] ${
-                            tx.type === 'BUY'
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                          }`}
-                        >
-                          {tx.type === 'BUY' ? '買入 BUY' : '賣出 SELL'}
-                        </span>
-
-                        <div>
-                          <div className="font-mono font-bold text-white">
-                            {formatNum(tx.shares)} 股 @ ${tx.price} = ${formatNum(tx.shares * tx.price)}
-                          </div>
-                          <div className="text-[11px] text-gray-400 flex items-center gap-2">
-                            <span>📅 {tx.date}</span>
-                            {tx.note && <span className="text-gray-500">({tx.note})</span>}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-1">
-                      {tx.type === 'DIVIDEND' ? (
-                        <button
-                          onClick={() => {
-                            const st = activeHistoryStock;
-                            setActiveHistoryStock(null);
-                            setActiveDividendModal({
-                              stock: st,
-                              dividendEvent: {
-                                date: tx.date,
-                                amount: tx.dividendPerShare || tx.price || 0,
-                                status: 'applied',
-                              },
-                            });
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-xl transition cursor-pointer"
-                          title="重新試算/校正股息"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      ) : tx.type === 'SPLIT' ? (
-                        <button
-                          onClick={() => {
-                            const st = activeHistoryStock;
-                            setActiveHistoryStock(null);
-                            setActiveSplitModal({
-                              stock: st,
-                              splitEvent: {
-                                date: tx.date,
-                                ratio: tx.splitRatio || 1,
-                                numerator: tx.splitNumerator || (tx.splitRatio ? tx.splitRatio : 10),
-                                denominator: tx.splitDenominator || 1,
-                                splitRatioText: tx.splitRatio ? `1 拆 ${tx.splitRatio}` : '1 拆 10',
-                                status: 'applied',
-                              },
-                            });
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition cursor-pointer"
-                          title="重新試算/校正分割"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      ) : tx.type === 'STOCK_DIVIDEND' ? (
-                        <button
-                          onClick={() => {
-                            const st = activeHistoryStock;
-                            setActiveHistoryStock(null);
-                            setActiveRightModal({
-                              stock: st,
-                              rightEvent: {
-                                date: tx.date,
-                                stockDividendPerShare: tx.stockDividendPerShare || 1.0,
-                                stockDividendRatio: tx.stockDividendRatio || 0.1,
-                                status: 'applied',
-                              },
-                            });
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-sky-300 hover:bg-sky-500/10 rounded-xl transition cursor-pointer"
-                          title="重新試算/校正配股"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            const st = activeHistoryStock;
-                            setActiveHistoryStock(null);
-                            handleOpenEditModal(st, tx);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-xl transition cursor-pointer"
-                          title="編輯此筆交易紀錄"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => handleDeleteSingleTransaction(activeHistoryStock.id, tx.id)}
-                        className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
-                        title="刪除此筆交易紀錄"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-8 text-center text-gray-500 text-xs">尚無交易明細紀錄</div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end pt-3 border-t border-white/10">
-              <button
-                onClick={() => setActiveHistoryStock(null)}
-                className="px-5 py-2 bg-white/10 hover:bg-white/15 text-white font-bold rounded-xl cursor-pointer"
-              >
-                關閉
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* High-End Modern Warning Alert Dialog Modal */}
-      {warningModal?.isOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#121216] border border-rose-500/30 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-6 relative overflow-hidden transform transition-all scale-100">
-            {/* Background Ambient Glow */}
-            <div className="absolute -top-24 -left-24 w-48 h-48 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex items-start gap-4 relative z-10">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 shadow-lg shadow-rose-500/10">
-                <AlertTriangle className="w-6 h-6 stroke-[2.5]" />
-              </div>
-              <div className="space-y-1 pr-6">
-                <h3 className="text-xl font-extrabold text-white tracking-tight">
-                  {warningModal.title}
-                </h3>
-                <p className="text-xs text-rose-400 font-semibold uppercase tracking-wider">
-                  現股庫存與交易時序安全校驗
-                </p>
-              </div>
-              <button
-                onClick={() => setWarningModal(null)}
-                className="absolute top-0 right-0 p-1.5 rounded-xl bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="bg-rose-950/30 border border-rose-500/20 rounded-2xl p-4 space-y-2 text-sm text-gray-200 relative z-10">
-              <p className="leading-relaxed font-medium">{warningModal.message}</p>
-              {warningModal.details && (
-                <p className="text-xs text-gray-400 pt-2 border-t border-rose-500/15 leading-relaxed">
-                  💡 {warningModal.details}
-                </p>
-              )}
-            </div>
-
-            <div className="pt-2 relative z-10">
-              <button
-                onClick={() => setWarningModal(null)}
-                className="w-full py-3.5 px-6 rounded-2xl font-bold text-white bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>知道了，重新調整</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* High-End Modern Cash Balance Warning Alert Dialog Modal */}
-      {cashAlertModal?.isOpen && (
-        <div className="fixed inset-0 z-[125] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#121216] border border-amber-500/30 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-6 relative overflow-hidden transform transition-all scale-100">
-            {/* Background Ambient Glow */}
-            <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex items-start gap-4 relative z-10">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 shadow-lg shadow-amber-500/10">
-                <Coins className="w-6 h-6 stroke-[2.5]" />
-              </div>
-              <div className="space-y-1 pr-6">
-                <h3 className="text-xl font-extrabold text-white tracking-tight">
-                  現金帳戶餘額不足提示 ⚠️
-                </h3>
-                <p className="text-xs text-amber-400 font-semibold uppercase tracking-wider">
-                  買入交易與現金扣除選擇
-                </p>
-              </div>
-              <button
-                onClick={() => setCashAlertModal(null)}
-                className="absolute top-0 right-0 p-1.5 rounded-xl bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="bg-amber-950/30 border border-amber-500/20 rounded-2xl p-4 space-y-3 text-sm text-gray-200 relative z-10">
-              <p className="leading-relaxed font-medium">
-                您預計買入 <span className="text-white font-bold">{cashAlertModal.stockName}</span> 總金額為{' '}
-                <span className="text-amber-300 font-bold">
-                  {cashAlertModal.isUS ? '$' : 'NT$'} {formatNum(cashAlertModal.tradeCost)} {cashAlertModal.isUS ? 'USD' : ''}
-                </span>，但當前{cashAlertModal.isUS ? '美金' : '台幣'}現金儲備僅有{' '}
-                <span className="text-gray-300 font-bold">
-                  {cashAlertModal.isUS ? '$' : 'NT$'} {formatNum(cashAlertModal.currentCash)} {cashAlertModal.isUS ? 'USD' : ''}
-                </span>（尚缺 {cashAlertModal.isUS ? '$' : 'NT$'} {formatNum(cashAlertModal.shortage)}）。
-              </p>
-              <p className="text-xs text-amber-400 font-medium pt-2 border-t border-amber-500/15 leading-relaxed">
-                💡 若這是加入 FIRE 計算器之前已持有的股票，建議選擇「轉為歷史已有倉位」而不扣除現金；若手上有台幣可先透過「💱 雙幣換匯」轉入美金。
-              </p>
-            </div>
-
-            <div className="space-y-2.5 pt-1 relative z-10">
-              <button
-                onClick={cashAlertModal.onConfirmInitialHoldings}
-                className="w-full py-3.5 px-5 rounded-2xl font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-lg shadow-emerald-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
-              >
-                <span>🔘 轉為歷史已有倉位 (不扣除現金)</span>
-              </button>
-              <button
-                onClick={cashAlertModal.onConfirmForceDeduct}
-                className="w-full py-3 px-5 rounded-2xl font-semibold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer text-xs"
-              >
-                <span>🔘 強制扣除現金 (允許餘額為負)</span>
-              </button>
-              <button
-                onClick={() => setCashAlertModal(null)}
-                className="w-full py-2.5 px-5 rounded-2xl font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all text-xs cursor-pointer"
-              >
-                取消並重新調整
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Insufficient Cash Warning Dialog Modal */}
+      <InsufficientCashModal
+        isOpen={Boolean(cashAlertModal?.isOpen)}
+        stockName={cashAlertModal?.stockName || ''}
+        isUS={Boolean(cashAlertModal?.isUS)}
+        tradeCost={cashAlertModal?.tradeCost || 0}
+        currentCash={cashAlertModal?.currentCash || 0}
+        shortage={cashAlertModal?.shortage || 0}
+        onConfirmInitialHoldings={() => {
+          if (cashAlertModal?.onConfirmInitialHoldings) {
+            cashAlertModal.onConfirmInitialHoldings();
+          }
+        }}
+        onConfirmForceDeduct={() => {
+          if (cashAlertModal?.onConfirmForceDeduct) {
+            cashAlertModal.onConfirmForceDeduct();
+          }
+        }}
+        onClose={() => setCashAlertModal(null)}
+      />
 
       {/* Styled Delete Confirmation Modal */}
       <ConfirmModal
@@ -3480,160 +2412,20 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       )}
 
       {/* Modal: Global Stock Trading Fee Settings Modal */}
-      {isFeeSettingsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#121216] border border-white/15 w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 animate-scaleUp">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-300">
-                  <Settings className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white">證券交易手續費率設定 (%)</h3>
-                  <p className="text-xs text-gray-400">設定買賣股票時預設自動帶入的手續費率</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsFeeSettingsModalOpen(false)}
-                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              {/* TW Stock Fee Rate Input */}
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-white flex items-center gap-1.5">
-                    <span>🇹🇼 台股交易手續費率 (%)</span>
-                  </label>
-                  <span className="text-[10px] text-gray-400 font-mono">公定全額為 0.1425%</span>
-                </div>
-
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    placeholder="0.0399"
-                    value={twDefaultFeeRate}
-                    onChange={(e) => setTwDefaultFeeRate(e.target.value)}
-                    className="w-full bg-black/60 border border-white/15 rounded-xl px-3 py-2 text-sm font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-sm">%</span>
-                </div>
-
-                {/* Quick Selection Chips */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[10px] text-gray-400">快速填入:</span>
-                  {[
-                    { label: '0.0399% (2.8折)', val: '0.0399' },
-                    { label: '0.0713% (5折)', val: '0.0713' },
-                    { label: '0.0855% (6折)', val: '0.0855' },
-                    { label: '0.1425% (全額)', val: '0.1425' },
-                    { label: '0% (免手續費)', val: '0' },
-                  ].map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => setTwDefaultFeeRate(item.val)}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer ${
-                        twDefaultFeeRate === item.val
-                          ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50'
-                          : 'bg-white/5 text-gray-400 hover:text-white border border-transparent'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-emerald-400/80">
-                  💡 賣出台股時，系統將自動依標的性質外加「證交稅」(個股 0.3% / ETF 0.1%)
-                </p>
-              </div>
-
-              {/* US Stock Fee Rate Input */}
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-white flex items-center gap-1.5">
-                    <span>🇺🇸 美股交易手續費率 (%)</span>
-                  </label>
-                  <span className="text-[10px] text-gray-400 font-mono">美股券商多數免佣 (0%)</span>
-                </div>
-
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0"
-                    value={usDefaultFeeRate}
-                    onChange={(e) => setUsDefaultFeeRate(e.target.value)}
-                    className="w-full bg-black/60 border border-white/15 rounded-xl px-3 py-2 text-sm font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-sm">%</span>
-                </div>
-
-                {/* Quick Selection Chips */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[10px] text-gray-400">快速填入:</span>
-                  {[
-                    { label: '0% (免佣金)', val: '0' },
-                    { label: '0.08%', val: '0.08' },
-                    { label: '0.1%', val: '0.1' },
-                    { label: '0.15%', val: '0.15' },
-                    { label: '0.2%', val: '0.2' },
-                  ].map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => setUsDefaultFeeRate(item.val)}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer ${
-                        usDefaultFeeRate === item.val
-                          ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50'
-                          : 'bg-white/5 text-gray-400 hover:text-white border border-transparent'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
-              <button
-                type="button"
-                onClick={() => setIsFeeSettingsModalOpen(false)}
-                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl font-bold cursor-pointer text-xs"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const twRate = parseFloat(twDefaultFeeRate) || 0;
-                  const usRate = parseFloat(usDefaultFeeRate) || 0;
-                  updateFIREConfig({
-                    ...fireConfig,
-                    twStockFeeRate: twRate,
-                    usStockFeeRate: usRate,
-                  });
-                  setFeeRateInput(String(marketInput === 'TW' ? twRate : usRate));
-                  setIsFeeSettingsModalOpen(false);
-                }}
-                className="px-5 py-2 font-black rounded-xl text-black shadow-lg cursor-pointer text-xs transition active:scale-95"
-                style={{ backgroundColor: currentTheme.primaryHex }}
-              >
-                儲存費率設定
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <StockFeeSettingsModal
+        isOpen={isFeeSettingsModalOpen}
+        initialTwFeeRate={fireConfig?.twStockFeeRate ?? 0.0399}
+        initialUsFeeRate={fireConfig?.usStockFeeRate ?? 0}
+        themePrimaryHex={currentTheme.primaryHex}
+        onSave={(twRate, usRate) => {
+          updateFIREConfig({
+            ...fireConfig,
+            twStockFeeRate: twRate,
+            usStockFeeRate: usRate,
+          });
+        }}
+        onClose={() => setIsFeeSettingsModalOpen(false)}
+      />
 
       {/* Modal: Interactive Stock Split Modal */}
       {activeSplitModal && (

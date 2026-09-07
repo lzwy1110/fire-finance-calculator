@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS public.fire_configs (
     safe_withdrawal_rate NUMERIC(5, 2) NOT NULL DEFAULT 4.0,
     currency_symbol TEXT NOT NULL DEFAULT 'NT$',
     theme_color TEXT NOT NULL DEFAULT 'cyan',
+    tw_stock_fee_rate NUMERIC(8, 4) DEFAULT 0.0399,
+    us_stock_fee_rate NUMERIC(8, 4) DEFAULT 0,
+    annual_taxes JSONB DEFAULT '[]'::jsonb,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -64,6 +67,9 @@ ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS cash_savings NUMERIC(15
 ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS cash_savings_usd NUMERIC(15, 2) DEFAULT 0;
 ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS usd_rate NUMERIC(8, 4) DEFAULT 32.0;
 ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS base_cash_balance NUMERIC(15, 2) DEFAULT 0;
+ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS tw_stock_fee_rate NUMERIC(8, 4) DEFAULT 0.0399;
+ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS us_stock_fee_rate NUMERIC(8, 4) DEFAULT 0;
+ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS annual_taxes JSONB DEFAULT '[]'::jsonb;
 
 -- 4. 桌面與快捷記帳預設表 (Quick Presets)
 CREATE TABLE IF NOT EXISTS public.quick_presets (

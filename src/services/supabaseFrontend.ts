@@ -154,6 +154,9 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
         safeWithdrawalRate: Number(cfg.safe_withdrawal_rate) || 4.0,
         currencySymbol: cfg.currency_symbol || 'NT$',
         themeColor: cfg.theme_color || 'cyan',
+        twStockFeeRate: cfg.tw_stock_fee_rate != null ? Number(cfg.tw_stock_fee_rate) : 0.0399,
+        usStockFeeRate: cfg.us_stock_fee_rate != null ? Number(cfg.us_stock_fee_rate) : 0,
+        annualTaxes: Array.isArray(cfg.annual_taxes) ? cfg.annual_taxes : [],
       };
     }
 
@@ -266,6 +269,9 @@ export async function pushSupabaseDataDirect(payload: {
         safe_withdrawal_rate: fireConfig.safeWithdrawalRate,
         currency_symbol: fireConfig.currencySymbol || 'NT$',
         theme_color: fireConfig.themeColor || 'cyan',
+        tw_stock_fee_rate: fireConfig.twStockFeeRate != null ? fireConfig.twStockFeeRate : 0.0399,
+        us_stock_fee_rate: fireConfig.usStockFeeRate != null ? fireConfig.usStockFeeRate : 0,
+        annual_taxes: Array.isArray(fireConfig.annualTaxes) ? fireConfig.annualTaxes : [],
         updated_at: new Date().toISOString(),
       };
 
@@ -580,6 +586,9 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
       safe_withdrawal_rate: config.safeWithdrawalRate,
       currency_symbol: config.currencySymbol || 'NT$',
       theme_color: config.themeColor || 'cyan',
+      tw_stock_fee_rate: config.twStockFeeRate != null ? config.twStockFeeRate : 0.0399,
+      us_stock_fee_rate: config.usStockFeeRate != null ? config.usStockFeeRate : 0,
+      annual_taxes: Array.isArray(config.annualTaxes) ? config.annualTaxes : [],
       updated_at: new Date().toISOString(),
     };
 
