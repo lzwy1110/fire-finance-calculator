@@ -1,5 +1,5 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
-import { MarketType } from '../types/portfolio';
+import { MarketType, StockSplitEvent } from '../types/portfolio';
 
 export interface StockQuote {
   symbol: string;
@@ -513,3 +513,69 @@ export async function fetchStockHistoricalChart(
 
   return null;
 }
+
+/**
+ * Fetch Stock Splits (Both scheduled upcoming and historical)
+ */
+export async function fetchStockSplits(symbol: string): Promise<StockSplitEvent[]> {
+  const sym = symbol.trim().toUpperCase();
+  if (!sym) return [];
+
+  // 1. Android Native via CapacitorHttp
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2y&interval=1d&events=div%2Csplit`;
+      const res = await CapacitorHttp.get({
+        url,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+        },
+      });
+
+      const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+      const splitsRaw = data?.chart?.result?.[0]?.events?.splits || {};
+      const splits: StockSplitEvent[] = [];
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      for (const [timestampKey, item] of Object.entries(splitsRaw)) {
+        const splitItem = item as any;
+        const dateSec = splitItem.date || parseInt(timestampKey, 10);
+        const dateStr = new Date(dateSec * 1000).toISOString().split('T')[0];
+        const num = splitItem.numerator || 1;
+        const den = splitItem.denominator || 1;
+        const ratio = num / den;
+        const splitRatioText =
+          splitItem.splitRatio || (num > den ? `1 拆 ${num / den}` : `${den / num} 併 1`);
+
+        splits.push({
+          date: dateStr,
+          ratio,
+          numerator: num,
+          denominator: den,
+          splitRatioText,
+          status: dateStr > todayStr ? 'upcoming' : 'effective_pending',
+        });
+      }
+
+      splits.sort((a, b) => b.date.localeCompare(a.date));
+      return splits;
+    } catch (e) {}
+  }
+
+  // 2. Web Browser via Serverless Proxy /api/splits
+  try {
+    const proxyUrl = `/api/splits?symbol=${encodeURIComponent(sym)}`;
+    const data = await httpGetJson(proxyUrl);
+    if (data && data.success && Array.isArray(data.splits)) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      return data.splits.map((s: any) => ({
+        ...s,
+        status: s.date > todayStr ? 'upcoming' : 'effective_pending',
+      }));
+    }
+  } catch (e) {}
+
+  return [];
+}
+

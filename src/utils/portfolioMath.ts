@@ -29,15 +29,17 @@ export function calculateStockMetrics(
     };
   }
 
-  // Sort transactions chronologically (If same date, BUY must always precede SELL!)
+  // Sort transactions chronologically (Same date: BUY/SPLIT must precede SELL!)
   const sortedTx = [...transactions].sort((a, b) => {
     const timeA = new Date(a.date).getTime() || 0;
     const timeB = new Date(b.date).getTime() || 0;
     if (timeA !== timeB) {
       return timeA - timeB;
     }
-    if (a.type === 'BUY' && b.type === 'SELL') return -1;
-    if (a.type === 'SELL' && b.type === 'BUY') return 1;
+    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, SELL: 3 };
+    const pA = typePriority[a.type] ?? 2;
+    const pB = typePriority[b.type] ?? 2;
+    if (pA !== pB) return pA - pB;
     return a.id.localeCompare(b.id);
   });
 
@@ -59,6 +61,14 @@ export function calculateStockMetrics(
       realizedPnL += sharesToSell * (price - avgCostBeforeSell);
       currentShares = Math.max(0, currentShares - sharesToSell);
       totalCostPool = currentShares * avgCostBeforeSell;
+    } else if (tx.type === 'SPLIT') {
+      const ratio =
+        tx.splitRatio ||
+        (tx.splitNumerator && tx.splitDenominator ? tx.splitNumerator / tx.splitDenominator : 1);
+      if (ratio > 0) {
+        currentShares = currentShares * ratio;
+        // Total invested capital pool (totalCostPool) remains strictly invariant
+      }
     }
   }
 
@@ -98,8 +108,10 @@ export function validateTradeTimeline(transactions: StockTransaction[]): {
     if (timeA !== timeB) {
       return timeA - timeB;
     }
-    if (a.type === 'BUY' && b.type === 'SELL') return -1;
-    if (a.type === 'SELL' && b.type === 'BUY') return 1;
+    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, SELL: 3 };
+    const pA = typePriority[a.type] ?? 2;
+    const pB = typePriority[b.type] ?? 2;
+    if (pA !== pB) return pA - pB;
     return a.id.localeCompare(b.id);
   });
 
@@ -121,6 +133,13 @@ export function validateTradeTimeline(transactions: StockTransaction[]): {
           dipDate: tx.date,
           dipShares: runningShares,
         };
+      }
+    } else if (tx.type === 'SPLIT') {
+      const ratio =
+        tx.splitRatio ||
+        (tx.splitNumerator && tx.splitDenominator ? tx.splitNumerator / tx.splitDenominator : 1);
+      if (ratio > 0) {
+        runningShares *= ratio;
       }
     }
   }

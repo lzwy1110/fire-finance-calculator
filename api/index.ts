@@ -781,4 +781,55 @@ app.get(['/api/chart', '/chart'], async (req: Request, res: Response): Promise<a
   return res.status(500).json({ success: false, error: 'Failed to fetch historical chart data' });
 });
 
+/**
+ * Stock Splits Endpoint
+ */
+app.get(['/api/splits', '/splits'], async (req: Request, res: Response): Promise<any> => {
+  const symbol = (req.query.symbol as string || '').trim().toUpperCase();
+  if (!symbol) {
+    return res.status(400).json({ success: false, error: 'Symbol is required' });
+  }
+
+  try {
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2y&interval=1d&events=div%2Csplit`;
+    const yRes = await fetch(yahooUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (yRes.ok) {
+      const data = await yRes.json();
+      const result = data?.chart?.result?.[0];
+      const splitsRaw = result?.events?.splits || {};
+      const splits: any[] = [];
+
+      for (const [timestampKey, item] of Object.entries(splitsRaw)) {
+        const splitItem = item as any;
+        const dateSec = splitItem.date || parseInt(timestampKey, 10);
+        const dateStr = new Date(dateSec * 1000).toISOString().split('T')[0];
+        const num = splitItem.numerator || 1;
+        const den = splitItem.denominator || 1;
+        const ratio = num / den;
+        const splitRatioText =
+          splitItem.splitRatio || (num > den ? `1 拆 ${num / den}` : `${den / num} 併 1`);
+
+        splits.push({
+          date: dateStr,
+          ratio,
+          numerator: num,
+          denominator: den,
+          splitRatioText,
+        });
+      }
+
+      // Sort newest first
+      splits.sort((a, b) => b.date.localeCompare(a.date));
+      return res.json({ success: true, symbol, splits });
+    }
+  } catch (e) {}
+
+  return res.json({ success: true, symbol, splits: [] });
+});
+
 export default app;

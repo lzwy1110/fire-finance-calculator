@@ -25,16 +25,19 @@ import {
   Check,
   ChevronDown,
   Settings,
+  Scissors,
 } from 'lucide-react';
-import { FIREConfig, MarketType, PortfolioStock, StockTransaction } from '../types';
+import { FIREConfig, MarketType, PortfolioStock, StockTransaction, StockSplitEvent } from '../types';
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
 import { useFIRE } from '../context/FIREContext';
 import { StockChartModal } from './StockChartModal';
+import { StockSplitModal } from './StockSplitModal';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
   searchStockSuggestionsAsync,
+  fetchStockSplits,
   StockSearchResult,
 } from '../services/stockPriceService';
 import {
@@ -154,6 +157,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
   // Stock Chart & K-Line Modal State
   const [activeChartStock, setActiveChartStock] = useState<PortfolioStock | null>(null);
+
+  // Stock Split Modal State
+  const [activeSplitModal, setActiveSplitModal] = useState<{
+    stock: PortfolioStock;
+    splitEvent: StockSplitEvent | null;
+  } | null>(null);
+  const [detectedSplitsMap, setDetectedSplitsMap] = useState<Record<string, StockSplitEvent>>({});
 
   // Quick Action Sheet Modal for Compact List
   const [activeActionStock, setActiveActionStock] = useState<PortfolioStock | null>(null);
@@ -467,6 +477,99 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [syncedStocks.length]);
+
+  // Check for upcoming or unapplied stock splits across held stocks
+  const checkedSplitsSymbolsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (syncedStocks.length === 0) return;
+
+    const checkAllSplits = async () => {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const newMap: Record<string, StockSplitEvent> = {};
+
+      for (const stock of syncedStocks) {
+        if (!stock.symbol || (stock.shares || 0) <= 0) continue;
+        if (checkedSplitsSymbolsRef.current.has(stock.symbol)) continue;
+        checkedSplitsSymbolsRef.current.add(stock.symbol);
+
+        try {
+          const splits = await fetchStockSplits(stock.symbol);
+          if (splits.length > 0) {
+            for (const sp of splits) {
+              const alreadyApplied = (stock.transactions || []).some(
+                (t) =>
+                  t.type === 'SPLIT' &&
+                  (t.date === sp.date || Math.abs((t.splitRatio || 1) - sp.ratio) < 0.001)
+              );
+
+              if (!alreadyApplied) {
+                const isUpcoming = sp.date > todayStr;
+                newMap[stock.id] = {
+                  ...sp,
+                  status: isUpcoming ? 'upcoming' : 'effective_pending',
+                };
+                break;
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (Object.keys(newMap).length > 0) {
+        setDetectedSplitsMap((prev) => ({ ...prev, ...newMap }));
+      }
+    };
+
+    const timer = setTimeout(checkAllSplits, 1500);
+    return () => clearTimeout(timer);
+  }, [syncedStocks]);
+
+  // Handle Confirmed Stock Split Execution
+  const handleConfirmSplit = async (
+    targetStock: PortfolioStock,
+    splitData: {
+      ratio: number;
+      numerator: number;
+      denominator: number;
+      date: string;
+      notes?: string;
+    }
+  ) => {
+    const newTx: StockTransaction = {
+      id: `split-${targetStock.symbol}-${Date.now()}`,
+      stockId: targetStock.id,
+      type: 'SPLIT',
+      shares: 0,
+      price: 0,
+      date: splitData.date,
+      splitRatio: splitData.ratio,
+      splitNumerator: splitData.numerator,
+      splitDenominator: splitData.denominator,
+      note: splitData.notes || `${targetStock.symbol} ${splitData.ratio}x 股票分割`,
+    };
+
+    const existingTxs = targetStock.transactions || [];
+    const updatedTxs = [...existingTxs, newTx];
+
+    const updatedStock = syncStockCalculations({
+      ...targetStock,
+      transactions: updatedTxs,
+      lastUpdated: new Date().toISOString(),
+    });
+
+    const updatedList = syncedStocks.map((s) => (s.id === targetStock.id ? updatedStock : s));
+    onUpdateStocks(updatedList);
+
+    setDetectedSplitsMap((prev) => {
+      const copy = { ...prev };
+      delete copy[targetStock.id];
+      return copy;
+    });
+
+    setActiveSplitModal(null);
+    setRefreshStatus(`✅ 已成功套用 ${targetStock.symbol} 股票分割！持股已校正為 ${updatedStock.shares} 股`);
+    setTimeout(() => setRefreshStatus(null), 3000);
+  };
 
   // Fast Live Search Input Change (Connected via /api/search Proxy on Web & CapacitorHttp on Mobile)
   const handleSymbolInputChange = (val: string, currentMarket: MarketType = marketInput) => {
@@ -1010,7 +1113,11 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     }
 
     const targetTx = targetStock.transactions.find((t) => t.id === txId);
-    const txDesc = targetTx ? `${targetTx.type === 'BUY' ? '買入' : '賣出'} ${targetTx.shares} 股 @ $${targetTx.price}` : '這筆交易';
+    const txDesc = targetTx
+      ? targetTx.type === 'SPLIT'
+        ? `股票分割 (${targetTx.splitRatio ? (targetTx.splitRatio >= 1 ? `1 拆 ${targetTx.splitRatio}` : `${1 / targetTx.splitRatio} 併 1`) : '1 拆 10'})`
+        : `${targetTx.type === 'BUY' ? '買入' : '賣出'} ${targetTx.shares} 股 @ $${targetTx.price}`
+      : '這筆交易';
 
     setConfirmModal({
       isOpen: true,
@@ -1637,6 +1744,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               stock.previousClose && stock.previousClose > 0 ? stock.currentPrice - stock.previousClose : 0;
             const todayChangePct =
               stock.previousClose && stock.previousClose > 0 ? (todayChangeVal / stock.previousClose) * 100 : 0;
+            const pendingSplit = detectedSplitsMap[stock.id];
 
             return (
               <div
@@ -1655,6 +1763,25 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300">
                         {isUS ? '美股' : '台股'}
                       </span>
+                      {pendingSplit && (
+                        pendingSplit.status === 'upcoming' ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                            ⏳ {pendingSplit.date} 分割
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveSplitModal({ stock, splitEvent: pendingSplit });
+                            }}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-500/25 hover:bg-purple-500/40 border border-purple-500/50 text-purple-200 flex items-center gap-1 transition cursor-pointer animate-pulse"
+                          >
+                            <Scissors className="w-3 h-3" />
+                            <span>待確認分割</span>
+                          </button>
+                        )
+                      )}
                     </div>
                     <div className="text-xs text-gray-400 truncate max-w-[170px] xs:max-w-[220px] sm:max-w-[360px]" title={stock.name}>
                       {stock.name}
@@ -1714,11 +1841,20 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               stock.previousClose && stock.previousClose > 0 ? stock.currentPrice - stock.previousClose : 0;
             const todayChangePct =
               stock.previousClose && stock.previousClose > 0 ? (todayChangeVal / stock.previousClose) * 100 : 0;
+            const pendingSplit = detectedSplitsMap[stock.id];
+            const isUpcomingSplit = pendingSplit?.status === 'upcoming';
+            const isPendingSplit = pendingSplit?.status === 'effective_pending';
+
+            const cardBorderClass = isPendingSplit
+              ? 'border-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.35)]'
+              : isUpcomingSplit
+              ? 'border-amber-500/70 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+              : 'border-white/10 hover:border-white/20 shadow-xl';
 
             return (
               <div
                 key={stock.id}
-                className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl hover:border-white/20 transition group relative overflow-hidden"
+                className={`bg-[#0e0e0e] border rounded-3xl p-5 space-y-4 transition group relative overflow-hidden ${cardBorderClass}`}
               >
                 {/* Card Header: Symbol + Name (Left) ｜ Large Price & Today Change (Right) */}
                 <div className="flex items-start justify-between border-b border-white/10 pb-3.5 gap-2">
@@ -1757,6 +1893,44 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Option A: Stock Split Alert Bar */}
+                {pendingSplit && (
+                  isUpcomingSplit ? (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-2.5 flex items-center justify-between text-xs text-amber-300">
+                      <div className="flex items-center gap-2">
+                        <Scissors className="w-3.5 h-3.5 text-amber-400" />
+                        <span>⏳ 預定 {pendingSplit.date} 進行 {pendingSplit.splitRatioText} 股票分割</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSplitModal({ stock, splitEvent: pendingSplit })}
+                        className="px-2 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-bold transition cursor-pointer"
+                      >
+                        試算
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-purple-500/15 border border-purple-500/40 rounded-2xl p-2.5 flex items-center justify-between text-xs text-purple-200 shadow-md">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-1 rounded-lg bg-purple-500/20 text-purple-300 animate-pulse">
+                          <Scissors className="w-4 h-4" />
+                        </div>
+                        <div className="truncate">
+                          <span className="font-bold text-white">今日已分割！</span>
+                          <span className="text-[11px] text-purple-300 ml-1">({pendingSplit.splitRatioText})</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSplitModal({ stock, splitEvent: pendingSplit })}
+                        className="px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-black text-xs transition shadow-md shadow-purple-600/30 cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <span>點此校正 ➔</span>
+                      </button>
+                    </div>
+                  )
+                )}
 
                 {/* Card Body: Structured Metrics 2x2 Grid */}
                 <div className="grid grid-cols-2 gap-2.5 text-xs">
@@ -1947,6 +2121,29 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   <div className="text-left">
                     <div className="text-sm font-black text-white">檢視歷史交易明細</div>
                     <div className="text-xs text-gray-400 font-normal">共 {activeActionStock.transactions?.length || 0} 筆過往買賣紀錄</div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  const s = activeActionStock;
+                  setActiveActionStock(null);
+                  setActiveSplitModal({ stock: s, splitEvent: detectedSplitsMap[s.id] || null });
+                }}
+                className="p-3.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                    <Scissors className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-black text-white">記錄股票分割 (Stock Split)</div>
+                    <div className="text-xs text-purple-400 font-normal">
+                      {detectedSplitsMap[activeActionStock.id]
+                        ? `待確認：${detectedSplitsMap[activeActionStock.id].splitRatioText}`
+                        : '自訂比例如 1 拆 10、反向併股試算與校正'}
+                    </div>
                   </div>
                 </div>
               </button>
@@ -2403,17 +2600,30 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
               <div className="flex items-center justify-between text-xs font-bold text-gray-400 px-1">
                 <span>交易明細紀錄列表 ({activeHistoryStock.transactions?.length || 0} 筆):</span>
-                <button
-                  onClick={() => {
-                    const st = activeHistoryStock;
-                    setActiveHistoryStock(null);
-                    handleOpenAddModal(st);
-                  }}
-                  className="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>新增一筆交易</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const st = activeHistoryStock;
+                      setActiveHistoryStock(null);
+                      setActiveSplitModal({ stock: st, splitEvent: detectedSplitsMap[st.id] || null });
+                    }}
+                    className="text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Scissors className="w-3.5 h-3.5" />
+                    <span>記錄分割</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const st = activeHistoryStock;
+                      setActiveHistoryStock(null);
+                      handleOpenAddModal(st);
+                    }}
+                    className="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>新增交易</span>
+                  </button>
+                </div>
               </div>
 
               {activeHistoryStock.transactions && activeHistoryStock.transactions.length > 0 ? (
@@ -2422,40 +2632,84 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     key={tx.id}
                     className="bg-white/5 border border-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 hover:border-white/15 transition text-xs"
                   >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`px-2 py-1 rounded-xl font-mono font-black text-[11px] ${
-                          tx.type === 'BUY'
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                        }`}
-                      >
-                        {tx.type === 'BUY' ? '買入 BUY' : '賣出 SELL'}
-                      </span>
+                    {tx.type === 'SPLIT' ? (
+                      <div className="flex items-center gap-3">
+                        <span className="px-2 py-1 rounded-xl font-mono font-black text-[11px] bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                          <Scissors className="w-3 h-3" />
+                          <span>分割 SPLIT</span>
+                        </span>
 
-                      <div>
-                        <div className="font-mono font-bold text-white">
-                          {formatNum(tx.shares)} 股 @ ${tx.price} = ${formatNum(tx.shares * tx.price)}
-                        </div>
-                        <div className="text-[11px] text-gray-400 flex items-center gap-2">
-                          <span>📅 {tx.date}</span>
-                          {tx.note && <span className="text-gray-500">({tx.note})</span>}
+                        <div>
+                          <div className="font-mono font-bold text-white">
+                            分割比例: {tx.splitRatio ? (tx.splitRatio >= 1 ? `1 拆 ${tx.splitRatio}` : `${1 / tx.splitRatio} 併 1`) : '1 拆 10'} ({tx.splitRatio || 1}x)
+                          </div>
+                          <div className="text-[11px] text-gray-400 flex items-center gap-2">
+                            <span>📅 {tx.date}</span>
+                            <span className="text-purple-300/80">總投入成本保證不變</span>
+                            {tx.note && <span className="text-gray-500">({tx.note})</span>}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`px-2 py-1 rounded-xl font-mono font-black text-[11px] ${
+                            tx.type === 'BUY'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          }`}
+                        >
+                          {tx.type === 'BUY' ? '買入 BUY' : '賣出 SELL'}
+                        </span>
+
+                        <div>
+                          <div className="font-mono font-bold text-white">
+                            {formatNum(tx.shares)} 股 @ ${tx.price} = ${formatNum(tx.shares * tx.price)}
+                          </div>
+                          <div className="text-[11px] text-gray-400 flex items-center gap-2">
+                            <span>📅 {tx.date}</span>
+                            {tx.note && <span className="text-gray-500">({tx.note})</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          const st = activeHistoryStock;
-                          setActiveHistoryStock(null);
-                          handleOpenEditModal(st, tx);
-                        }}
-                        className="p-1.5 text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-xl transition cursor-pointer"
-                        title="編輯此筆交易紀錄"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
+                      {tx.type === 'SPLIT' ? (
+                        <button
+                          onClick={() => {
+                            const st = activeHistoryStock;
+                            setActiveHistoryStock(null);
+                            setActiveSplitModal({
+                              stock: st,
+                              splitEvent: {
+                                date: tx.date,
+                                ratio: tx.splitRatio || 1,
+                                numerator: tx.splitNumerator || (tx.splitRatio ? tx.splitRatio : 10),
+                                denominator: tx.splitDenominator || 1,
+                                splitRatioText: tx.splitRatio ? `1 拆 ${tx.splitRatio}` : '1 拆 10',
+                                status: 'applied',
+                              },
+                            });
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-xl transition cursor-pointer"
+                          title="重新試算/校正分割"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            const st = activeHistoryStock;
+                            setActiveHistoryStock(null);
+                            handleOpenEditModal(st, tx);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-xl transition cursor-pointer"
+                          title="編輯此筆交易紀錄"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
                       <button
                         onClick={() => handleDeleteSingleTransaction(activeHistoryStock.id, tx.id)}
@@ -2807,6 +3061,18 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal: Interactive Stock Split Modal */}
+      {activeSplitModal && (
+        <StockSplitModal
+          isOpen={Boolean(activeSplitModal)}
+          stock={activeSplitModal.stock}
+          splitEvent={activeSplitModal.splitEvent}
+          currencySymbol={activeSplitModal.stock.currency === 'USD' ? '$' : sym}
+          onConfirm={(splitData) => handleConfirmSplit(activeSplitModal.stock, splitData)}
+          onClose={() => setActiveSplitModal(null)}
+        />
       )}
     </div>
   );
