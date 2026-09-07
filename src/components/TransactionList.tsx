@@ -67,7 +67,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const allTransactions = useMemo(() => {
     const list: (Transaction & {
       isStockTrade?: boolean;
-      stockTradeType?: 'BUY' | 'SELL' | 'SPLIT' | 'DIVIDEND';
+      stockTradeType?: 'BUY' | 'SELL' | 'SPLIT' | 'DIVIDEND' | 'STOCK_DIVIDEND';
       stockMarket?: 'US' | 'TW';
       stockOriginalAmount?: number;
       stockOriginalCurrency?: string;
@@ -78,7 +78,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       const stockCurrency = isUS ? '$' : 'NT$';
 
       (stock.transactions || []).forEach((st) => {
-        if (st.type === 'SPLIT') return; // Skip non-cash stock splits from ledger
+        if (st.type === 'SPLIT' || st.type === 'STOCK_DIVIDEND') return; // Skip non-cash stock events from ledger
 
         const isBuy = st.type === 'BUY';
         const isSell = st.type === 'SELL';

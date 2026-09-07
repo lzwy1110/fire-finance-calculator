@@ -144,7 +144,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       const stockCurrency = isUS ? '$' : 'NT$';
 
       (stock.transactions || []).forEach((st) => {
-        if (st.type === 'SPLIT') return; // Skip non-cash stock splits
+        if (st.type === 'SPLIT' || st.type === 'STOCK_DIVIDEND') return; // Skip non-cash stock splits and stock dividends
 
         let displayDate = st.date;
         if (st.date.length >= 10) {

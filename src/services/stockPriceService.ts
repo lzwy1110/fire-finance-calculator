@@ -1,5 +1,5 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
-import { MarketType, StockSplitEvent, StockDividendEvent } from '../types/portfolio';
+import { MarketType, StockSplitEvent, StockDividendEvent, StockRightEvent } from '../types/portfolio';
 
 export interface StockQuote {
   symbol: string;
@@ -836,4 +836,88 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
   return [];
 }
 
+/**
+ * Fetch Stock Bonus Shares / Stock Dividends (台股除權配股事件)
+ */
+export async function fetchStockRights(symbol: string): Promise<StockRightEvent[]> {
+  const sym = symbol.trim().toUpperCase();
+  if (!sym) return [];
 
+  const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || /^\d{4,6}[A-Za-z]?$/.test(sym);
+  if (!isTW) return []; // Taiwan specific stock dividend / rights
+
+  const cleanCode = sym.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const parseTwseDate = (dStr: string) => {
+    if (!dStr || dStr.length < 6) return null;
+    const yearLen = dStr.length - 4;
+    const rocYear = parseInt(dStr.slice(0, yearLen), 10);
+    const adYear = rocYear + 1911;
+    const mm = dStr.slice(yearLen, yearLen + 2);
+    const dd = dStr.slice(yearLen + 2);
+    return `${adYear}-${mm}-${dd}`;
+  };
+
+  const cleanDivAmt = (v: number) => {
+    if (Math.abs(v - Math.round(v)) < 0.00005) return Math.round(v);
+    return parseFloat(v.toFixed(4));
+  };
+
+  const rights: StockRightEvent[] = [];
+  const seenDates = new Set<string>();
+
+  try {
+    const [twseData, tpexData] = await Promise.all([
+      getCachedTwseTable(),
+      getCachedTpexTable(),
+    ]);
+
+    // 1. TWSE
+    if (Array.isArray(twseData)) {
+      const item = twseData.find((it: any) => it && it.Code === cleanCode);
+      if (item) {
+        const hasRight = (item.Exdividend || '').includes('權') || parseFloat(item.StockDividendRatio) > 0;
+        if (hasRight) {
+          const dateStr = parseTwseDate(item.Date);
+          const ratio = parseFloat(item.StockDividendRatio) || 0;
+          const perShare = cleanDivAmt(ratio * 10);
+          if (dateStr && !seenDates.has(dateStr)) {
+            seenDates.add(dateStr);
+            rights.push({
+              date: dateStr,
+              stockDividendRatio: ratio,
+              stockDividendPerShare: perShare,
+              status: dateStr > todayStr ? 'upcoming' : 'effective_pending',
+            });
+          }
+        }
+      }
+    }
+
+    // 2. TPEx
+    if (Array.isArray(tpexData)) {
+      const item = tpexData.find((it: any) => it && it.SecuritiesCompanyCode === cleanCode);
+      if (item) {
+        const hasRight = (item.ExRrightsExDividend || '').includes('權') || parseFloat(item.StockDividendRatio) > 0;
+        if (hasRight) {
+          const dateStr = parseTwseDate(item.ExRrightsExDividendDate);
+          const ratio = parseFloat(item.StockDividendRatio) || 0;
+          const perShare = cleanDivAmt(ratio * 10);
+          if (dateStr && !seenDates.has(dateStr)) {
+            seenDates.add(dateStr);
+            rights.push({
+              date: dateStr,
+              stockDividendRatio: ratio,
+              stockDividendPerShare: perShare,
+              status: dateStr > todayStr ? 'upcoming' : 'effective_pending',
+            });
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  rights.sort((a, b) => b.date.localeCompare(a.date));
+  return rights;
+}

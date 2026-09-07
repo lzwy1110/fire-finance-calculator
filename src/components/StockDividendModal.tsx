@@ -68,6 +68,9 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
   // US 30% dividend withholding tax toggle (enabled by default for US stocks)
   const [withholdUsTax, setWithholdUsTax] = useState<boolean>(() => isUS);
 
+  // Taiwan 2.11% Second-generation NHI supplementary premium toggle
+  const [withholdTwNhi, setWithholdTwNhi] = useState<boolean>(true);
+
   // Notes
   const [notes, setNotes] = useState<string>(() => {
     return `${stock.symbol} 現金股利發放入帳`;
@@ -91,11 +94,23 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
     return isUS ? Number(raw.toFixed(2)) : Math.round(raw);
   }, [eligibleShares, perShareAmount, hasEligibleShares, isUS]);
 
+  // Is Taiwan gross dividend meeting the NT$ 20,000 threshold for 2.11% NHI fee?
+  const isNhiThresholdMet = useMemo(() => {
+    return !isUS && grossDividend >= 20000;
+  }, [isUS, grossDividend]);
+
   // Withholding tax
   const taxWithheld = useMemo(() => {
-    if (!isUS || !withholdUsTax || grossDividend <= 0) return 0;
-    return Number((grossDividend * 0.3).toFixed(2));
-  }, [isUS, withholdUsTax, grossDividend]);
+    if (isUS) {
+      if (!withholdUsTax || grossDividend <= 0) return 0;
+      return Number((grossDividend * 0.3).toFixed(2));
+    } else {
+      // Taiwan 2.11% NHI supplementary fee (二代健保補充保費)
+      if (!withholdTwNhi || !isNhiThresholdMet || grossDividend <= 0) return 0;
+      const taxableBase = Math.min(grossDividend, 10000000);
+      return Math.round(taxableBase * 0.0211);
+    }
+  }, [isUS, withholdUsTax, withholdTwNhi, isNhiThresholdMet, grossDividend]);
 
   // Net cash inflow
   const netCashInflow = useMemo(() => {
@@ -266,6 +281,41 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
           </div>
         )}
 
+        {/* Taiwan 2.11% Second-Generation NHI Premium Toggle */}
+        {!isUS && (
+          <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+            <div className="space-y-0.5">
+              <label
+                htmlFor="twNhiWithholdingToggle"
+                className="font-bold text-white flex items-center gap-1.5 cursor-pointer flex-wrap"
+              >
+                <Percent className="w-3.5 h-3.5 text-cyan-400" />
+                <span>代扣台股二代健保補充保費 (2.11%)</span>
+                {isNhiThresholdMet ? (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-normal">
+                    達 NT$20,000 門檻
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-gray-400 font-normal">
+                    未達 NT$20,000 免扣
+                  </span>
+                )}
+              </label>
+              <p className="text-[11px] text-gray-400">
+                單次給付同一股票股利總額達 NT$20,000（含）以上，依健保法代扣 2.11% 補充保險費
+              </p>
+            </div>
+            <input
+              id="twNhiWithholdingToggle"
+              type="checkbox"
+              checked={withholdTwNhi && isNhiThresholdMet}
+              disabled={!isNhiThresholdMet}
+              onChange={(e) => setWithholdTwNhi(e.target.checked)}
+              className="w-5 h-5 accent-cyan-500 rounded cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+            />
+          </div>
+        )}
+
         {/* Cash Dividend Payout Calculation Sheet */}
         <div className="bg-black/60 border border-emerald-500/20 rounded-2xl overflow-hidden shadow-inner divide-y divide-white/5 text-xs">
           <div className="px-3.5 py-2 bg-emerald-500/10 text-emerald-300 font-bold text-[11px] flex justify-between items-center">
@@ -292,12 +342,14 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
               </span>
             </div>
 
-            {/* Row 3: US Withholding Tax (if applicable) */}
-            {isUS && withholdUsTax && (
+            {/* Row 3: Tax Withheld (US 30% or TW 2.11% NHI) */}
+            {taxWithheld > 0 && (
               <div className="flex items-center justify-between text-amber-300 bg-amber-500/10 px-2.5 py-1.5 rounded-xl">
-                <span>美股 30% 預扣稅 (Withholding Tax):</span>
+                <span>
+                  {isUS ? '美股 30% 預扣稅 (Withholding Tax):' : '二代健保補充保費 (2.11% 代扣):'}
+                </span>
                 <span className="font-mono font-bold">
-                  - {currSym}{formatDec(taxWithheld)}
+                  - {currSym}{formatDec(taxWithheld, isUS ? 2 : 0)}
                 </span>
               </div>
             )}

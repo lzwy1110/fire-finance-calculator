@@ -36,7 +36,7 @@ export function calculateStockMetrics(
     if (timeA !== timeB) {
       return timeA - timeB;
     }
-    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, DIVIDEND: 3, SELL: 4 };
+    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, STOCK_DIVIDEND: 2.5, DIVIDEND: 3, SELL: 4 };
     const pA = typePriority[a.type] ?? 2;
     const pB = typePriority[b.type] ?? 2;
     if (pA !== pB) return pA - pB;
@@ -69,6 +69,14 @@ export function calculateStockMetrics(
         currentShares = currentShares * ratio;
         // Total invested capital pool (totalCostPool) remains strictly invariant
       }
+    } else if (tx.type === 'STOCK_DIVIDEND') {
+      const addedShares = Math.abs(tx.shares) || 0;
+      if (addedShares > 0) {
+        currentShares += addedShares;
+      } else if (tx.stockDividendRatio && tx.stockDividendRatio > 0) {
+        currentShares = currentShares * (1 + tx.stockDividendRatio);
+      }
+      // Total invested capital pool (totalCostPool) remains strictly invariant
     } else if (tx.type === 'DIVIDEND') {
       // Cash dividends do not consume shares or modify trading cost basis
     }
@@ -110,7 +118,7 @@ export function validateTradeTimeline(transactions: StockTransaction[]): {
     if (timeA !== timeB) {
       return timeA - timeB;
     }
-    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, DIVIDEND: 3, SELL: 4 };
+    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, STOCK_DIVIDEND: 2.5, DIVIDEND: 3, SELL: 4 };
     const pA = typePriority[a.type] ?? 2;
     const pB = typePriority[b.type] ?? 2;
     if (pA !== pB) return pA - pB;
@@ -142,6 +150,13 @@ export function validateTradeTimeline(transactions: StockTransaction[]): {
         (tx.splitNumerator && tx.splitDenominator ? tx.splitNumerator / tx.splitDenominator : 1);
       if (ratio > 0) {
         runningShares *= ratio;
+      }
+    } else if (tx.type === 'STOCK_DIVIDEND') {
+      const addedShares = Math.abs(tx.shares) || 0;
+      if (addedShares > 0) {
+        runningShares += addedShares;
+      } else if (tx.stockDividendRatio && tx.stockDividendRatio > 0) {
+        runningShares = runningShares * (1 + tx.stockDividendRatio);
       }
     } else if (tx.type === 'DIVIDEND') {
       // Dividends do not consume or alter share count
