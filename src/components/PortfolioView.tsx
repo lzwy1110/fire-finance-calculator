@@ -1905,7 +1905,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                       {pendingDiv && (
                         pendingDiv.status === 'upcoming' ? (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300">
-                            💰 {pendingDiv.date} 除息 ${pendingDiv.amount}
+                            💰 {pendingDiv.date} 除息{pendingDiv.amount > 0 ? ` $${pendingDiv.amount}` : ''}
                           </span>
                         ) : (
                           <button
@@ -2082,7 +2082,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-2.5 flex items-center justify-between text-xs text-amber-300">
                       <div className="flex items-center gap-2">
                         <span className="text-sm">⏳</span>
-                        <span>預定 {pendingDiv.date} 除息每股 ${pendingDiv.amount}</span>
+                        <span>
+                          預定 {pendingDiv.date} 除息
+                          {pendingDiv.amount > 0 ? ` 每股 $${pendingDiv.amount}` : ' (金額待公告)'}
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -2100,7 +2103,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                         </div>
                         <div className="truncate">
                           <span className="font-bold text-white">今日已除息！</span>
-                          <span className="text-[11px] text-emerald-300 ml-1">(每股 ${pendingDiv.amount})</span>
+                          <span className="text-[11px] text-emerald-300 ml-1">
+                            ({pendingDiv.amount > 0 ? `每股 $${pendingDiv.amount}` : '點此確認入帳'})
+                          </span>
                         </div>
                       </div>
                       <button

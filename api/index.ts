@@ -903,10 +903,13 @@ app.get(['/api/dividends', '/dividends'], async (req: Request, res: Response): P
         const twseData = await twseRes.value.json();
         if (Array.isArray(twseData)) {
           const item = twseData.find((it: any) => it && it.Code === cleanCode);
-          if (item) {
+          if (item && ((item.Exdividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
             const dateStr = parseTwseDate(item.Date);
-            const amt = parseFloat(item.CashDividend) || 0;
-            if (dateStr && amt > 0 && !seenDates.has(dateStr)) {
+            let amt = parseFloat(item.CashDividend) || 0;
+            if (amt <= 0 && dividends.length > 0) {
+              amt = dividends[0].amount || 0;
+            }
+            if (dateStr && !seenDates.has(dateStr)) {
               seenDates.add(dateStr);
               dividends.push({ date: dateStr, amount: amt });
             }
@@ -918,10 +921,13 @@ app.get(['/api/dividends', '/dividends'], async (req: Request, res: Response): P
         const tpexData = await tpexRes.value.json();
         if (Array.isArray(tpexData)) {
           const item = tpexData.find((it: any) => it && it.SecuritiesCompanyCode === cleanCode);
-          if (item) {
+          if (item && ((item.ExRrightsExDividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
             const dateStr = parseTwseDate(item.ExRrightsExDividendDate);
-            const amt = parseFloat(item.CashDividend) || 0;
-            if (dateStr && amt > 0 && !seenDates.has(dateStr)) {
+            let amt = parseFloat(item.CashDividend) || 0;
+            if (amt <= 0 && dividends.length > 0) {
+              amt = dividends[0].amount || 0;
+            }
+            if (dateStr && !seenDates.has(dateStr)) {
               seenDates.add(dateStr);
               dividends.push({ date: dateStr, amount: amt });
             }

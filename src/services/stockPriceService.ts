@@ -586,12 +586,27 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
   const sym = symbol.trim().toUpperCase();
   if (!sym) return [];
 
-  const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || /^\d{4,6}$/.test(sym);
+  const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || /^\d{4,6}[A-Za-z]?$/.test(sym);
+  const cleanCode = sym.replace(/\.TW$/i, '').replace(/\.TWO$/i, '');
   const yahooSymbol = isTW && !sym.includes('.') ? `${sym}.TW` : sym;
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 1. Android Native via CapacitorHttp
+  const parseTwseDate = (dStr: string) => {
+    if (!dStr || dStr.length < 6) return null;
+    const yearLen = dStr.length - 4;
+    const rocYear = parseInt(dStr.slice(0, yearLen), 10);
+    const adYear = rocYear + 1911;
+    const mm = dStr.slice(yearLen, yearLen + 2);
+    const dd = dStr.slice(yearLen + 2);
+    return `${adYear}-${mm}-${dd}`;
+  };
+
+  const dividends: StockDividendEvent[] = [];
+  const seenDates = new Set<string>();
+
+  // 1. Android Native via CapacitorHttp (Bypasses CORS completely!)
   if (Capacitor.isNativePlatform()) {
+    // 1a. Query Yahoo Finance Chart for historical dividends
     try {
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=2y&interval=1d&events=div%2Csplit`;
       const res = await CapacitorHttp.get({
@@ -604,8 +619,6 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
 
       const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
       const divsRaw = data?.chart?.result?.[0]?.events?.dividends || {};
-      const dividends: StockDividendEvent[] = [];
-      const seenDates = new Set<string>();
 
       for (const [timestampKey, item] of Object.entries(divsRaw)) {
         const divItem = item as any;
@@ -622,23 +635,128 @@ export async function fetchStockDividends(symbol: string): Promise<StockDividend
           });
         }
       }
-
-      dividends.sort((a, b) => b.date.localeCompare(a.date));
-      return dividends;
     } catch (e) {}
+
+    // 1b. For Taiwan stocks, directly query official TWSE and TPEx tables on mobile!
+    if (isTW) {
+      try {
+        const [twseRes, tpexRes] = await Promise.allSettled([
+          CapacitorHttp.get({
+            url: 'https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL',
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+          }),
+          CapacitorHttp.get({
+            url: 'https://www.tpex.org.tw/openapi/v1/tpex_exright_prepost',
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+          }),
+        ]);
+
+        if (twseRes.status === 'fulfilled' && twseRes.value.status === 200) {
+          const raw = twseRes.value.data;
+          const twseData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          if (Array.isArray(twseData)) {
+            const item = twseData.find((it: any) => it && it.Code === cleanCode);
+            if (item && ((item.Exdividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
+              const dateStr = parseTwseDate(item.Date);
+              let amt = parseFloat(item.CashDividend) || 0;
+              if (amt <= 0 && dividends.length > 0) amt = dividends[0].amount;
+              if (dateStr && !seenDates.has(dateStr)) {
+                seenDates.add(dateStr);
+                dividends.push({
+                  date: dateStr,
+                  amount: amt,
+                  status: dateStr > todayStr ? 'upcoming' : 'effective_pending',
+                });
+              }
+            }
+          }
+        }
+
+        if (tpexRes.status === 'fulfilled' && tpexRes.value.status === 200) {
+          const raw = tpexRes.value.data;
+          const tpexData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          if (Array.isArray(tpexData)) {
+            const item = tpexData.find((it: any) => it && it.SecuritiesCompanyCode === cleanCode);
+            if (item && ((item.ExRrightsExDividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
+              const dateStr = parseTwseDate(item.ExRrightsExDividendDate);
+              let amt = parseFloat(item.CashDividend) || 0;
+              if (amt <= 0 && dividends.length > 0) amt = dividends[0].amount;
+              if (dateStr && !seenDates.has(dateStr)) {
+                seenDates.add(dateStr);
+                dividends.push({
+                  date: dateStr,
+                  amount: amt,
+                  status: dateStr > todayStr ? 'upcoming' : 'effective_pending',
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    dividends.sort((a, b) => b.date.localeCompare(a.date));
+    return dividends;
   }
 
   // 2. Web Browser via Serverless Proxy /api/dividends
   try {
     const proxyUrl = `/api/dividends?symbol=${encodeURIComponent(yahooSymbol)}`;
     const data = await httpGetJson(proxyUrl);
-    if (data && data.success && Array.isArray(data.dividends)) {
+    if (data && data.success && Array.isArray(data.dividends) && data.dividends.length > 0) {
       return data.dividends.map((d: any) => ({
         ...d,
         status: d.date > todayStr ? 'upcoming' : 'effective_pending',
       }));
     }
   } catch (e) {}
+
+  // 3. Fallback for Web Browser: direct query with CORS proxy
+  if (isTW) {
+    try {
+      const [twseData, tpexData] = await Promise.all([
+        httpGetJson('https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL'),
+        httpGetJson('https://www.tpex.org.tw/openapi/v1/tpex_exright_prepost'),
+      ]);
+
+      if (Array.isArray(twseData)) {
+        const item = twseData.find((it: any) => it && it.Code === cleanCode);
+        if (item && ((item.Exdividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
+          const dateStr = parseTwseDate(item.Date);
+          const amt = parseFloat(item.CashDividend) || 0;
+          if (dateStr && !seenDates.has(dateStr)) {
+            seenDates.add(dateStr);
+            dividends.push({
+              date: dateStr,
+              amount: amt,
+              status: dateStr > todayStr ? 'upcoming' : 'effective_pending',
+            });
+          }
+        }
+      }
+
+      if (Array.isArray(tpexData)) {
+        const item = tpexData.find((it: any) => it && it.SecuritiesCompanyCode === cleanCode);
+        if (item && ((item.ExRrightsExDividend || '').includes('息') || parseFloat(item.CashDividend) > 0)) {
+          const dateStr = parseTwseDate(item.ExRrightsExDividendDate);
+          const amt = parseFloat(item.CashDividend) || 0;
+          if (dateStr && !seenDates.has(dateStr)) {
+            seenDates.add(dateStr);
+            dividends.push({
+              date: dateStr,
+              amount: amt,
+              status: dateStr > todayStr ? 'upcoming' : 'effective_pending',
+            });
+          }
+        }
+      }
+
+      if (dividends.length > 0) {
+        dividends.sort((a, b) => b.date.localeCompare(a.date));
+        return dividends;
+      }
+    } catch (e) {}
+  }
 
   return [];
 }
