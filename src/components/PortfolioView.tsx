@@ -26,6 +26,8 @@ import {
   ChevronDown,
   Settings,
   Scissors,
+  Gift,
+  BarChart3,
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock, StockTransaction, StockSplitEvent, StockDividendEvent, StockRightEvent } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -35,6 +37,7 @@ import { StockChartModal } from './StockChartModal';
 import { StockSplitModal } from './StockSplitModal';
 import { StockDividendModal } from './StockDividendModal';
 import { StockRightModal } from './StockRightModal';
+import { DividendCalendarView } from './DividendCalendarView';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
@@ -81,6 +84,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   onOpenCurrencyExchange,
 }) => {
   const currentTheme = getThemePreset(fireConfig.themeColor);
+  const [portfolioSubTab, setPortfolioSubTab] = useState<'holdings' | 'dividend_calendar'>('holdings');
   const [filterMarket, setFilterMarket] = useState<'ALL' | 'US' | 'TW'>('ALL');
   const usdRate = propUsdRate || fireConfig.usdRate || 32.0;
   const currentTWD = cashSavingsTWD ?? (fireConfig.cashSavingsTWD ?? (fireConfig.cashSavings ?? 0));
@@ -1636,10 +1640,52 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         )}
       </div>
 
-      {/* 🛠️ Symmetrically Aligned Clean Control Toolbar */}
-      <div className="bg-[#0c0c0c] border border-white/5 p-3.5 sm:p-4 rounded-3xl space-y-3">
-        {/* Row 1: Market Filter Tabs (Left) + Live Status (Middle) + Sort & Layout Mode (Right) */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* 🧭 Primary View Mode Switcher: [ 📦 持股庫存 (Holdings) ] vs [ 📅 股息日曆與被動收入 (Dividend Calendar) ] */}
+      <div className="flex items-center p-1 bg-[#111114] border border-white/10 rounded-2xl shadow-xl max-w-lg mx-auto">
+        <button
+          type="button"
+          onClick={() => setPortfolioSubTab('holdings')}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
+            portfolioSubTab === 'holdings'
+              ? 'bg-white/15 text-white shadow-md'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <LayoutGrid className="w-3.5 h-3.5 text-cyan-400" />
+          <span>📦 持股庫存 ({syncedStocks.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setPortfolioSubTab('dividend_calendar')}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
+            portfolioSubTab === 'dividend_calendar'
+              ? 'bg-white/15 text-white shadow-md'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+          <span>📅 股息日曆與被動收入</span>
+        </button>
+      </div>
+
+      {portfolioSubTab === 'dividend_calendar' ? (
+        <DividendCalendarView
+          stocks={syncedStocks}
+          fireConfig={fireConfig}
+          usdRate={usdRate}
+          onOpenDividendModal={(stock, event) => {
+            setActiveDividendModal({ stock, dividendEvent: event || null });
+          }}
+          onSelectStock={(stock) => {
+            setActiveChartStock(stock);
+          }}
+        />
+      ) : (
+        <>
+          {/* 🛠️ Symmetrically Aligned Clean Control Toolbar */}
+          <div className="bg-[#0c0c0c] border border-white/5 p-3.5 sm:p-4 rounded-3xl space-y-3">
+            {/* Row 1: Market Filter Tabs (Left) + Live Status (Middle) + Sort & Layout Mode (Right) */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Market Filter Tabs */}
           <div className="flex items-center gap-1 bg-black/60 border border-white/10 p-1 rounded-2xl">
             <button
@@ -2390,6 +2436,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           })}
         </div>
       )}
+        </>
+      )}
 
       {/* Modal: Quick Action Sheet for Compact List Row Tap */}
       {activeActionStock && (
@@ -2546,6 +2594,26 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                       {detectedRightsMap[activeActionStock.id]
                         ? `待確認：每股配 $${detectedRightsMap[activeActionStock.id].stockDividendPerShare} 元`
                         : '無償配發新股、成本守恆與均價除權'}
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveActionStock(null);
+                  setPortfolioSubTab('dividend_calendar');
+                }}
+                className="p-3.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 flex items-center justify-center text-base">
+                    📅
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-black text-white">查看股息日曆與填息分析</div>
+                    <div className="text-xs text-sky-400 font-normal">
+                      年度被動現金流與除權息復原力追蹤
                     </div>
                   </div>
                 </div>

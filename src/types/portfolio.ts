@@ -72,3 +72,64 @@ export interface PortfolioSummary {
   twMarketValueTWD: number;
   totalRealizedPnLTWD?: number;
 }
+
+export interface DividendCalendarItem {
+  id: string;
+  stockId: string;
+  symbol: string;
+  name: string;
+  market: MarketType;
+  currency: CurrencyType;
+  exDate: string; // Ex-dividend date (YYYY-MM-DD)
+  paymentDate?: string; // Estimated or actual payment date (YYYY-MM-DD)
+  amountPerShare: number; // Dividend amount per share
+  shares: number; // Holding shares eligible
+  grossAmount: number; // Total gross dividend in stock's native currency
+  taxWithheld: number; // Estimated or actual tax withheld (USD 30% or TW 2.11% NHI)
+  netAmount: number; // Net dividend in native currency
+  netAmountTWD: number; // Net dividend converted to TWD
+  status: 'confirmed' | 'declared' | 'estimated'; // confirmed (already in ledger/paid), declared (official upcoming), estimated (projected)
+  transactionId?: string; // Linked StockTransaction id if confirmed
+}
+
+export interface DividendMonthlyBucket {
+  month: number; // 1 - 12
+  monthLabel: string; // e.g. "1月", "2月"
+  confirmedTWD: number;
+  declaredTWD: number;
+  totalTWD: number;
+  items: DividendCalendarItem[];
+}
+
+export interface DividendRecoveryInfo {
+  symbol: string;
+  name?: string;
+  market: MarketType;
+  currency: CurrencyType;
+  exDate: string;
+  dividendAmount: number;
+  preClosePrice: number; // Close price before ex-dividend day
+  exRefPrice: number; // Ex-dividend reference price (preClosePrice - dividendAmount)
+  currentPrice: number; // Latest market price
+  recoveryRate: number; // ((currentPrice - exRefPrice) / dividendAmount) * 100
+  isRecovered: boolean; // currentPrice >= preClosePrice
+  daysToRecover?: number; // Trading days to recover if already recovered
+  recoveredDate?: string; // Date when recovery achieved
+  status: 'recovered' | 'recovering' | 'discount';
+  priceGap: number; // currentPrice - preClosePrice (positive if exceeded, negative if deficit)
+}
+
+export interface DividendCalendarSummary {
+  year: number;
+  totalConfirmedTWD: number;
+  totalProjectedTWD: number;
+  totalAnnualTWD: number;
+  avgMonthlyDividendTWD: number;
+  monthlyExpenseTWD: number;
+  expenseCoverageRatio: number; // (avgMonthlyDividendTWD / monthlyExpenseTWD) * 100
+  portfolioYieldPercent: number; // (totalAnnualTWD / totalPortfolioMarketValueTWD) * 100
+  monthlyBuckets: DividendMonthlyBucket[];
+  items: DividendCalendarItem[];
+  topContributors: { symbol: string; name: string; totalTWD: number; percentage: number }[];
+}
+

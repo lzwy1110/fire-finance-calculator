@@ -1,5 +1,6 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
-import { MarketType, StockSplitEvent, StockDividendEvent, StockRightEvent } from '../types/portfolio';
+import { MarketType, StockSplitEvent, StockDividendEvent, StockRightEvent, DividendRecoveryInfo } from '../types/portfolio';
+import { calculateDividendRecovery } from '../utils/dividendMath';
 
 export interface StockQuote {
   symbol: string;
@@ -921,3 +922,86 @@ export async function fetchStockRights(symbol: string): Promise<StockRightEvent[
   rights.sort((a, b) => b.date.localeCompare(a.date));
   return rights;
 }
+
+// In-memory cache for Yahoo chart historical data: symbol -> { timestamp, data }
+const chartCache = new Map<string, { timestamp: number; result: any }>();
+const CHART_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Fetch Stock Dividend Recovery Data (填權息狀態與歷時天數分析)
+ */
+export async function fetchDividendRecoveryData(
+  symbol: string,
+  exDate: string,
+  dividendAmount: number,
+  currentPriceFallback?: number,
+  stockName?: string
+): Promise<DividendRecoveryInfo | null> {
+  const sym = symbol.trim().toUpperCase();
+  if (!sym || !exDate || dividendAmount <= 0) return null;
+
+  const isTW = sym.endsWith('.TW') || sym.endsWith('.TWO') || /^\d{4,6}[A-Za-z]?$/.test(sym);
+  const yahooSymbol = isTW && !sym.includes('.') ? `${sym}.TW` : sym;
+
+  try {
+    let result: any = null;
+    const now = Date.now();
+    const cached = chartCache.get(yahooSymbol);
+
+    if (cached && now - cached.timestamp < CHART_CACHE_TTL) {
+      result = cached.result;
+    } else {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=1y&interval=1d&events=div`;
+      const data = await httpGetJson(url);
+      if (data?.chart?.result?.[0]) {
+        result = data.chart.result[0];
+        chartCache.set(yahooSymbol, { timestamp: now, result });
+      }
+    }
+
+    if (result) {
+      const timestamps: number[] = result.timestamp || [];
+      const closes: number[] = result.indicators?.quote?.[0]?.close || [];
+      const livePrice = result.meta?.regularMarketPrice || currentPriceFallback || closes[closes.length - 1] || 0;
+
+      // Find candle corresponding to exDate (or earliest trading day >= exDate)
+      let exIdx = -1;
+      for (let i = 0; i < timestamps.length; i++) {
+        const dStr = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+        if (dStr >= exDate) {
+          exIdx = i;
+          break;
+        }
+      }
+
+      if (exIdx > 0 && typeof closes[exIdx - 1] === 'number') {
+        const preClose = closes[exIdx - 1];
+        return calculateDividendRecovery(livePrice, dividendAmount, preClose, {
+          symbol: sym,
+          name: stockName,
+          market: isTW ? 'TW' : 'US',
+          currency: isTW ? 'TWD' : 'USD',
+          exDate,
+          closesHistory: closes,
+          timestampsHistory: timestamps,
+          exTimestamp: timestamps[exIdx],
+        });
+      }
+    }
+  } catch (e) {}
+
+  // Fallback if chart is unreachable: use currentPriceFallback with standard formula
+  if (currentPriceFallback && currentPriceFallback > 0) {
+    const estimatedPreClose = currentPriceFallback; // Conservative estimate
+    return calculateDividendRecovery(currentPriceFallback, dividendAmount, estimatedPreClose, {
+      symbol: sym,
+      name: stockName,
+      market: isTW ? 'TW' : 'US',
+      currency: isTW ? 'TWD' : 'USD',
+      exDate,
+    });
+  }
+
+  return null;
+}
+
