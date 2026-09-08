@@ -48,47 +48,7 @@ export const DEFAULT_ANNUAL_TAXES: TaxItem[] = [
   },
 ];
 
-export const DEFAULT_RECURRING_EXPENSES: RecurringExpense[] = [
-  {
-    id: 'rec-netflix',
-    name: 'Netflix 4K 家庭方案',
-    amount: 390,
-    currency: 'TWD',
-    frequency: 'monthly',
-    billingDay: 15,
-    mainCategory: '娛樂生活',
-    subCategory: '串流訂閱',
-    isActive: true,
-    nextDeductedDate: '2026-09-15',
-    note: '每月影音串流月租費',
-  },
-  {
-    id: 'rec-telecom',
-    name: '中華電信 5G 吃到飽',
-    amount: 599,
-    currency: 'TWD',
-    frequency: 'monthly',
-    billingDay: 20,
-    mainCategory: '生活開銷',
-    subCategory: '電信通訊',
-    isActive: true,
-    nextDeductedDate: '2026-09-20',
-    note: '手機門號月租定期扣繳',
-  },
-  {
-    id: 'rec-rent',
-    name: '台北套房房租',
-    amount: 16000,
-    currency: 'TWD',
-    frequency: 'monthly',
-    billingDay: 5,
-    mainCategory: '居住開銷',
-    subCategory: '房租水電',
-    isActive: true,
-    nextDeductedDate: '2026-10-05',
-    note: '每月固定房租轉帳',
-  },
-];
+export const DEFAULT_RECURRING_EXPENSES: RecurringExpense[] = [];
 
 export const DEFAULT_PORTFOLIO_STOCKS: PortfolioStock[] = [
   {

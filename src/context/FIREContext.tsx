@@ -535,9 +535,12 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ================= RECURRING DEDUCTIONS SYSTEM ================= //
 
   const recurringExpenses = useMemo(() => {
-    return fireConfig.recurringExpenses && fireConfig.recurringExpenses.length > 0
-      ? fireConfig.recurringExpenses
-      : (DEFAULT_RECURRING_EXPENSES || []);
+    if (Array.isArray(fireConfig.recurringExpenses)) {
+      return fireConfig.recurringExpenses.filter(
+        (e) => !['rec-netflix', 'rec-telecom', 'rec-rent'].includes(e.id)
+      );
+    }
+    return [];
   }, [fireConfig.recurringExpenses]);
 
   const [todayAutoDeductions, setTodayAutoDeductions] = useState<Array<{ expense: RecurringExpense; transaction: Transaction }>>([]);
@@ -600,10 +603,9 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAndProcessRecurringExpenses = useCallback((cfgParam?: FIREConfig) => {
     const cfg = cfgParam || fireConfig;
-    const list = cfg.recurringExpenses && cfg.recurringExpenses.length > 0
-      ? cfg.recurringExpenses
-      : (DEFAULT_RECURRING_EXPENSES || []);
-    if (!list || list.length === 0) return;
+    const rawList = Array.isArray(cfg.recurringExpenses) ? cfg.recurringExpenses : [];
+    const list = rawList.filter((e) => !['rec-netflix', 'rec-telecom', 'rec-rent'].includes(e.id));
+    if (list.length === 0) return;
 
     const todayStr = getLocalDateString();
     const rate = cfg.usdRate || usdRate || 32.0;
