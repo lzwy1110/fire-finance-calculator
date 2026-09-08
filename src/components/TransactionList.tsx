@@ -15,11 +15,14 @@ import {
   Check,
   Folder,
   ChevronDown,
+  Repeat,
 } from 'lucide-react';
 import { CategoryItem, FIREConfig, Transaction, PortfolioStock } from '../types';
 import { getThemePreset } from '../utils/theme';
 import { ConfirmModal } from './ConfirmModal';
 import { AnnualTaxChecklist } from './AnnualTaxChecklist';
+import { RecurringExpenseManager } from './RecurringExpenseManager';
+import { useFIRE } from '../context/FIREContext';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -48,8 +51,14 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const sym = fireConfig.currencySymbol || 'NT$';
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
 
+  const { recurringExpenses } = useFIRE();
+  const activeRecurringCount = useMemo(
+    () => recurringExpenses.filter((e) => e.isActive).length,
+    [recurringExpenses]
+  );
+
   const currentMonthStr = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
-  const [mainTab, setMainTab] = useState<'ledger' | 'tax'>('ledger');
+  const [mainTab, setMainTab] = useState<'ledger' | 'recurring' | 'tax'>('ledger');
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
   const [search, setSearch] = useState('');
   // View Scope: 'living' (生活收支) | 'investment' (投資證券) | 'all' (全部動態)
@@ -365,7 +374,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   return (
     <div className="space-y-6 animate-fadeIn pb-16">
       {/* Top Sub-Tab Navigation Bar */}
-      <div className="flex bg-[#0c0c0e] p-1.5 rounded-2xl border border-white/10 max-w-xs shadow-lg">
+      <div className="flex bg-[#0c0c0e] p-1.5 rounded-2xl border border-white/10 max-w-md shadow-lg">
         <button
           type="button"
           onClick={() => setMainTab('ledger')}
@@ -378,6 +387,25 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         >
           <ReceiptText className="w-4 h-4" />
           <span>收支明細</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('recurring')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mainTab === 'recurring'
+              ? 'bg-white/10 text-white shadow-md'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+          style={mainTab === 'recurring' ? { color: currentTheme.primaryHex } : {}}
+        >
+          <Repeat className="w-4 h-4" />
+          <span>週期扣款</span>
+          {activeRecurringCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              {activeRecurringCount}
+            </span>
+          )}
         </button>
 
         <button
@@ -396,6 +424,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
       {mainTab === 'tax' ? (
         <AnnualTaxChecklist />
+      ) : mainTab === 'recurring' ? (
+        <RecurringExpenseManager />
       ) : (
         <>
           {/* Top Header Card */}

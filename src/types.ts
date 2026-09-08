@@ -18,6 +18,7 @@ export interface Transaction {
   mainCategory: string;
   subCategory: string;
   date: string; // YYYY-MM-DD
+  currency?: 'TWD' | 'USD';
   note?: string;
   tags?: string[];
   isQuickPreset?: boolean;
@@ -32,6 +33,24 @@ export interface TaxItem {
   paidDate?: string; // YYYY-MM-DD
   transactionId?: string; // Linked ledger transaction ID
   category?: 'vehicle' | 'income' | 'housing' | 'custom';
+  note?: string;
+}
+
+export type RecurringFrequency = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual';
+
+export interface RecurringExpense {
+  id: string;
+  name: string; // e.g. "Netflix 4K", "台北房租", "中華電信 5G", "全民健保"
+  amount: number; // e.g. 390
+  currency: 'TWD' | 'USD';
+  frequency: RecurringFrequency; // 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual'
+  billingDay: number; // 1-31 (每月幾號扣款)
+  billingMonth?: number; // 1-12 (年繳時使用，或雙月繳之起始月份)
+  mainCategory: string; // e.g. "生活開銷"
+  subCategory: string; // e.g. "房租水電"
+  isActive: boolean; // 是否啟用中 (可隨時暫停)
+  lastDeductedDate?: string; // YYYY-MM-DD (防止同日重複扣款)
+  nextDeductedDate: string; // YYYY-MM-DD (下一次扣款預計日期)
   note?: string;
 }
 
@@ -57,6 +76,7 @@ export interface FIREConfig {
   currencySymbol: string; // e.g. "NT$" or "$"
   themeColor?: string; // Theme preset id ('cyan' | 'sakura' | 'emerald' | 'amber' | 'violet' | 'rose') or custom hex color
   annualTaxes?: TaxItem[]; // 年度稅務待辦清單
+  recurringExpenses?: RecurringExpense[]; // 週期固定扣款/訂閱項目清單
   twStockFeeRate?: number; // 🇹🇼 台股交易手續費率 % (預設 0.0399%)
   usStockFeeRate?: number; // 🇺🇸 美股交易手續費率 % (預設 0%)
   twStockFeeDiscount?: number; // 向後相容
@@ -96,6 +116,7 @@ export interface CloudBackupData {
   fireConfig: FIREConfig;
   quickPresets: QuickPreset[];
   portfolioStocks?: PortfolioStock[];
+  recurringExpenses?: RecurringExpense[];
 }
 
 export * from './types/portfolio';

@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS public.fire_configs (
     tw_stock_fee_rate NUMERIC(8, 4) DEFAULT 0.0399,
     us_stock_fee_rate NUMERIC(8, 4) DEFAULT 0,
     annual_taxes JSONB DEFAULT '[]'::jsonb,
+    recurring_expenses JSONB DEFAULT '[]'::jsonb,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -70,6 +71,7 @@ ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS base_cash_balance NUMER
 ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS tw_stock_fee_rate NUMERIC(8, 4) DEFAULT 0.0399;
 ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS us_stock_fee_rate NUMERIC(8, 4) DEFAULT 0;
 ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS annual_taxes JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.fire_configs ADD COLUMN IF NOT EXISTS recurring_expenses JSONB DEFAULT '[]'::jsonb;
 
 -- 4. 桌面與快捷記帳預設表 (Quick Presets)
 CREATE TABLE IF NOT EXISTS public.quick_presets (

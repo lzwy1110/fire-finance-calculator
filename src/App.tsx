@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FIREProvider, useFIRE } from './context/FIREContext';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -14,6 +14,7 @@ import { CurrencyExchangeModal } from './components/CurrencyExchangeModal';
 import { AppLoadingSplash } from './components/AppLoadingSplash';
 import { BottomTabBar } from './components/BottomTabBar';
 import { ConfirmModal } from './components/ConfirmModal';
+import { RecurringDeductionAlertModal } from './components/RecurringDeductionAlertModal';
 import { WidgetBridge } from './services/widgetBridge';
 import { resetAllDataToDefault } from './utils/storage';
 import { Capacitor } from '@capacitor/core';
@@ -66,7 +67,21 @@ function FIREAppContent() {
     restoreAllData,
     clearAllLocalData,
     loadDemoSampleData,
+    todayAutoDeductions,
+    clearTodayAutoDeductions,
   } = useFIRE();
+
+  const totalAutoDeductedTWD = useMemo(() => {
+    return (todayAutoDeductions || [])
+      .filter((item) => (item.expense.currency || 'TWD') === 'TWD')
+      .reduce((sum, item) => sum + item.expense.amount, 0);
+  }, [todayAutoDeductions]);
+
+  const totalAutoDeductedUSD = useMemo(() => {
+    return (todayAutoDeductions || [])
+      .filter((item) => item.expense.currency === 'USD')
+      .reduce((sum, item) => sum + item.expense.amount, 0);
+  }, [todayAutoDeductions]);
 
   // 1. Android Widget Bridge: Push live today's expense, transactions & Supabase config to Native Widget
   useEffect(() => {
@@ -428,6 +443,20 @@ function FIREAppContent() {
         systemUsdRate={usdRate}
         themeColor={fireConfig.themeColor}
         onExchange={exchangeCurrency}
+      />
+
+      <RecurringDeductionAlertModal
+        isOpen={(todayAutoDeductions || []).length > 0}
+        onClose={clearTodayAutoDeductions}
+        onGoToLedger={() => {
+          clearTodayAutoDeductions();
+          setActiveTab('ledger');
+        }}
+        deductedItems={todayAutoDeductions || []}
+        totalDeductedTWD={totalAutoDeductedTWD}
+        totalDeductedUSD={totalAutoDeductedUSD}
+        remainingCashTWD={cashSavingsTWD}
+        remainingCashUSD={cashSavingsUSD}
       />
 
       {appConfirmModal && (

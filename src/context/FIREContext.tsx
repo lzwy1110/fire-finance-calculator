@@ -7,6 +7,7 @@ import {
   Transaction,
   PortfolioStock,
   TaxItem,
+  RecurringExpense,
 } from '../types';
 import {
   DEFAULT_CATEGORIES,
@@ -14,6 +15,7 @@ import {
   DEFAULT_PORTFOLIO_STOCKS,
   DEFAULT_QUICK_PRESETS,
   DEFAULT_ANNUAL_TAXES,
+  DEFAULT_RECURRING_EXPENSES,
   INITIAL_TRANSACTIONS,
 } from '../data/initialData';
 import {
@@ -48,6 +50,7 @@ import { calculateFIRE } from '../utils/fireCalculator';
 import { applyThemeToCSSVariables } from '../utils/theme';
 import { WidgetBridge } from '../services/widgetBridge';
 import { fetchLiveUsdRate } from '../services/exchangeRateService';
+import { processDueRecurringExpenses, calculateNextDeductionDate, getLocalDateString } from '../utils/recurringEngine';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 
@@ -101,6 +104,17 @@ interface FIREContextType {
   restoreAllData: () => void;
   clearAllLocalData: (options?: { syncCleanToCloud?: boolean }) => void;
   loadDemoSampleData: () => void;
+
+  // Recurring Expenses
+  recurringExpenses: RecurringExpense[];
+  todayAutoDeductions: Array<{ expense: RecurringExpense; transaction: Transaction }>;
+  clearTodayAutoDeductions: () => void;
+  updateRecurringExpenses: (expenses: RecurringExpense[]) => void;
+  addRecurringExpense: (expense: Omit<RecurringExpense, 'id'>) => void;
+  editRecurringExpense: (expense: RecurringExpense) => void;
+  deleteRecurringExpense: (id: string) => void;
+  toggleRecurringExpenseActive: (id: string) => void;
+  checkAndProcessRecurringExpenses: (cfg?: FIREConfig) => void;
 }
 
 const FIREContext = createContext<FIREContextType | undefined>(undefined);
@@ -518,6 +532,118 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateAnnualTaxes(updatedTaxes);
   }, [fireConfig.annualTaxes, updateAnnualTaxes, adjustCashSavings]);
 
+  // ================= RECURRING DEDUCTIONS SYSTEM ================= //
+
+  const recurringExpenses = useMemo(() => {
+    return fireConfig.recurringExpenses && fireConfig.recurringExpenses.length > 0
+      ? fireConfig.recurringExpenses
+      : (DEFAULT_RECURRING_EXPENSES || []);
+  }, [fireConfig.recurringExpenses]);
+
+  const [todayAutoDeductions, setTodayAutoDeductions] = useState<Array<{ expense: RecurringExpense; transaction: Transaction }>>([]);
+
+  const clearTodayAutoDeductions = useCallback(() => {
+    setTodayAutoDeductions([]);
+  }, []);
+
+  const updateRecurringExpenses = useCallback((expenses: RecurringExpense[]) => {
+    lastUserEditTimeRef.current = Date.now();
+    setFireConfig((prev) => {
+      const updated: FIREConfig = {
+        ...prev,
+        recurringExpenses: expenses,
+      };
+      saveFIREConfig(updated);
+      return updated;
+    });
+  }, []);
+
+  const addRecurringExpense = useCallback((expense: Omit<RecurringExpense, 'id'>) => {
+    const newId = `rec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const newItem: RecurringExpense = {
+      ...expense,
+      id: newId,
+    };
+    const updated = [...recurringExpenses, newItem];
+    updateRecurringExpenses(updated);
+  }, [recurringExpenses, updateRecurringExpenses]);
+
+  const editRecurringExpense = useCallback((expense: RecurringExpense) => {
+    const updated = recurringExpenses.map((e) => (e.id === expense.id ? expense : e));
+    updateRecurringExpenses(updated);
+  }, [recurringExpenses, updateRecurringExpenses]);
+
+  const deleteRecurringExpense = useCallback((id: string) => {
+    const updated = recurringExpenses.filter((e) => e.id !== id);
+    updateRecurringExpenses(updated);
+  }, [recurringExpenses, updateRecurringExpenses]);
+
+  const toggleRecurringExpenseActive = useCallback((id: string) => {
+    const todayStr = getLocalDateString();
+    const updated = recurringExpenses.map((e) => {
+      if (e.id === id) {
+        const nowActive = !e.isActive;
+        let nextDate = e.nextDeductedDate;
+        if (nowActive) {
+          nextDate = calculateNextDeductionDate({
+            frequency: e.frequency,
+            billingDay: e.billingDay,
+            billingMonth: e.billingMonth,
+          }, todayStr);
+        }
+        return { ...e, isActive: nowActive, nextDeductedDate: nextDate };
+      }
+      return e;
+    });
+    updateRecurringExpenses(updated);
+  }, [recurringExpenses, updateRecurringExpenses]);
+
+  const checkAndProcessRecurringExpenses = useCallback((cfgParam?: FIREConfig) => {
+    const cfg = cfgParam || fireConfig;
+    const list = cfg.recurringExpenses && cfg.recurringExpenses.length > 0
+      ? cfg.recurringExpenses
+      : (DEFAULT_RECURRING_EXPENSES || []);
+    if (!list || list.length === 0) return;
+
+    const todayStr = getLocalDateString();
+    const rate = cfg.usdRate || usdRate || 32.0;
+    const result = processDueRecurringExpenses(list, todayStr, rate);
+
+    if (result.deductedItems.length > 0) {
+      // 1. Add new transactions
+      setTransactions((prev) => {
+        const merged = [...result.newTransactions, ...prev];
+        saveTransactions(merged);
+        return merged;
+      });
+
+      // 2. Deduct cash savings
+      if (result.totalDeductedTWD > 0) {
+        adjustCashSavings(-result.totalDeductedTWD, 'TWD');
+      }
+      if (result.totalDeductedUSD > 0) {
+        adjustCashSavings(-result.totalDeductedUSD, 'USD');
+      }
+
+      // 3. Update fireConfig with advanced recurring expenses
+      setFireConfig((prev) => {
+        const updated: FIREConfig = {
+          ...prev,
+          recurringExpenses: result.updatedExpenses,
+        };
+        saveFIREConfig(updated);
+        return updated;
+      });
+
+      // 4. Pop up alert modal with deducted items
+      setTodayAutoDeductions((prev) => {
+        const existingTxIds = new Set(prev.map(p => p.transaction.id));
+        const newlyDeducted = result.deductedItems.filter(item => !existingTxIds.has(item.transaction.id));
+        return [...prev, ...newlyDeducted];
+      });
+    }
+  }, [fireConfig, usdRate, adjustCashSavings]);
+
   const updateCategories = useCallback((cats: CategoryItem[]) => {
     lastUserEditTimeRef.current = Date.now();
     setCategories(cats);
@@ -899,6 +1025,13 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (e) {}
 
+      // Trigger automatic recurring deduction check on app start
+      try {
+        checkAndProcessRecurringExpenses();
+      } catch (e) {
+        console.warn('Error processing recurring expenses on launch:', e);
+      }
+
       setTimeout(() => {
         if (isMounted) {
           setIsAppLoading(false);
@@ -946,6 +1079,9 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storageModeState === 'cloud') {
         refreshCloudData(false);
       }
+      try {
+        checkAndProcessRecurringExpenses();
+      } catch (e) {}
     };
     window.addEventListener('focus', handleFocus);
 
@@ -1070,6 +1206,15 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     restoreAllData,
     clearAllLocalData,
     loadDemoSampleData,
+    recurringExpenses,
+    todayAutoDeductions,
+    clearTodayAutoDeductions,
+    updateRecurringExpenses,
+    addRecurringExpense,
+    editRecurringExpense,
+    deleteRecurringExpense,
+    toggleRecurringExpenseActive,
+    checkAndProcessRecurringExpenses,
   }), [
     transactions,
     categories,
@@ -1111,6 +1256,15 @@ export const FIREProvider: React.FC<{ children: React.ReactNode }> = ({ children
     restoreAllData,
     clearAllLocalData,
     loadDemoSampleData,
+    recurringExpenses,
+    todayAutoDeductions,
+    clearTodayAutoDeductions,
+    updateRecurringExpenses,
+    addRecurringExpense,
+    editRecurringExpense,
+    deleteRecurringExpense,
+    toggleRecurringExpenseActive,
+    checkAndProcessRecurringExpenses,
   ]);
 
   return <FIREContext.Provider value={value}>{children}</FIREContext.Provider>;

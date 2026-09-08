@@ -157,6 +157,7 @@ export async function fetchSupabaseDataDirect(syncCode: string) {
         twStockFeeRate: cfg.tw_stock_fee_rate != null ? Number(cfg.tw_stock_fee_rate) : 0.0399,
         usStockFeeRate: cfg.us_stock_fee_rate != null ? Number(cfg.us_stock_fee_rate) : 0,
         annualTaxes: Array.isArray(cfg.annual_taxes) ? cfg.annual_taxes : [],
+        recurringExpenses: Array.isArray(cfg.recurring_expenses) ? cfg.recurring_expenses : [],
       };
     }
 
@@ -272,6 +273,7 @@ export async function pushSupabaseDataDirect(payload: {
         tw_stock_fee_rate: fireConfig.twStockFeeRate != null ? fireConfig.twStockFeeRate : 0.0399,
         us_stock_fee_rate: fireConfig.usStockFeeRate != null ? fireConfig.usStockFeeRate : 0,
         annual_taxes: Array.isArray(fireConfig.annualTaxes) ? fireConfig.annualTaxes : [],
+        recurring_expenses: Array.isArray(fireConfig.recurringExpenses) ? fireConfig.recurringExpenses : [],
         updated_at: new Date().toISOString(),
       };
 
@@ -589,6 +591,7 @@ export async function saveFIREConfigDirect(config: FIREConfig, syncCode: string)
       tw_stock_fee_rate: config.twStockFeeRate != null ? config.twStockFeeRate : 0.0399,
       us_stock_fee_rate: config.usStockFeeRate != null ? config.usStockFeeRate : 0,
       annual_taxes: Array.isArray(config.annualTaxes) ? config.annualTaxes : [],
+      recurring_expenses: Array.isArray(config.recurringExpenses) ? config.recurringExpenses : [],
       updated_at: new Date().toISOString(),
     };
 

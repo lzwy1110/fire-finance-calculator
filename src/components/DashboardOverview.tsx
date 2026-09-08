@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
-import { Wallet, TrendingUp, ReceiptText, ArrowUpRight, ArrowDownRight, ChevronRight, Plus } from 'lucide-react';
+import { Wallet, TrendingUp, ReceiptText, ArrowUpRight, ArrowDownRight, ChevronRight, Plus, Repeat, Zap, Calendar } from 'lucide-react';
 import { CategoryItem, FIREConfig, FIREResult, QuickPreset, Transaction, PortfolioStock } from '../types';
 import { FIREProgressHero } from './FIREProgressHero';
 import { getThemePreset } from '../utils/theme';
+import { useFIRE } from '../context/FIREContext';
+import { calculateMonthlyEquivalent, getDeductionStatus, getLocalDateString } from '../utils/recurringEngine';
 
 interface DashboardOverviewProps {
   transactions: Transaction[];
@@ -43,6 +45,25 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(num);
   const formatDec = (num: number) =>
     num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const { recurringExpenses } = useFIRE();
+  const todayStr = getLocalDateString();
+
+  const recurringSummary = useMemo(() => {
+    const active = recurringExpenses.filter((e) => e.isActive);
+    const totalBurn = Math.round(
+      active.reduce((sum, e) => sum + calculateMonthlyEquivalent(e, usdRate), 0)
+    );
+    const sortedUpcoming = active
+      .slice()
+      .sort((a, b) => a.nextDeductedDate.localeCompare(b.nextDeductedDate))
+      .slice(0, 3);
+    return {
+      activeCount: active.length,
+      totalBurn,
+      sortedUpcoming,
+    };
+  }, [recurringExpenses, usdRate]);
 
   // Calculate current month's stats
   const currentMonthStr = new Date().toISOString().slice(0, 7);
@@ -315,6 +336,67 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Fixed Deductions & Subscriptions Summary Card */}
+      {recurringSummary.activeCount > 0 && (
+        <div className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                <Repeat className="w-4 h-4 stroke-[2.5]" />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs sm:text-sm font-bold text-white tracking-wide">
+                  本月固定支出預留
+                </span>
+                <span className="text-[11px] text-zinc-400">
+                  底線約 NT$ {formatNum(recurringSummary.totalBurn)}/月
+                </span>
+                <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 font-semibold">
+                  {recurringSummary.activeCount} 項啟用
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab('ledger')}
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 transition cursor-pointer"
+            >
+              <span>查看全部</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Mini cards for upcoming / due items */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {recurringSummary.sortedUpcoming.map((exp) => {
+              const statusInfo = getDeductionStatus(exp, todayStr);
+              const isUSD = exp.currency === 'USD';
+              return (
+                <div
+                  key={exp.id}
+                  onClick={() => setActiveTab('ledger')}
+                  className="bg-[#141417] border border-white/5 hover:border-indigo-500/30 rounded-2xl p-3 space-y-1.5 transition cursor-pointer"
+                >
+                  <div className="flex items-center justify-between gap-1 text-[11px]">
+                    <span className="font-bold text-white truncate">{exp.name}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-md border flex-shrink-0 ${statusInfo.badgeClass}`}>
+                      {statusInfo.label}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-xs pt-0.5">
+                    <span className="text-[10px] text-zinc-400">
+                      預計 {exp.nextDeductedDate.slice(5)}
+                    </span>
+                    <span className="font-mono font-bold text-white">
+                      {isUSD ? `$${formatDec(exp.amount)}` : `NT$ ${formatNum(exp.amount)}`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Full Width Section: Unified Activity Feed (Revolut/Apple Style) */}
       <div className="bg-[#0c0c0e] border border-white/10 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
