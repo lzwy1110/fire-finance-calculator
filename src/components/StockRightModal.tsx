@@ -346,7 +346,7 @@ export const StockRightModal: React.FC<StockRightModalProps> = ({
         </div>
 
         {/* Calculation Preview Sheet */}
-        <div className="bg-white/[0.03] border border-sky-500/20 rounded-2xl p-4 space-y-3">
+        <div className="bg-white/[0.03] border border-sky-500/20 rounded-2xl p-3.5 sm:p-4 space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-sky-300 border-b border-white/5 pb-2">
             <span>📊 除權前後財務試算與持股對比</span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300">
@@ -354,63 +354,64 @@ export const StockRightModal: React.FC<StockRightModalProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            {/* Left: Shares Change */}
-            <div className="bg-black/40 border border-white/5 rounded-xl p-3 space-y-1">
-              <span className="text-[10px] text-gray-400 block font-medium">在庫持股數量變化</span>
-              <div className="flex items-center gap-1.5 font-mono">
+          <div className="divide-y divide-white/5 text-xs">
+            {/* Row 1: Shares Change */}
+            <div className="py-2 flex items-center justify-between gap-2">
+              <span className="text-gray-400 font-medium shrink-0">在庫持股數量</span>
+              <div className="flex items-center gap-1.5 font-mono text-right flex-wrap justify-end">
                 <span className="text-gray-400 font-bold">{formatShares(metricsBefore.shares)} 股</span>
                 <ArrowRight className="w-3 h-3 text-sky-400 shrink-0" />
                 <span className="text-white font-bold text-sm">
                   {formatShares(metricsBefore.shares + finalBonusShares)} 股
                 </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">
+                  +{formatShares(finalBonusShares)}
+                </span>
               </div>
-              <span className="text-[10px] text-sky-400 font-mono block">
-                無償配發 +{formatShares(finalBonusShares)} 股
-              </span>
             </div>
 
-            {/* Right: Avg Buy Cost Dilution */}
-            <div className="bg-black/40 border border-white/5 rounded-xl p-3 space-y-1">
-              <span className="text-[10px] text-gray-400 block font-medium">每股買入均價 (除權稀釋)</span>
-              <div className="flex items-center gap-1.5 font-mono">
-                <span className="text-gray-400 line-through text-xs">
+            {/* Row 2: Avg Buy Cost Dilution */}
+            <div className="py-2 flex items-center justify-between gap-2">
+              <div className="shrink-0">
+                <span className="text-gray-400 font-medium block">每股買入均價</span>
+                <span className="text-[10px] text-gray-500 font-normal">除權稀釋</span>
+              </div>
+              <div className="flex items-center gap-1.5 font-mono text-right flex-wrap justify-end">
+                <span className="text-gray-500 line-through text-xs">
                   {currSym}{formatDec(metricsBefore.avgCost)}
                 </span>
                 <ArrowRight className="w-3 h-3 text-emerald-400 shrink-0" />
                 <span className="text-emerald-300 font-bold text-sm">
                   {currSym}{formatDec(metricsAfter.avgCost)}
                 </span>
+                {metricsBefore.avgCost > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                    -{(((metricsBefore.avgCost - metricsAfter.avgCost) / metricsBefore.avgCost) * 100).toFixed(1)}%
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] text-emerald-400/80 font-mono block">
-                {metricsBefore.avgCost > 0
-                  ? `均價稀釋 -${(((metricsBefore.avgCost - metricsAfter.avgCost) / metricsBefore.avgCost) * 100).toFixed(2)}%`
-                  : '持有成本已稀釋'}
-              </span>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3 text-xs pt-1">
-            {/* Total Cost Pool (Invariant) */}
-            <div className="space-y-0.5">
-              <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>總投入成本池 (守恆不變):</span>
+            {/* Row 3: Total Cost Pool (Invariant) */}
+            <div className="py-2 flex items-center justify-between gap-2">
+              <span className="text-gray-400 font-medium flex items-center gap-1 shrink-0">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>總投入成本池</span>
               </span>
-              <div className="font-mono text-gray-200 font-bold flex items-center gap-1.5">
+              <div className="font-mono text-gray-200 font-bold flex items-center gap-1.5 text-right">
                 <span>{currSym}{formatDec(metricsBefore.totalCost)}</span>
-                <span className="text-[10px] text-emerald-400 font-normal">(守恆)</span>
+                <span className="text-[10px] text-emerald-400 font-normal">(守恆不變)</span>
               </div>
             </div>
 
-            {/* Cash Impact */}
-            <div className="space-y-0.5">
-              <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                <Coins className="w-3 h-3 text-gray-400" />
-                <span>現金活存變動:</span>
+            {/* Row 4: Cash Impact */}
+            <div className="py-2 flex items-center justify-between gap-2">
+              <span className="text-gray-400 font-medium flex items-center gap-1 shrink-0">
+                <Coins className="w-3.5 h-3.5 text-gray-400" />
+                <span>現金活存變動</span>
               </span>
-              <div className="font-mono text-gray-300 font-bold">
-                $0 <span className="text-[10px] text-gray-400 font-normal">(無償配股，無現金進出)</span>
+              <div className="font-mono text-gray-300 font-bold text-right text-xs">
+                $0 <span className="text-[10px] text-gray-400 font-normal">(無償配發，免所得稅)</span>
               </div>
             </div>
           </div>
