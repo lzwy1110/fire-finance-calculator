@@ -8,6 +8,7 @@
     "dev:frontend": "vite --port=3000 --host=0.0.0.0",
     "server": "tsx server/index.ts",
     "build": "vite build",
+    "build:android": "vite build && cap copy android",
     "cap:sync": "cap sync",
     "cap:copy": "cap copy",
     "preview": "vite preview",
