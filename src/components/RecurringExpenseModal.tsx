@@ -290,53 +290,58 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
           </div>
 
           {/* Amount & Currency */}
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="col-span-2">
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
+          <div>
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-1.5">
+              <label className="text-xs font-semibold text-zinc-400">
                 每期扣款金額 <span className="text-rose-400">*</span>
               </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-zinc-400 font-bold">
-                  {currency === 'USD' ? '$' : 'NT$'}
-                </span>
-                <input
-                  type="number"
-                  step="any"
-                  min="1"
-                  required
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-zinc-900/90 border border-zinc-700/70 focus:border-indigo-500 rounded-2xl pl-12 pr-3.5 py-2.5 text-base font-bold text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-colors"
-                />
+
+              {/* Currency Segmented Toggle */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-zinc-400 font-medium">扣款幣別:</span>
+                <div className="inline-flex bg-zinc-900/90 border border-zinc-700/70 rounded-xl p-0.5 gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setCurrency('TWD')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      currency === 'TWD'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <span>台幣</span>
+                    <span className="text-[10px] opacity-75 font-mono">TWD</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrency('USD')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      currency === 'USD'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <span>美金</span>
+                    <span className="text-[10px] opacity-75 font-mono">USD</span>
+                  </button>
+                </div>
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">扣款幣別</label>
-              <div className="grid grid-cols-2 bg-zinc-900/90 border border-zinc-700/70 rounded-2xl p-1 gap-1 h-[46px]">
-                <button
-                  type="button"
-                  onClick={() => setCurrency('TWD')}
-                  className={`rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
-                    currency === 'TWD'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  台幣 (TWD)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrency('USD')}
-                  className={`rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
-                    currency === 'USD'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  美金 (USD)
-                </button>
-              </div>
+
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-zinc-400 font-bold">
+                {currency === 'USD' ? '$' : 'NT$'}
+              </span>
+              <input
+                type="number"
+                step="any"
+                min="1"
+                required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+                className="w-full bg-zinc-900/90 border border-zinc-700/70 focus:border-indigo-500 rounded-2xl pl-12 pr-4 py-3 text-lg font-mono font-bold text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+              />
             </div>
           </div>
 
