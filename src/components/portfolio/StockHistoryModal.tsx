@@ -102,57 +102,18 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
         {/* Transactions List */}
         <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
           <div className="flex items-center justify-between text-xs font-bold text-gray-400 px-1">
-            <span>交易明細紀錄列表 ({stock.transactions?.length || 0} 筆):</span>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenSplit(stock, detectedSplitsMap[stock.id] || null);
-                }}
-                className="text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Scissors className="w-3.5 h-3.5" />
-                <span>記錄分割</span>
-              </button>
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenReduction(stock);
-                }}
-                className="text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Scissors className="w-3.5 h-3.5 text-amber-400" />
-                <span>記錄減資</span>
-              </button>
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenDividend(stock, detectedDividendsMap[stock.id] || null);
-                }}
-                className="text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <span>💰 記錄除息</span>
-              </button>
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenRight(stock, detectedRightsMap[stock.id] || null);
-                }}
-                className="text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <span>📈 記錄除權</span>
-              </button>
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenAddTrade(stock);
-                }}
-                className="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>新增交易</span>
-              </button>
-            </div>
+            <span>交易明細紀錄 ({stock.transactions?.length || 0} 筆):</span>
+            <button
+              onClick={() => {
+                onClose();
+                onOpenAddTrade(stock);
+              }}
+              className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 py-1 px-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/25 cursor-pointer font-bold transition active:scale-95 shadow-sm"
+              title="新增買入或賣出交易"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>新增交易</span>
+            </button>
           </div>
 
           {stock.transactions && stock.transactions.length > 0 ? (

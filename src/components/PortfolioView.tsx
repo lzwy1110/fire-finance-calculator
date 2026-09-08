@@ -28,6 +28,7 @@ import {
   Scissors,
   Gift,
   BarChart3,
+  MoreHorizontal,
 } from 'lucide-react';
 import { FIREConfig, MarketType, PortfolioStock, StockTransaction, StockSplitEvent, StockDividendEvent, StockRightEvent } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -2327,12 +2328,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                     <span>明細</span>
                   </button>
                   <button
-                    onClick={() => handleDeleteStockEntirely(stock.id)}
-                    className="py-2 px-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/25 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
-                    title="刪除此股票"
+                    onClick={() => setActiveActionStock(stock)}
+                    className="py-2 px-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/25 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-sm"
+                    title="更多功能 (公司行動、除權息、分割、減資、刪除)"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>刪除</span>
+                    <MoreHorizontal className="w-3.5 h-3.5" />
+                    <span>更多</span>
                   </button>
                 </div>
               </div>
