@@ -217,31 +217,43 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                 placeholder="例如: 寵物照顧, 健身訂閱"
                 value={newMainCatName}
                 onChange={(e) => setNewMainCatName(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none"
               />
-              <div className="flex gap-2">
-                <select
-                  value={newMainCatType}
-                  onChange={(e: any) => setNewMainCatType(e.target.value)}
-                  className="bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-1 text-xs text-zinc-200"
-                >
-                  <option value="expense">支出</option>
-                  <option value="income">收入</option>
-                  <option value="investment">投資</option>
-                  <option value="tax">稅金</option>
-                </select>
-                <button
-                  type="submit"
-                  disabled={!newMainCatName}
-                  className="flex-1 font-bold text-xs rounded-xl py-1 disabled:opacity-40 transition cursor-pointer"
-                  style={{
-                    backgroundColor: currentTheme.primaryHex,
-                    color: '#000',
-                  }}
-                >
-                  新增大類
-                </button>
+              <div className="grid grid-cols-4 gap-1 bg-zinc-950 border border-zinc-800 p-1 rounded-xl">
+                {(
+                  [
+                    { key: 'expense', label: '支出' },
+                    { key: 'income', label: '收入' },
+                    { key: 'investment', label: '投資' },
+                    { key: 'tax', label: '稅金' },
+                  ] as const
+                ).map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setNewMainCatType(t.key)}
+                    className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-center ${
+                      newMainCatType === t.key
+                        ? 'bg-zinc-800 text-white shadow-sm'
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                    style={newMainCatType === t.key ? { color: currentTheme.primaryHex } : undefined}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
+              <button
+                type="submit"
+                disabled={!newMainCatName}
+                className="w-full font-bold text-xs rounded-xl py-2 disabled:opacity-40 transition cursor-pointer shadow-md"
+                style={{
+                  backgroundColor: currentTheme.primaryHex,
+                  color: '#000',
+                }}
+              >
+                + 新增主要大類
+              </button>
             </form>
           </div>
 

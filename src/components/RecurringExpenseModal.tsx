@@ -313,64 +313,106 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
             </div>
             <div>
               <label className="block text-xs font-semibold text-zinc-400 mb-1.5">扣款幣別</label>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value as 'TWD' | 'USD')}
-                className="w-full bg-zinc-900/90 border border-zinc-700/70 focus:border-indigo-500 rounded-2xl px-3 py-2.5 text-sm text-white focus:outline-none transition-colors"
-              >
-                <option value="TWD">台幣 (TWD)</option>
-                <option value="USD">美金 (USD)</option>
-              </select>
+              <div className="grid grid-cols-2 bg-zinc-900/90 border border-zinc-700/70 rounded-2xl p-1 gap-1 h-[46px]">
+                <button
+                  type="button"
+                  onClick={() => setCurrency('TWD')}
+                  className={`rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                    currency === 'TWD'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  台幣 (TWD)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrency('USD')}
+                  className={`rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                    currency === 'USD'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  美金 (USD)
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Frequency & Billing day */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-900/60 p-3 rounded-2xl border border-zinc-800">
+          <div className="space-y-3 bg-zinc-900/60 p-3.5 rounded-2xl border border-zinc-800">
             <div>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
-                扣款週期頻率
-              </label>
-              <select
-                value={frequency}
-                onChange={(e) => setFrequency(e.target.value as RecurringFrequency)}
-                className="w-full bg-zinc-950 border border-zinc-700/70 focus:border-indigo-500 rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition-colors"
-              >
-                <option value="monthly">每月固定扣款</option>
-                <option value="bimonthly">每 2 個月 (雙月繳)</option>
-                <option value="quarterly">每季扣款 (每 3 個月)</option>
-                <option value="semiannual">每半年扣款 (每 6 個月)</option>
-                <option value="annual">每年固定扣款 (年繳)</option>
-              </select>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-zinc-400">扣款週期頻率</label>
+                <span className="text-[11px] text-indigo-400 font-medium">
+                  {frequency === 'monthly' && '每月定期扣款'}
+                  {frequency === 'bimonthly' && '每 2 個月 (雙月繳)'}
+                  {frequency === 'quarterly' && '每季扣款 (每 3 個月)'}
+                  {frequency === 'semiannual' && '每半年扣款 (每 6 個月)'}
+                  {frequency === 'annual' && '每年固定扣款 (年繳)'}
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-1 bg-zinc-950/80 p-1 rounded-xl border border-zinc-800">
+                {(
+                  [
+                    { key: 'monthly', label: '每月' },
+                    { key: 'bimonthly', label: '雙月' },
+                    { key: 'quarterly', label: '季繳' },
+                    { key: 'semiannual', label: '半年' },
+                    { key: 'annual', label: '年繳' },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setFrequency(item.key)}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer text-center ${
+                      frequency === item.key
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-zinc-400 mb-1.5 flex items-center justify-between">
-                <span>扣款日期</span>
+                <span>扣款日期設定</span>
                 <span className="text-[10px] text-zinc-500 font-normal">月底日自動平齊</span>
               </label>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 {frequency !== 'monthly' && (
-                  <select
-                    value={billingMonth}
-                    onChange={(e) => setBillingMonth(parseInt(e.target.value, 10))}
-                    className="w-24 bg-zinc-950 border border-zinc-700/70 focus:border-indigo-500 rounded-xl px-2 py-2 text-sm text-white focus:outline-none transition-colors"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                      <option key={m} value={m}>
-                        {m} 月
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex-1">
+                    <span className="text-[10px] text-zinc-500 block mb-1">起始/繳納月份</span>
+                    <select
+                      value={billingMonth}
+                      onChange={(e) => setBillingMonth(parseInt(e.target.value, 10))}
+                      className="w-full bg-zinc-950 border border-zinc-700/70 focus:border-indigo-500 rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition-colors cursor-pointer"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                        <option key={m} value={m} className="bg-zinc-900 text-white">
+                          每年 {m} 月
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
-                <div className="flex-1 relative">
+                <div className="flex-1">
+                  {frequency !== 'monthly' && (
+                    <span className="text-[10px] text-zinc-500 block mb-1">每期扣款日</span>
+                  )}
                   <select
                     value={billingDay}
                     onChange={(e) => setBillingDay(parseInt(e.target.value, 10))}
-                    className="w-full bg-zinc-950 border border-zinc-700/70 focus:border-indigo-500 rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition-colors"
+                    className="w-full bg-zinc-950 border border-zinc-700/70 focus:border-indigo-500 rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition-colors cursor-pointer"
                   >
                     {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>
-                        {d} 日
+                      <option key={d} value={d} className="bg-zinc-900 text-white">
+                        每月 {d} 日
                       </option>
                     ))}
                   </select>
@@ -394,7 +436,7 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
                 className="w-full bg-zinc-900/90 border border-zinc-700/70 focus:border-indigo-500 rounded-2xl px-3 py-2.5 text-sm text-white focus:outline-none transition-colors"
               >
                 {expenseCategories.map((c) => (
-                  <option key={c.id} value={c.name}>
+                  <option key={c.id} value={c.name} className="bg-zinc-900 text-white">
                     {c.name}
                   </option>
                 ))}
@@ -408,7 +450,7 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
                 className="w-full bg-zinc-900/90 border border-zinc-700/70 focus:border-indigo-500 rounded-2xl px-3 py-2.5 text-sm text-white focus:outline-none transition-colors"
               >
                 {subCategories.map((sub) => (
-                  <option key={sub} value={sub}>
+                  <option key={sub} value={sub} className="bg-zinc-900 text-white">
                     {sub}
                   </option>
                 ))}

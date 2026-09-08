@@ -523,24 +523,33 @@ export const AnnualTaxChecklist: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1.5">繳費月份</label>
-                  <select
-                    value={taxMonth}
-                    onChange={(e) => setTaxMonth(Number(e.target.value))}
-                    className="w-full bg-black/60 border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                      <option key={m} value={m} className="bg-zinc-900 text-white">
-                        {m} 月
-                      </option>
-                    ))}
-                  </select>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-gray-300">繳費月份</label>
+                  <span className="text-xs font-bold text-amber-400">每年 {taxMonth} 月繳納</span>
                 </div>
+                <div className="grid grid-cols-6 gap-1 bg-black/60 border border-white/15 p-1.5 rounded-xl">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setTaxMonth(m)}
+                      className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-center ${
+                        taxMonth === m
+                          ? 'bg-amber-500 text-black shadow-sm'
+                          : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {m}月
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1.5">預估金額</label>
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1.5">預估金額</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-zinc-500 font-bold text-sm">NT$</span>
                   <input
                     type="number"
                     required
@@ -548,7 +557,7 @@ export const AnnualTaxChecklist: React.FC = () => {
                     placeholder="7120"
                     value={taxAmount || ''}
                     onChange={(e) => setTaxAmount(Number(e.target.value))}
-                    className="w-full bg-black/60 border border-white/15 rounded-xl px-3.5 py-2.5 font-mono text-sm text-white focus:outline-none"
+                    className="w-full bg-black/60 border border-white/15 rounded-xl pl-12 pr-3.5 py-2.5 font-mono text-sm text-white focus:outline-none"
                   />
                 </div>
               </div>
