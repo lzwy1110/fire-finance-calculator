@@ -43,6 +43,7 @@ import { StockHistoryModal } from './portfolio/StockHistoryModal';
 import { StockFeeSettingsModal } from './portfolio/StockFeeSettingsModal';
 import { StockActionSheetModal } from './portfolio/StockActionSheetModal';
 import { InsufficientCashModal } from './portfolio/InsufficientCashModal';
+import { StockCapitalReductionModal } from './portfolio/StockCapitalReductionModal';
 import {
   batchFetchStockQuotes,
   fetchSingleStockQuote,
@@ -137,6 +138,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     rightEvent: StockRightEvent | null;
   } | null>(null);
   const [detectedRightsMap, setDetectedRightsMap] = useState<Record<string, StockRightEvent>>({});
+
+  // Stock Capital Reduction (現金減資) Modal State
+  const [activeReductionStock, setActiveReductionStock] = useState<PortfolioStock | null>(null);
 
   // Quick Action Sheet Modal for Compact List
   const [activeActionStock, setActiveActionStock] = useState<PortfolioStock | null>(null);
@@ -726,6 +730,61 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
 
     setActiveRightModal(null);
     setRefreshStatus(`✅ 已成功入帳 ${targetStock.symbol} 股票股利！持股已增加 +${rightData.bonusShares} 股（均價已自動除權）`);
+    setTimeout(() => setRefreshStatus(null), 3500);
+  };
+
+  // Handle Confirmed Stock Capital Reduction (現金減資) Execution
+  const handleConfirmReduction = async (
+    targetStock: PortfolioStock,
+    reductionData: {
+      date: string;
+      reductionRatio: number;
+      cashRefundPerShare: number;
+      cashRefundTotal: number;
+      reducedShares: number;
+      newShares: number;
+      newAvgCost: number;
+      note?: string;
+    }
+  ) => {
+    const newTx: StockTransaction = {
+      id: `reduction-${targetStock.symbol}-${Date.now()}`,
+      stockId: targetStock.id,
+      type: 'CAPITAL_REDUCTION',
+      shares: reductionData.newShares,
+      price: reductionData.newAvgCost,
+      date: reductionData.date,
+      capitalReductionRatio: reductionData.reductionRatio,
+      capitalReductionCashPerShare: reductionData.cashRefundPerShare,
+      capitalReductionCashTotal: reductionData.cashRefundTotal,
+      note: reductionData.note || `${targetStock.symbol} 現金減資退還股款 (退還 $${reductionData.cashRefundTotal})`,
+    };
+
+    const existingTxs = targetStock.transactions || [];
+    const updatedTxs = [...existingTxs, newTx];
+
+    const updatedStock = syncStockCalculations({
+      ...targetStock,
+      transactions: updatedTxs,
+      lastUpdated: new Date().toISOString(),
+    });
+
+    if (onSaveSingleStock) {
+      await onSaveSingleStock(updatedStock);
+    } else {
+      const updatedList = syncedStocks.map((s) => (s.id === targetStock.id ? updatedStock : s));
+      onUpdateStocks(updatedList);
+    }
+
+    // Automatically deposit cash refund to user's cash reserves
+    if (reductionData.cashRefundTotal > 0 && onAdjustCashSavings) {
+      onAdjustCashSavings(+reductionData.cashRefundTotal, targetStock.currency === 'USD' ? 'USD' : 'TWD');
+    }
+
+    setActiveReductionStock(null);
+    setRefreshStatus(
+      `✅ 已成功執行 ${targetStock.symbol} 現金減資！退還現金 +${targetStock.currency === 'USD' ? '$' : 'NT$'}${reductionData.cashRefundTotal} 已匯入活存，持股已變更為 ${reductionData.newShares} 股`
+    );
     setTimeout(() => setRefreshStatus(null), 3500);
   };
 
@@ -2295,6 +2354,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         onOpenTrade={(stock) => handleOpenAddModal(stock)}
         onOpenHistory={(stock) => setActiveHistoryStock(stock)}
         onOpenSplit={(stock, splitEvent) => setActiveSplitModal({ stock, splitEvent })}
+        onOpenReduction={(stock) => setActiveReductionStock(stock)}
         onOpenDividend={(stock, dividendEvent) => setActiveDividendModal({ stock, dividendEvent })}
         onOpenRight={(stock, rightEvent) => setActiveRightModal({ stock, rightEvent })}
         onViewDividendCalendar={() => setPortfolioSubTab('dividend_calendar')}
@@ -2331,6 +2391,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
         onOpenEditTrade={(stock, tx) => handleOpenEditModal(stock, tx)}
         onDeleteTrade={(stockId, txId) => handleDeleteSingleTransaction(stockId, txId)}
         onOpenSplit={(stock, splitEvent) => setActiveSplitModal({ stock, splitEvent })}
+        onOpenReduction={(stock) => setActiveReductionStock(stock)}
         onOpenDividend={(stock, dividendEvent) => setActiveDividendModal({ stock, dividendEvent })}
         onOpenRight={(stock, rightEvent) => setActiveRightModal({ stock, rightEvent })}
       />
@@ -2436,6 +2497,17 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           currencySymbol={activeSplitModal.stock.currency === 'USD' ? '$' : sym}
           onConfirm={(splitData) => handleConfirmSplit(activeSplitModal.stock, splitData)}
           onClose={() => setActiveSplitModal(null)}
+        />
+      )}
+
+      {/* Modal: Interactive Stock Capital Reduction Modal */}
+      {activeReductionStock && (
+        <StockCapitalReductionModal
+          isOpen={Boolean(activeReductionStock)}
+          stock={activeReductionStock}
+          currencySymbol={activeReductionStock.currency === 'USD' ? '$' : sym}
+          onConfirm={(reductionData) => handleConfirmReduction(activeReductionStock, reductionData)}
+          onClose={() => setActiveReductionStock(null)}
         />
       )}
 

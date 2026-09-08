@@ -57,6 +57,11 @@ export const StockTradeModal: React.FC<StockTradeModalProps> = ({
   const [isInitialHoldingsInput, setIsInitialHoldingsInput] = useState<boolean>(false);
   const [feeRateInput, setFeeRateInput] = useState<string>('0');
 
+  // Cash Capital Increase (現增認股) Calculator State
+  const [showIncreaseCalc, setShowIncreaseCalc] = useState(false);
+  const [sharesPerThousandInput, setSharesPerThousandInput] = useState<string>('50');
+  const [subPriceInput, setSubPriceInput] = useState<string>('');
+
   // Autocomplete Suggestions State
   const [searchSuggestions, setSearchSuggestions] = useState<StockSearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -400,6 +405,105 @@ export const StockTradeModal: React.FC<StockTradeModalProps> = ({
                 />
               </div>
             </>
+          )}
+
+          {/* Cash Capital Increase (現增認股) Calculator Helper */}
+          {tradeType === 'BUY' && (
+            <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowIncreaseCalc(!showIncreaseCalc)}
+                  className="text-xs font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <span>💡 現金增資認股試算</span>
+                  <span className="text-[10px] text-gray-400 font-normal">
+                    {showIncreaseCalc ? '▲ 收合' : '▼ 依每仟股認購快速試算'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!noteInput.includes('現增認股')) {
+                      setNoteInput((prev) => (prev ? `${prev} (現增認股)` : '現金增資認股'));
+                    }
+                  }}
+                  className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 transition cursor-pointer border border-cyan-500/20"
+                >
+                  + 標註「現增認股」
+                </button>
+              </div>
+
+              {showIncreaseCalc && (
+                <div className="pt-2 border-t border-white/5 space-y-2.5 text-xs animate-fadeIn">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] text-gray-400 block mb-1">
+                        每仟股認購股數:
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="例如: 53"
+                        value={sharesPerThousandInput}
+                        onChange={(e) => setSharesPerThousandInput(e.target.value)}
+                        className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-1.5 text-white font-mono text-xs focus:border-cyan-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-400 block mb-1">
+                        現增認購價:
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        placeholder="例如: 15.0"
+                        value={subPriceInput}
+                        onChange={(e) => setSubPriceInput(e.target.value)}
+                        className="w-full bg-black/60 border border-white/10 rounded-xl px-2.5 py-1.5 text-white font-mono text-xs focus:border-cyan-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {editingStock && editingStock.shares > 0 ? (
+                    <div className="flex items-center justify-between bg-black/40 p-2.5 rounded-xl text-[11px]">
+                      <span className="text-gray-400">
+                        依目前在席 {formatNum(editingStock.shares)} 股：
+                        <strong className="text-cyan-300 ml-1">
+                          可認購 {formatNum(Math.floor((editingStock.shares / 1000) * (parseFloat(sharesPerThousandInput) || 0)))} 股
+                        </strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const perK = parseFloat(sharesPerThousandInput) || 0;
+                          const subP = parseFloat(subPriceInput) || 0;
+                          const calculatedShares = Math.floor((editingStock.shares / 1000) * perK);
+                          if (calculatedShares > 0) {
+                            setSharesInput(String(calculatedShares));
+                          }
+                          if (subP > 0) {
+                            setCostInput(String(subP));
+                          }
+                          if (!noteInput.includes('現增認股')) {
+                            setNoteInput((prev) => (prev ? `${prev} (現增認股)` : '現金增資認股'));
+                          }
+                          setShowIncreaseCalc(false);
+                        }}
+                        className="px-2.5 py-1 rounded-lg font-bold bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition border border-cyan-500/40 cursor-pointer"
+                      >
+                        帶入表單
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-400">
+                      💡 提示：輸入每仟股認購數與認購價後，可自行填入買入股數與單價並標註「現增認股」。
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">

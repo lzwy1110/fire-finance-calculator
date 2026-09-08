@@ -13,6 +13,7 @@ export interface StockHistoryModalProps {
   onOpenEditTrade: (stock: PortfolioStock, tx: StockTransaction) => void;
   onDeleteTrade: (stockId: string, txId: string) => void;
   onOpenSplit: (stock: PortfolioStock, splitEvent: StockSplitEvent | null) => void;
+  onOpenReduction: (stock: PortfolioStock) => void;
   onOpenDividend: (stock: PortfolioStock, dividendEvent: StockDividendEvent | null) => void;
   onOpenRight: (stock: PortfolioStock, rightEvent: StockRightEvent | null) => void;
 }
@@ -27,6 +28,7 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
   onOpenEditTrade,
   onDeleteTrade,
   onOpenSplit,
+  onOpenReduction,
   onOpenDividend,
   onOpenRight,
 }) => {
@@ -111,6 +113,16 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
               >
                 <Scissors className="w-3.5 h-3.5" />
                 <span>記錄分割</span>
+              </button>
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenReduction(stock);
+                }}
+                className="text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Scissors className="w-3.5 h-3.5 text-amber-400" />
+                <span>記錄減資</span>
               </button>
               <button
                 onClick={() => {
@@ -204,6 +216,31 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
                       </div>
                     </div>
                   </div>
+                ) : tx.type === 'CAPITAL_REDUCTION' ? (
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 rounded-xl font-mono font-black text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                      <Scissors className="w-3 h-3 text-amber-400" />
+                      <span>減資 REDUCTION</span>
+                    </span>
+
+                    <div>
+                      <div className="font-mono font-bold text-amber-300">
+                        退還現金 +{stock.currency === 'USD' ? '$' : 'NT$'}{formatNum(tx.capitalReductionCashTotal || (tx.shares * (tx.capitalReductionCashPerShare || 0)))}
+                        {tx.capitalReductionCashPerShare && tx.capitalReductionCashPerShare > 0 ? (
+                          <span className="text-[10px] text-gray-400 font-normal ml-1.5">
+                            (每股退 ${tx.capitalReductionCashPerShare} 元，免所得稅)
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="text-[11px] text-gray-400 flex items-center gap-2">
+                        <span>📅 {tx.date}</span>
+                        <span className="text-amber-300/80">
+                          減資比率 {Number(((tx.capitalReductionRatio || 0) * 100).toFixed(2))}% • 留存 {formatNum(tx.shares)} 股
+                        </span>
+                        {tx.note && <span className="text-gray-500">({tx.note})</span>}
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-3">
                     <span
@@ -283,6 +320,17 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
                       }}
                       className="p-1.5 text-gray-400 hover:text-sky-300 hover:bg-sky-500/10 rounded-xl transition cursor-pointer"
                       title="重新試算/校正配股"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  ) : tx.type === 'CAPITAL_REDUCTION' ? (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenReduction(stock);
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-xl transition cursor-pointer"
+                      title="重新試算/校正減資"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>

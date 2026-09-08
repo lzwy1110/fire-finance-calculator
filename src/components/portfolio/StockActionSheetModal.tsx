@@ -12,6 +12,7 @@ export interface StockActionSheetModalProps {
   onOpenTrade: (stock: PortfolioStock) => void;
   onOpenHistory: (stock: PortfolioStock) => void;
   onOpenSplit: (stock: PortfolioStock, splitEvent: StockSplitEvent | null) => void;
+  onOpenReduction: (stock: PortfolioStock) => void;
   onOpenDividend: (stock: PortfolioStock, dividendEvent: StockDividendEvent | null) => void;
   onOpenRight: (stock: PortfolioStock, rightEvent: StockRightEvent | null) => void;
   onViewDividendCalendar: () => void;
@@ -28,6 +29,7 @@ export const StockActionSheetModal: React.FC<StockActionSheetModalProps> = ({
   onOpenTrade,
   onOpenHistory,
   onOpenSplit,
+  onOpenReduction,
   onOpenDividend,
   onOpenRight,
   onViewDividendCalendar,
@@ -140,6 +142,24 @@ export const StockActionSheetModal: React.FC<StockActionSheetModalProps> = ({
                     ? `待確認：${detectedSplitsMap[stock.id].splitRatioText}`
                     : '自訂比例如 1 拆 10、反向併股試算與校正'}
                 </div>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              onClose();
+              onOpenReduction(stock);
+            }}
+            className="p-3.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-2xl font-bold flex items-center justify-between transition cursor-pointer active:scale-98 shadow-sm"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                <Scissors className="w-5 h-5 text-amber-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-black text-white">記錄現金減資 (退還股款)</div>
+                <div className="text-xs text-amber-400 font-normal">退回資本金入帳、扣減總成本與持股縮減</div>
               </div>
             </div>
           </button>

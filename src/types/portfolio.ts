@@ -4,7 +4,7 @@ export type CurrencyType = 'USD' | 'TWD';
 export interface StockTransaction {
   id: string;
   stockId?: string;
-  type: 'BUY' | 'SELL' | 'SPLIT' | 'DIVIDEND' | 'STOCK_DIVIDEND';
+  type: 'BUY' | 'SELL' | 'SPLIT' | 'DIVIDEND' | 'STOCK_DIVIDEND' | 'CAPITAL_REDUCTION';
   shares: number;
   price: number;
   date: string; // YYYY-MM-DD
@@ -18,6 +18,9 @@ export interface StockTransaction {
   taxWithheld?: number;       // Tax withheld (e.g. US 30% dividend tax, TW 2.11% NHI fee)
   stockDividendPerShare?: number; // Stock dividend per share (e.g. NT$ 0.8)
   stockDividendRatio?: number;    // Stock dividend ratio (e.g. 0.08 for 8% bonus shares)
+  capitalReductionRatio?: number; // e.g. 0.2 for 20% capital reduction
+  capitalReductionCashPerShare?: number; // e.g. 2.0 (NT$ 2.0 / share refund)
+  capitalReductionCashTotal?: number; // e.g. 2000 (total cash refunded to savings)
 }
 
 export interface StockSplitEvent {
@@ -26,6 +29,13 @@ export interface StockSplitEvent {
   numerator: number;          // e.g. 10
   denominator: number;        // e.g. 1
   splitRatioText: string;     // e.g. "1 拆 10" or "10:1"
+  status: 'upcoming' | 'effective_pending' | 'applied';
+}
+
+export interface StockCapitalReductionEvent {
+  date: string;               // YYYY-MM-DD
+  reductionRatio: number;     // e.g. 0.2 for 20%
+  cashRefundPerShare: number; // e.g. 2.0
   status: 'upcoming' | 'effective_pending' | 'applied';
 }
 

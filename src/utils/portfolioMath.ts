@@ -36,7 +36,7 @@ export function calculateStockMetrics(
     if (timeA !== timeB) {
       return timeA - timeB;
     }
-    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, STOCK_DIVIDEND: 2.5, DIVIDEND: 3, SELL: 4 };
+    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, STOCK_DIVIDEND: 2.5, CAPITAL_REDUCTION: 2.7, DIVIDEND: 3, SELL: 4 };
     const pA = typePriority[a.type] ?? 2;
     const pB = typePriority[b.type] ?? 2;
     if (pA !== pB) return pA - pB;
@@ -77,6 +77,24 @@ export function calculateStockMetrics(
         currentShares = currentShares * (1 + tx.stockDividendRatio);
       }
       // Total invested capital pool (totalCostPool) remains strictly invariant
+    } else if (tx.type === 'CAPITAL_REDUCTION') {
+      // 現金減資 (退還本金免所得稅) / 減資弭虧
+      const ratio = tx.capitalReductionRatio || 0;
+      const refundCash =
+        typeof tx.capitalReductionCashTotal === 'number'
+          ? tx.capitalReductionCashTotal
+          : tx.capitalReductionCashPerShare
+          ? currentShares * tx.capitalReductionCashPerShare
+          : 0;
+
+      if (ratio > 0 && ratio < 1) {
+        currentShares = currentShares * (1 - ratio);
+      } else if (tx.shares > 0) {
+        currentShares = tx.shares;
+      }
+
+      // 退還本金免稅，總成本池相應扣減（不可小於 0）
+      totalCostPool = Math.max(0, totalCostPool - refundCash);
     } else if (tx.type === 'DIVIDEND') {
       // Cash dividends do not consume shares or modify trading cost basis
     }
@@ -118,7 +136,7 @@ export function validateTradeTimeline(transactions: StockTransaction[]): {
     if (timeA !== timeB) {
       return timeA - timeB;
     }
-    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, STOCK_DIVIDEND: 2.5, DIVIDEND: 3, SELL: 4 };
+    const typePriority: Record<string, number> = { BUY: 1, SPLIT: 2, STOCK_DIVIDEND: 2.5, CAPITAL_REDUCTION: 2.7, DIVIDEND: 3, SELL: 4 };
     const pA = typePriority[a.type] ?? 2;
     const pB = typePriority[b.type] ?? 2;
     if (pA !== pB) return pA - pB;
@@ -156,7 +174,14 @@ export function validateTradeTimeline(transactions: StockTransaction[]): {
       if (addedShares > 0) {
         runningShares += addedShares;
       } else if (tx.stockDividendRatio && tx.stockDividendRatio > 0) {
-        runningShares = runningShares * (1 + tx.stockDividendRatio);
+        runningShares *= (1 + tx.stockDividendRatio);
+      }
+    } else if (tx.type === 'CAPITAL_REDUCTION') {
+      const ratio = tx.capitalReductionRatio || 0;
+      if (ratio > 0 && ratio < 1) {
+        runningShares *= (1 - ratio);
+      } else if (tx.shares > 0) {
+        runningShares = tx.shares;
       }
     } else if (tx.type === 'DIVIDEND') {
       // Dividends do not consume or alter share count
