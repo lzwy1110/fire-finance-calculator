@@ -17,6 +17,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { RecurringDeductionAlertModal } from './components/RecurringDeductionAlertModal';
 import { WidgetBridge } from './services/widgetBridge';
 import { resetAllDataToDefault } from './utils/storage';
+import { getThemePreset } from './utils/theme';
 import { Capacitor } from '@capacitor/core';
 
 function FIREAppContent() {
@@ -209,12 +210,22 @@ function FIREAppContent() {
     });
   };
 
+  const currentTheme = getThemePreset(fireConfig?.themeColor || 'sakura');
+
   if (isAppLoading) {
     return <AppLoadingSplash themeColor={fireConfig.themeColor} statusMessage="正在連線雲端資料庫並同步資產..." />;
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-300">
+    <div className="min-h-screen bg-[#070709] text-zinc-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-300 relative overflow-x-hidden">
+      {/* Dynamic Ambient Aurora Glow Background */}
+      <div
+        className="fixed -top-40 left-1/2 -translate-x-1/2 w-[650px] sm:w-[980px] h-[400px] rounded-full blur-[140px] pointer-events-none opacity-20 transition-all duration-1000 z-0"
+        style={{
+          background: `radial-gradient(circle, ${currentTheme.primaryHex} 0%, rgba(${currentTheme.bgGlowRgb}, 0.35) 45%, transparent 75%)`,
+        }}
+      />
+
       {/* Top Sticky Navigation Header */}
       <Header
         activeTab={activeTab}
@@ -228,7 +239,7 @@ function FIREAppContent() {
       />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-28 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-28 md:pb-8 relative z-10">
         {/* Reports Sub-Navigation Switcher (📊 圖表分析 | 📅 每月總結 | 🗓️ 年度結算) */}
         {(activeTab === 'analytics' || activeTab === 'monthly' || activeTab === 'yearly') && (
           <div className="flex items-center p-1 bg-[#111114] border border-white/10 rounded-2xl mb-6 shadow-xl max-w-lg mx-auto">

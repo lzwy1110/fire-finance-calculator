@@ -55,19 +55,25 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#09090c]/95 backdrop-blur-2xl border-t border-white/[0.08] px-2 pt-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] shadow-2xl transition-all"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#09090c]/92 backdrop-blur-2xl border-t border-white/[0.12] px-2 pt-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] shadow-2xl transition-all"
       style={{
-        boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.8)',
+        boxShadow: `0 -12px 35px rgba(0, 0, 0, 0.9), 0 -1px 0 rgba(${currentTheme.bgGlowRgb}, 0.3)`,
       }}
     >
       <div className="max-w-md mx-auto flex items-center justify-around relative h-13">
         {/* Tab 1: Dashboard */}
         <button
           onClick={tabs[0].onClick}
-          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 cursor-pointer relative group ${
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 cursor-pointer relative group active:scale-95 ${
             tabs[0].isActive ? 'scale-105' : 'opacity-40 hover:opacity-90'
           }`}
         >
+          {tabs[0].isActive && (
+            <span
+              className="absolute inset-x-2 inset-y-0.5 rounded-xl -z-10 opacity-15"
+              style={{ backgroundColor: currentTheme.primaryHex }}
+            />
+          )}
           <Flame
             className={`w-5 h-5 transition-transform ${tabs[0].isActive ? 'stroke-[2.5]' : 'stroke-2'}`}
             style={{
@@ -86,10 +92,16 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         {/* Tab 2: Ledger */}
         <button
           onClick={tabs[1].onClick}
-          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 cursor-pointer relative group ${
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 cursor-pointer relative group active:scale-95 ${
             tabs[1].isActive ? 'scale-105' : 'opacity-40 hover:opacity-90'
           }`}
         >
+          {tabs[1].isActive && (
+            <span
+              className="absolute inset-x-2 inset-y-0.5 rounded-xl -z-10 opacity-15"
+              style={{ backgroundColor: currentTheme.primaryHex }}
+            />
+          )}
           <ReceiptText
             className={`w-5 h-5 transition-transform ${tabs[1].isActive ? 'stroke-[2.5]' : 'stroke-2'}`}
             style={{
@@ -106,16 +118,23 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         </button>
 
         {/* Center Jewel FAB: Quick Add */}
-        <div className="flex flex-col items-center justify-center px-1 shrink-0 -mt-2">
+        <div className="flex flex-col items-center justify-center px-1 shrink-0 -mt-2.5">
           <button
             onClick={onOpenAddModal}
             className="w-11 h-11 rounded-full flex items-center justify-center text-black font-black shadow-xl transition-all transform active:scale-90 hover:scale-105 cursor-pointer relative group"
             style={{
               backgroundColor: currentTheme.primaryHex,
-              boxShadow: `0 4px 18px rgba(${currentTheme.bgGlowRgb}, 0.55), 0 0 0 3px #09090c`,
+              boxShadow: `0 0 20px rgba(${currentTheme.bgGlowRgb}, 0.65), 0 0 0 3px #09090c`,
             }}
             title="快速記一筆收支"
           >
+            {/* Ambient Pulse Glow Ring */}
+            <span
+              className="absolute -inset-1 rounded-full opacity-40 animate-pulseGlow pointer-events-none"
+              style={{
+                border: `1.5px solid ${currentTheme.primaryHex}`,
+              }}
+            />
             <Plus className="w-5 h-5 stroke-[3.5] group-hover:rotate-90 transition-transform duration-200" />
           </button>
           <span className="text-[9.5px] font-black text-gray-300 mt-0.5 tracking-tight">
@@ -126,10 +145,16 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         {/* Tab 3: Portfolio */}
         <button
           onClick={tabs[2].onClick}
-          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 cursor-pointer relative group ${
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 cursor-pointer relative group active:scale-95 ${
             tabs[2].isActive ? 'scale-105' : 'opacity-40 hover:opacity-90'
           }`}
         >
+          {tabs[2].isActive && (
+            <span
+              className="absolute inset-x-2 inset-y-0.5 rounded-xl -z-10 opacity-15"
+              style={{ backgroundColor: currentTheme.primaryHex }}
+            />
+          )}
           <TrendingUp
             className={`w-5 h-5 transition-transform ${tabs[2].isActive ? 'stroke-[2.5]' : 'stroke-2'}`}
             style={{
@@ -148,10 +173,16 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         {/* Tab 4: Reports */}
         <button
           onClick={tabs[3].onClick}
-          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 cursor-pointer relative group ${
+          className={`flex flex-col items-center justify-center flex-1 py-1 rounded-2xl transition-all duration-200 cursor-pointer relative group active:scale-95 ${
             tabs[3].isActive ? 'scale-105' : 'opacity-40 hover:opacity-90'
           }`}
         >
+          {tabs[3].isActive && (
+            <span
+              className="absolute inset-x-2 inset-y-0.5 rounded-xl -z-10 opacity-15"
+              style={{ backgroundColor: currentTheme.primaryHex }}
+            />
+          )}
           <BarChart3
             className={`w-5 h-5 transition-transform ${tabs[3].isActive ? 'stroke-[2.5]' : 'stroke-2'}`}
             style={{

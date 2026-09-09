@@ -306,15 +306,18 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
             </span>
           </div>
 
-          <div className="w-full bg-[#050505] h-3.5 rounded-full p-0.5 border border-white/10 overflow-hidden relative">
+          <div className="w-full bg-[#050505] h-3.5 rounded-full p-0.5 border border-white/10 overflow-hidden relative shadow-inner">
             <div
-              className="h-full rounded-full transition-all duration-700 shadow-md"
+              className="h-full rounded-full transition-all duration-700 shadow-md relative overflow-hidden"
               style={{
                 width: `${Math.min(100, Math.max(2, result.currentProgressPercent))}%`,
                 backgroundColor: currentTheme.primaryHex,
-                boxShadow: `0 0 15px rgba(${currentTheme.bgGlowRgb}, 0.5)`,
+                boxShadow: `0 0 18px rgba(${currentTheme.bgGlowRgb}, 0.6)`,
               }}
-            />
+            >
+              {/* Liquid Neon Shimmer Wave Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer pointer-events-none" />
+            </div>
           </div>
 
           {/* FIRE Types Milestones */}

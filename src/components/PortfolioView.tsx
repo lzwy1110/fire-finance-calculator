@@ -1920,7 +1920,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               <div
                 key={stock.id}
                 onClick={() => setActiveActionStock(stock)}
-                className="p-3.5 sm:p-4 hover:bg-white/[0.04] active:bg-white/[0.08] transition cursor-pointer flex items-center justify-between gap-3 group"
+                className="p-3.5 sm:p-4 hover:bg-white/[0.04] active:bg-white/[0.08] active:scale-[0.99] transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 group"
               >
                 {/* Left: Flag Badge + Symbol + Name & Position */}
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
@@ -2076,7 +2076,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             return (
               <div
                 key={stock.id}
-                className={`bg-[#0e0e0e] border rounded-3xl p-5 space-y-4 transition group relative overflow-hidden ${cardBorderClass}`}
+                className={`bg-[#0e0e0e] border rounded-3xl p-5 space-y-4 transition-all duration-200 active:scale-[0.99] group relative overflow-hidden ${cardBorderClass}`}
               >
                 {/* Card Header: Symbol + Name (Left) ｜ Large Price & Today Change (Right) */}
                 <div className="flex items-start justify-between border-b border-white/10 pb-3.5 gap-2">
