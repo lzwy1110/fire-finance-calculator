@@ -281,7 +281,7 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
               <span className="text-gray-400">總投入成本</span>
               <div className="flex items-center gap-1.5 font-mono text-emerald-400 font-bold">
                 <span>{currSym}{formatNum(postMetrics.totalCost)}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   不變 ✅
                 </span>
               </div>

@@ -775,7 +775,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                     <span>{icon}</span>
                     <span>{catName}</span>
                     {count > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 text-white font-mono font-normal">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/40 text-white font-mono font-normal">
                         {count}
                       </span>
                     )}
@@ -1016,7 +1016,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
       {/* Custom Glassmorphism Category Picker Modal (Multi-select) */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
           <div className="relative w-full max-w-md bg-[#0f0f12] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
@@ -1173,12 +1173,12 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                         : `憑證 #TX-${selectedDetailTransaction.id.replace(/^t-/, '').slice(-6).toUpperCase()}`}
                     </span>
                     {selectedDetailTransaction.id.startsWith('t-widget-') && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
                         ⚡ WIDGET
                       </span>
                     )}
                     {selectedDetailTransaction.id.startsWith('stock-') && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold font-mono">
                         📈 STOCK
                       </span>
                     )}

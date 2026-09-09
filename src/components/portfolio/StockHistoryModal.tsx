@@ -42,8 +42,8 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
   const currSym = stock.market === 'US' ? '$' : 'NT$';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-xl rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 relative overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
+      <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-xl rounded-3xl p-5 sm:p-6 space-y-5 shadow-2xl text-gray-200 relative my-auto max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2.5">
             <span className="text-2xl">{stock.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
@@ -221,7 +221,7 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
                           {formatDec(tx.price)}
                         </span>
                         {tx.isInitialHoldings && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-sans">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-sans">
                             歷史原有
                           </span>
                         )}

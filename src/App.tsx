@@ -228,7 +228,7 @@ function FIREAppContent() {
       />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-14 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-28 md:pb-8">
         {/* Reports Sub-Navigation Switcher (📊 圖表分析 | 📅 每月總結 | 🗓️ 年度結算) */}
         {(activeTab === 'analytics' || activeTab === 'monthly' || activeTab === 'yearly') && (
           <div className="flex items-center p-1 bg-[#111114] border border-white/10 rounded-2xl mb-6 shadow-xl max-w-lg mx-auto">
@@ -313,19 +313,14 @@ function FIREAppContent() {
 
         {/* Tab 2b: Financial Statistics & Charts */}
         {activeTab === 'analytics' && (
-          <div className="space-y-8 animate-fadeIn">
-            <div className="pt-2">
-              <h2 className="text-xl font-black text-white mb-4 flex items-center gap-2">
-                <span>📊 財務統計分析與類別圖表</span>
-              </h2>
-              <AnalyticsCharts
-                transactions={transactions}
-                fireConfig={{
-                  ...fireConfig,
-                  currentNetWorth: totalNetWorth,
-                }}
-              />
-            </div>
+          <div className="animate-fadeIn">
+            <AnalyticsCharts
+              transactions={transactions}
+              fireConfig={{
+                ...fireConfig,
+                currentNetWorth: totalNetWorth,
+              }}
+            />
           </div>
         )}
 

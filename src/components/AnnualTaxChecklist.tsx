@@ -383,8 +383,8 @@ export const AnnualTaxChecklist: React.FC = () => {
 
       {/* ================= MODAL 1: 綜合所得稅試算機 ================= */}
       {isCalculatorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#121214] border border-white/15 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scaleUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
+          <div className="bg-[#121214] border border-white/15 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scaleUp my-auto max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
@@ -493,8 +493,8 @@ export const AnnualTaxChecklist: React.FC = () => {
 
       {/* ================= MODAL 2: 新增 / 編輯稅目 ================= */}
       {(isAddModalOpen || editingTaxItem) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#121214] border border-white/15 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scaleUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
+          <div className="bg-[#121214] border border-white/15 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scaleUp my-auto max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <h4 className="text-base font-black text-white">
                 {editingTaxItem ? '編輯年度稅目' : '新增年度稅務項目'}

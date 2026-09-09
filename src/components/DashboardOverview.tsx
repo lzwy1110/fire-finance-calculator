@@ -311,7 +311,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="flex items-center justify-between text-[11px] text-gray-400">
               <span className="font-medium">淨儲蓄率</span>
               <span
-                className="px-1.5 py-0.2 text-[10px] font-black rounded-md border"
+                className="px-1.5 py-0.5 text-[10px] font-black rounded-md border"
                 style={{
                   color: currentTheme.primaryHex,
                   backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
@@ -327,9 +327,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             >
               {savingsRate}%
             </div>
-            <div className="text-[10px] text-gray-400 flex items-center justify-between gap-1 font-medium truncate">
-              <span>{healthDesc}</span>
-              <span className="text-emerald-400 font-mono font-bold">
+            <div className="text-[10px] text-gray-400 flex items-center justify-between gap-1 font-medium">
+              <span className="truncate">{healthDesc}</span>
+              <span className="text-emerald-400 font-mono font-bold shrink-0">
                 +{sym}{formatNum(Math.max(0, netSavings))}
               </span>
             </div>
@@ -352,7 +352,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <span className="text-[11px] text-zinc-400">
                   底線約 NT$ {formatNum(recurringSummary.totalBurn)}/月
                 </span>
-                <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 font-semibold">
+                <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 font-semibold">
                   {recurringSummary.activeCount} 項啟用
                 </span>
               </div>
@@ -379,7 +379,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 >
                   <div className="flex items-center justify-between gap-1 text-[11px]">
                     <span className="font-bold text-white truncate">{exp.name}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-md border flex-shrink-0 ${statusInfo.badgeClass}`}>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md border flex-shrink-0 ${statusInfo.badgeClass}`}>
                       {statusInfo.label}
                     </span>
                   </div>

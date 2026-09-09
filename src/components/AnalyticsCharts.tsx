@@ -81,7 +81,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
   const fireCurveData = generateFIRETrajectoryCurve(fireConfig, 20);
 
   return (
-    <div className="space-y-8 animate-fadeIn pb-12">
+    <div className="space-y-8 animate-fadeIn pb-4">
       {/* Header */}
       <div className="bg-[#0c0c0c] border border-white/5 p-6 rounded-3xl">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">

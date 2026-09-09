@@ -232,8 +232,8 @@ export const StockTradeModal: React.FC<StockTradeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-md rounded-3xl p-6 space-y-5 shadow-2xl text-gray-200 relative overflow-visible">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
+      <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-md rounded-3xl p-5 sm:p-6 space-y-5 shadow-2xl text-gray-200 relative my-auto max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             {editingTx ? '編輯買賣交易明細 ✏️' : '記一筆交易紀錄 📝'}
