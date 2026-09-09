@@ -1304,7 +1304,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             </div>
 
             {/* Bottom Actions */}
-            <div className="p-4 border-t border-white/10 bg-black/40 flex items-center justify-between gap-2 shrink-0">
+            <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-black/40 flex items-center justify-between gap-2 shrink-0">
               <button
                 onClick={() => {
                   const target = selectedDetailTransaction;

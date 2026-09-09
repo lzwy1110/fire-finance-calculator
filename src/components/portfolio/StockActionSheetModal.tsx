@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, PlusCircle, History, Scissors, Trash2, Calendar, TrendingUp, ArrowDownCircle } from 'lucide-react';
 import { PortfolioStock, StockSplitEvent, StockDividendEvent, StockRightEvent } from '../../types';
 
@@ -41,13 +42,13 @@ export const StockActionSheetModal: React.FC<StockActionSheetModalProps> = ({
   const hasPendingRight = Boolean(detectedRightsMap[stock.id]);
   const hasPendingSplit = Boolean(detectedSplitsMap[stock.id]);
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
+      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
       onClick={onClose}
     >
       <div
-        className="bg-[#111115] border-t sm:border border-white/10 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-4 sm:p-5 space-y-3.5 shadow-2xl text-gray-200 relative animate-slideUp sm:animate-scaleUp max-h-[85vh] flex flex-col"
+        className="bg-[#111115] border-t sm:border border-white/10 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-4 sm:p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-3.5 shadow-2xl text-gray-200 relative animate-slideUp sm:animate-scaleUp max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mobile Drag Indicator Handle */}
@@ -241,7 +242,7 @@ export const StockActionSheetModal: React.FC<StockActionSheetModalProps> = ({
           </div>
 
           {/* Section 3: ⚠️ 刪除持股 (Danger Zone) */}
-          <div className="pt-1 border-t border-white/10">
+          <div className="pt-1 pb-1 border-t border-white/10">
             <button
               onClick={() => {
                 onClose();
@@ -260,4 +261,9 @@ export const StockActionSheetModal: React.FC<StockActionSheetModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };
