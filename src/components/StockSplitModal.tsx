@@ -189,48 +189,81 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
         </div>
 
         {/* Custom Inputs: Ratio & Date */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-black/40 border border-white/5 rounded-2xl p-3 sm:p-3.5 text-xs">
-          {/* Ratio input */}
-          <div className="space-y-1">
-            <label className="text-gray-400 font-medium block">自訂比例 (分子 / 分母)</label>
+        <div className="bg-black/40 border border-white/5 rounded-2xl p-3 sm:p-4 space-y-3.5 text-xs">
+          {/* Ratio Transformation Card (原股 ➔ 拆換新股) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-gray-300 font-bold flex items-center gap-1.5">
+                <Scissors className="w-3.5 h-3.5 text-purple-400" />
+                <span>分割轉換比例 (原股 ➔ 拆換新股)</span>
+              </label>
+              <span className="text-[11px] font-mono font-bold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-lg">
+                {ratio >= 1 ? `1 拆 ${ratio} (${ratio}x 增股)` : `${denominator} 併 ${numerator} (${ratio}x 併股)`}
+              </span>
+            </div>
+
             <div className="flex items-center gap-2">
-              <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 flex-1 focus-within:border-purple-500">
-                <span className="text-gray-400 font-bold text-xs mr-1.5">新股:</span>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="any"
-                  value={numerator}
-                  onChange={(e) => setNumerator(Math.max(0.001, parseFloat(e.target.value) || 1))}
-                  className="w-full bg-transparent text-white font-mono font-bold text-xs focus:outline-none"
-                />
+              {/* Box 1: 原持股 (舊股) */}
+              <div className="flex-1 bg-white/[0.04] border border-white/10 rounded-2xl p-2.5 sm:p-3 focus-within:border-purple-500 transition min-w-0">
+                <div className="text-[11px] text-gray-400 font-bold mb-1 flex items-center justify-between">
+                  <span>原持股 (舊股)</span>
+                  <span className="text-[10px] text-gray-500 font-normal">Before</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="any"
+                    value={denominator}
+                    onChange={(e) => setDenominator(Math.max(0.001, parseFloat(e.target.value) || 1))}
+                    className="w-full bg-transparent text-white font-mono font-black text-sm sm:text-base focus:outline-none min-w-0"
+                  />
+                  <span className="text-gray-400 font-bold text-xs shrink-0">股</span>
+                </div>
               </div>
-              <span className="text-gray-500 font-black">/</span>
-              <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 flex-1 focus-within:border-purple-500">
-                <span className="text-gray-400 font-bold text-xs mr-1.5">原股:</span>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="any"
-                  value={denominator}
-                  onChange={(e) => setDenominator(Math.max(0.001, parseFloat(e.target.value) || 1))}
-                  className="w-full bg-transparent text-white font-mono font-bold text-xs focus:outline-none"
-                />
+
+              {/* Transition Indicator */}
+              <div className="flex flex-col items-center justify-center shrink-0 px-1 text-purple-400">
+                <span className="text-[10px] font-bold tracking-wider mb-0.5 whitespace-nowrap">
+                  {ratio >= 1 ? '拆換為' : '併換為'}
+                </span>
+                <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center shadow-sm">
+                  <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                </div>
+              </div>
+
+              {/* Box 2: 拆後新股 (新持股) */}
+              <div className="flex-1 bg-purple-500/[0.08] border border-purple-500/30 rounded-2xl p-2.5 sm:p-3 focus-within:border-purple-400 transition min-w-0">
+                <div className="text-[11px] text-purple-300 font-bold mb-1 flex items-center justify-between">
+                  <span>拆後新股</span>
+                  <span className="text-[10px] text-purple-400/80 font-normal">After</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="any"
+                    value={numerator}
+                    onChange={(e) => setNumerator(Math.max(0.001, parseFloat(e.target.value) || 1))}
+                    className="w-full bg-transparent text-purple-200 font-mono font-black text-sm sm:text-base focus:outline-none min-w-0"
+                  />
+                  <span className="text-purple-300 font-bold text-xs shrink-0">股</span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Effective Date input */}
-          <div className="space-y-1">
-            <label className="text-gray-400 font-medium block flex items-center gap-1">
-              <Calendar className="w-3 h-3 text-purple-400" />
+          <div className="pt-2 border-t border-white/5 space-y-1">
+            <label className="text-gray-400 font-medium block flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-purple-400" />
               <span>分割生效基準日</span>
             </label>
             <input
               type="date"
               value={splitDate}
               onChange={(e) => setSplitDate(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 focus:border-purple-500 rounded-xl px-3 py-1.5 text-white font-mono text-xs focus:outline-none transition"
+              className="w-full bg-white/5 border border-white/10 focus:border-purple-500 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none transition"
             />
           </div>
         </div>
