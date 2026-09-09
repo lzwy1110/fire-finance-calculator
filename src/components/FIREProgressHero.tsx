@@ -363,9 +363,9 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
 
       {/* Simulator Modal */}
       {isSimulatorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-white/10 p-5 sm:p-6 shrink-0">
               <div className="flex items-center space-x-2">
                 <Sliders className="w-5 h-5" style={{ color: currentTheme.primaryHex }} />
                 <h3 className="text-xl font-bold text-white">FIRE 參數模擬器</h3>
@@ -378,7 +378,8 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+            <div className="p-5 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
               <div>
                 <label className="block text-gray-400 mb-1">目前年齡 (歲)</label>
                 <input
@@ -537,8 +538,9 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
                 />
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+          <div className="flex items-center justify-end gap-3 p-4 border-t border-white/10 bg-black/40 shrink-0">
               <button
                 onClick={() => setIsSimulatorOpen(false)}
                 className="px-4 py-2 rounded-xl text-gray-400 hover:text-white text-sm cursor-pointer"

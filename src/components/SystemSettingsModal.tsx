@@ -202,26 +202,27 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div
-        className="bg-[#0e0e0e] border-t sm:border border-white/10 w-full max-w-2xl rounded-t-3xl sm:rounded-3xl p-5 sm:p-8 space-y-5 sm:space-y-6 shadow-2xl overflow-y-auto max-h-[92vh] text-gray-200 animate-slideUp sm:animate-none"
+      <form
+        onSubmit={handleSubmit}
+        className="bg-[#0e0e0e] border-t sm:border border-white/10 w-full max-w-2xl rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[85vh] flex flex-col text-gray-200 animate-slideUp sm:animate-scaleUp"
         style={{
           boxShadow: `0 0 30px rgba(${currentTheme.bgGlowRgb}, 0.2)`,
         }}
       >
         {/* Mobile Drag Indicator Handle */}
-        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
+        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3 sm:pb-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
           <div className="flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-2xl flex items-center justify-center transition-colors"
+              className="w-10 h-10 rounded-2xl flex items-center justify-center transition-colors shrink-0"
               style={{ backgroundColor: currentTheme.primaryHex, color: '#000' }}
             >
               <Settings className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <h2 className="text-base sm:text-xl font-bold text-white flex items-center gap-2">
                 系統與介面偏好設定
               </h2>
               <p className="text-xs text-gray-400">
@@ -230,14 +231,15 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition cursor-pointer"
+            className="p-2 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-5 flex-1 min-h-0 overflow-y-auto pr-0.5 py-2">
           {/* SECTION 0: 數據存儲模式與雲端同步 */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -796,31 +798,32 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 font-bold text-xs rounded-xl transition cursor-pointer"
-            >
-              取消
-            </button>
+        </div>
 
-            <button
-              type="submit"
-              className="px-6 py-2.5 font-extrabold text-xs rounded-xl shadow-lg transition cursor-pointer active:scale-95 flex items-center gap-1.5"
-              style={{
-                backgroundColor: currentTheme.primaryHex,
-                color: '#000',
-                boxShadow: `0 0 15px rgba(${currentTheme.bgGlowRgb}, 0.4)`,
-              }}
-            >
-              <Check className="w-4 h-4 stroke-[3]" />
-              儲存設定
-            </button>
-          </div>
-        </form>
-      </div>
+        {/* Pinned Action Buttons */}
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 font-bold text-xs rounded-xl transition cursor-pointer"
+          >
+            取消
+          </button>
+
+          <button
+            type="submit"
+            className="px-6 py-2.5 font-extrabold text-xs rounded-xl shadow-lg transition cursor-pointer active:scale-95 flex items-center gap-1.5"
+            style={{
+              backgroundColor: currentTheme.primaryHex,
+              color: '#000',
+              boxShadow: `0 0 15px rgba(${currentTheme.bgGlowRgb}, 0.4)`,
+            }}
+          >
+            <Check className="w-4 h-4 stroke-[3]" />
+            儲存設定
+          </button>
+        </div>
+      </form>
 
       {confirmModal && (
         <ConfirmModal

@@ -159,17 +159,17 @@ export const StockRightModal: React.FC<StockRightModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="stock-right-title"
-        className={`bg-[#121216] border w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl text-gray-200 relative my-auto animate-scaleUp ${
+        className={`bg-[#121216] border w-full max-w-lg rounded-3xl shadow-2xl text-gray-200 relative animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden ${
           isUpcoming ? 'border-amber-500/40 shadow-amber-500/10' : 'border-sky-500/30 shadow-sky-500/10'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+        <div className="flex items-center justify-between border-b border-white/10 p-4 sm:p-5 shrink-0">
           <div className="flex items-center gap-2.5">
             <div
               className={`p-2.5 rounded-2xl border ${
@@ -212,8 +212,10 @@ export const StockRightModal: React.FC<StockRightModalProps> = ({
           </button>
         </div>
 
-        {/* Warning: Upcoming */}
-        {isUpcoming && (
+        {/* Scrollable Body */}
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+          {/* Warning: Upcoming */}
+          {isUpcoming && (
           <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-start gap-2.5 text-xs text-amber-300 leading-relaxed">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div>
@@ -417,8 +419,10 @@ export const StockRightModal: React.FC<StockRightModalProps> = ({
           </div>
         </div>
 
+        </div>
+
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+        <div className="flex items-center justify-end gap-3 p-4 border-t border-white/10 bg-black/40 shrink-0">
           <button
             type="button"
             onClick={onClose}

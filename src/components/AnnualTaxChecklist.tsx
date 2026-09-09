@@ -383,9 +383,9 @@ export const AnnualTaxChecklist: React.FC = () => {
 
       {/* ================= MODAL 1: 綜合所得稅試算機 ================= */}
       {isCalculatorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-          <div className="bg-[#121214] border border-white/15 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scaleUp my-auto max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#121214] border border-white/15 rounded-3xl max-w-md w-full shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-white/10 p-5 sm:p-6 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
                   <Calculator className="w-5 h-5" />
@@ -403,7 +403,7 @@ export const AnnualTaxChecklist: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="p-5 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4">
               {/* Gross Salary Input */}
               <div>
                 <label className="block text-xs font-bold text-gray-300 mb-1.5">
@@ -429,14 +429,12 @@ export const AnnualTaxChecklist: React.FC = () => {
                   onClick={() => setIsMarried(!isMarried)}
                   className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                     isMarried
-                      ? 'bg-purple-500/20 border-purple-500/50 text-white'
-                      : 'bg-white/5 border-white/10 text-gray-400'
+                      ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
+                      : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
                   }`}
                 >
-                  <div className="text-xs font-bold">{isMarried ? '已婚合併申報' : '單身申報'}</div>
-                  <div className="text-[10px] opacity-75 mt-0.5">
-                    {isMarried ? '免稅扣除額加倍' : '標準免稅扣除'}
-                  </div>
+                  <div className="text-xs font-bold">已婚 (標準扣除額加倍)</div>
+                  <div className="text-[10px] opacity-75 mt-0.5">免稅額度提高</div>
                 </button>
 
                 <button
@@ -444,8 +442,8 @@ export const AnnualTaxChecklist: React.FC = () => {
                   onClick={() => setHasSpecialDeduction(!hasSpecialDeduction)}
                   className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                     hasSpecialDeduction
-                      ? 'bg-purple-500/20 border-purple-500/50 text-white'
-                      : 'bg-white/5 border-white/10 text-gray-400'
+                      ? 'bg-purple-500/15 border-purple-500/40 text-purple-300'
+                      : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
                   }`}
                 >
                   <div className="text-xs font-bold">薪資特別扣除額</div>
@@ -470,18 +468,18 @@ export const AnnualTaxChecklist: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-3 p-4 border-t border-white/10 bg-black/40 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsCalculatorOpen(false)}
-                className="flex-1 py-3 rounded-xl font-medium text-xs text-gray-400 hover:text-white bg-white/5 transition cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl font-medium text-xs text-gray-400 hover:text-white bg-white/5 transition cursor-pointer"
               >
                 取消
               </button>
               <button
                 type="button"
                 onClick={handleApplyEstimatedTax}
-                className="flex-1 py-3 rounded-xl font-bold text-xs text-white bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl font-bold text-xs text-white bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Check className="w-4 h-4" />
                 <span>套用至 5月所得稅</span>
@@ -493,9 +491,9 @@ export const AnnualTaxChecklist: React.FC = () => {
 
       {/* ================= MODAL 2: 新增 / 編輯稅目 ================= */}
       {(isAddModalOpen || editingTaxItem) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-          <div className="bg-[#121214] border border-white/15 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scaleUp my-auto max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#121214] border border-white/15 rounded-3xl max-w-md w-full shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-white/10 p-5 shrink-0">
               <h4 className="text-base font-black text-white">
                 {editingTaxItem ? '編輯年度稅目' : '新增年度稅務項目'}
               </h4>
@@ -510,83 +508,85 @@ export const AnnualTaxChecklist: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveTaxItem} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-300 mb-1.5">稅目名稱</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="例如: 自小客車牌照稅, 房屋稅"
-                  value={taxName}
-                  onChange={(e) => setTaxName(e.target.value)}
-                  className="w-full bg-black/60 border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-gray-300">繳費月份</label>
-                  <span className="text-xs font-bold text-amber-400">每年 {taxMonth} 月繳納</span>
-                </div>
-                <div className="grid grid-cols-6 gap-1 bg-black/60 border border-white/15 p-1.5 rounded-xl">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setTaxMonth(m)}
-                      className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-center ${
-                        taxMonth === m
-                          ? 'bg-amber-500 text-black shadow-sm'
-                          : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      {m}月
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-300 mb-1.5">預估金額</label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-zinc-500 font-bold text-sm">NT$</span>
+            <form onSubmit={handleSaveTaxItem} className="flex flex-col flex-1 min-h-0">
+              <div className="p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1.5">稅目名稱</label>
                   <input
-                    type="number"
+                    type="text"
                     required
-                    min="1"
-                    placeholder="7120"
-                    value={taxAmount || ''}
-                    onChange={(e) => setTaxAmount(Number(e.target.value))}
-                    className="w-full bg-black/60 border border-white/15 rounded-xl pl-12 pr-3.5 py-2.5 font-mono text-sm text-white focus:outline-none"
+                    placeholder="例如: 自小客車牌照稅, 房屋稅"
+                    value={taxName}
+                    onChange={(e) => setTaxName(e.target.value)}
+                    className="w-full bg-black/60 border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-gray-300">繳費月份</label>
+                    <span className="text-xs font-bold text-amber-400">每年 {taxMonth} 月繳納</span>
+                  </div>
+                  <div className="grid grid-cols-6 gap-1 bg-black/60 border border-white/15 p-1.5 rounded-xl">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setTaxMonth(m)}
+                        className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer text-center ${
+                          taxMonth === m
+                            ? 'bg-amber-500 text-black shadow-sm'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {m}月
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1.5">預估金額</label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-2.5 text-zinc-500 font-bold text-sm">NT$</span>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      placeholder="7120"
+                      value={taxAmount || ''}
+                      onChange={(e) => setTaxAmount(Number(e.target.value))}
+                      className="w-full bg-black/60 border border-white/15 rounded-xl pl-12 pr-3.5 py-2.5 font-mono text-sm text-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1.5">備註說明 (選填)</label>
+                  <input
+                    type="text"
+                    placeholder="例如: 1,800cc / 台北市自住戶"
+                    value={taxNote}
+                    onChange={(e) => setTaxNote(e.target.value)}
+                    className="w-full bg-black/60 border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-300 mb-1.5">備註說明 (選填)</label>
-                <input
-                  type="text"
-                  placeholder="例如: 1,800cc / 台北市自住戶"
-                  value={taxNote}
-                  onChange={(e) => setTaxNote(e.target.value)}
-                  className="w-full bg-black/60 border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-3">
+              <div className="flex gap-3 p-4 border-t border-white/10 bg-black/40 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setIsAddModalOpen(false);
                     setEditingTaxItem(null);
                   }}
-                  className="flex-1 py-3 rounded-xl font-medium text-xs text-gray-400 hover:text-white bg-white/5 transition cursor-pointer"
+                  className="flex-1 py-2.5 rounded-xl font-medium text-xs text-gray-400 hover:text-white bg-white/5 transition cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-xl font-bold text-xs text-white shadow-lg transition active:scale-95 cursor-pointer"
+                  className="flex-1 py-2.5 rounded-xl font-bold text-xs text-white shadow-lg transition active:scale-95 cursor-pointer"
                   style={{ backgroundColor: currentTheme.primaryHex }}
                 >
                   儲存稅目

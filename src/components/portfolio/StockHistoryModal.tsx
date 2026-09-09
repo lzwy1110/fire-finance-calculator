@@ -42,44 +42,47 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
   const currSym = stock.market === 'US' ? '$' : 'NT$';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-      <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-xl rounded-3xl p-5 sm:p-6 space-y-5 shadow-2xl text-gray-200 relative my-auto max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">{stock.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
-            <div>
-              <h3 className="text-lg font-black text-white font-mono flex items-center gap-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-xl rounded-3xl p-4 sm:p-5 shadow-2xl text-gray-200 relative max-h-[85vh] flex flex-col animate-scaleUp">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-2xl shrink-0">{stock.market === 'US' ? '🇺🇸' : '🇹🇼'}</span>
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-black text-white font-mono flex items-center gap-2">
                 <span>{stock.symbol}</span>
-                <span className="text-xs font-normal text-gray-400">({stock.name})</span>
+                <span className="text-xs font-normal text-gray-400 font-sans truncate max-w-[160px] sm:max-w-[220px]">
+                  ({stock.name})
+                </span>
               </h3>
-              <p className="text-xs text-cyan-300">買賣交易歷史與損益明細對帳單</p>
+              <p className="text-[11px] text-cyan-300">買賣交易歷史與損益明細對帳單</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-white bg-white/5 rounded-xl cursor-pointer"
+            className="p-1.5 text-gray-400 hover:text-white bg-white/5 rounded-xl cursor-pointer shrink-0 transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Summary Header inside Modal */}
-        <div className="bg-black/60 border border-white/5 rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div className="bg-black/60 border border-white/5 rounded-2xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs my-2.5 shrink-0">
           <div>
             <span className="text-gray-400 text-[10px] block">目前持有股數</span>
-            <strong className="text-white font-mono text-sm">{formatNum(metrics.shares)} 股</strong>
+            <strong className="text-white font-mono text-xs sm:text-sm">{formatNum(metrics.shares)} 股</strong>
           </div>
 
           <div>
             <span className="text-gray-400 text-[10px] block">加權買入均價</span>
-            <strong className="text-gray-200 font-mono text-sm">{currSym}{formatDec(metrics.avgCost)}</strong>
+            <strong className="text-gray-200 font-mono text-xs sm:text-sm">{currSym}{formatDec(metrics.avgCost)}</strong>
           </div>
 
           <div>
             <span className="text-gray-400 text-[10px] block">未實現損益</span>
             <strong
-              className={`font-mono text-sm font-bold ${
+              className={`font-mono text-xs sm:text-sm font-bold ${
                 metrics.unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'
               }`}
             >
@@ -90,7 +93,7 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
           <div>
             <span className="text-gray-400 text-[10px] block">已實現損益</span>
             <strong
-              className={`font-mono text-sm font-bold ${
+              className={`font-mono text-xs sm:text-sm font-bold ${
                 metrics.realizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'
               }`}
             >
@@ -99,22 +102,24 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
           </div>
         </div>
 
-        {/* Transactions List */}
-        <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-          <div className="flex items-center justify-between text-xs font-bold text-gray-400 px-1">
-            <span>交易明細紀錄 ({stock.transactions?.length || 0} 筆):</span>
-            <button
-              onClick={() => {
-                onClose();
-                onOpenAddTrade(stock);
-              }}
-              className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 py-1 px-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/25 cursor-pointer font-bold transition active:scale-95 shadow-sm"
-              title="新增買入或賣出交易"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>新增交易</span>
-            </button>
-          </div>
+        {/* Transactions List Toolbar */}
+        <div className="flex items-center justify-between text-xs font-bold text-gray-400 px-1 pb-1.5 shrink-0">
+          <span>交易明細紀錄 ({stock.transactions?.length || 0} 筆):</span>
+          <button
+            onClick={() => {
+              onClose();
+              onOpenAddTrade(stock);
+            }}
+            className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 py-1 px-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/25 cursor-pointer font-bold transition active:scale-95 shadow-sm"
+            title="新增買入或賣出交易"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>新增交易</span>
+          </button>
+        </div>
+
+        {/* Transactions List Scroll Area */}
+        <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
 
           {stock.transactions && stock.transactions.length > 0 ? (
             stock.transactions.map((tx) => (
@@ -323,10 +328,10 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
           )}
         </div>
 
-        <div className="flex items-center justify-end pt-3 border-t border-white/10">
+        <div className="flex items-center justify-end pt-3 border-t border-white/10 shrink-0 mt-1">
           <button
             onClick={onClose}
-            className="px-5 py-2 bg-white/10 hover:bg-white/15 text-white font-bold rounded-xl cursor-pointer"
+            className="px-5 py-2 bg-white/10 hover:bg-white/15 text-white font-bold rounded-xl cursor-pointer transition active:scale-95"
           >
             關閉
           </button>

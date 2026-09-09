@@ -1016,10 +1016,10 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
       {/* Custom Glassmorphism Category Picker Modal (Multi-select) */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-          <div className="relative w-full max-w-md bg-[#0f0f12] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-md bg-[#0f0f12] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div
                   className="p-2 rounded-xl"
@@ -1146,54 +1146,58 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       {/* Transaction Detail Modal / Electronic Receipt (Option A) */}
       {selectedDetailTransaction && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="relative w-full max-w-md bg-[#0e0e12] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-slideUp sm:animate-none">
-            {/* Mobile Drag Indicator */}
-            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1" />
-
+          <div className="relative w-full max-w-md bg-[#0e0e12] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-slideUp sm:animate-none">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2">
-                <div
-                  className="p-2 rounded-xl"
-                  style={{
-                    backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
-                    color: currentTheme.primaryHex,
-                  }}
-                >
-                  <ReceiptText className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-white">收支明細收據</h3>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[11px] text-gray-400 font-mono">
-                      {selectedDetailTransaction.id.startsWith('t-widget-')
-                        ? `憑證 #W-${selectedDetailTransaction.id.slice(-6).toUpperCase()}`
-                        : selectedDetailTransaction.id.startsWith('stock-')
-                        ? `證券 #${selectedDetailTransaction.id.replace('stock-', '').slice(-6).toUpperCase()}`
-                        : `憑證 #TX-${selectedDetailTransaction.id.replace(/^t-/, '').slice(-6).toUpperCase()}`}
-                    </span>
-                    {selectedDetailTransaction.id.startsWith('t-widget-') && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
-                        ⚡ WIDGET
+            <div className="p-4 sm:p-5 border-b border-white/10 shrink-0 pb-3">
+              {/* Mobile Drag Indicator */}
+              <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-2" />
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="p-2 rounded-xl"
+                    style={{
+                      backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
+                      color: currentTheme.primaryHex,
+                    }}
+                  >
+                    <ReceiptText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-white">收支明細收據</h3>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[11px] text-gray-400 font-mono">
+                        {selectedDetailTransaction.id.startsWith('t-widget-')
+                          ? `憑證 #W-${selectedDetailTransaction.id.slice(-6).toUpperCase()}`
+                          : selectedDetailTransaction.id.startsWith('stock-')
+                          ? `證券 #${selectedDetailTransaction.id.replace('stock-', '').slice(-6).toUpperCase()}`
+                          : `憑證 #TX-${selectedDetailTransaction.id.replace(/^t-/, '').slice(-6).toUpperCase()}`}
                       </span>
-                    )}
-                    {selectedDetailTransaction.id.startsWith('stock-') && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold font-mono">
-                        📈 STOCK
-                      </span>
-                    )}
+                      {selectedDetailTransaction.id.startsWith('t-widget-') && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
+                          ⚡ WIDGET
+                        </span>
+                      )}
+                      {selectedDetailTransaction.id.startsWith('stock-') && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold font-mono">
+                          📈 STOCK
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
+                <button
+                  onClick={() => setSelectedDetailTransaction(null)}
+                  className="p-1.5 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedDetailTransaction(null)}
-                className="p-1.5 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
-            {/* Hero: Amount & Icon */}
+            {/* Scrollable Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+              {/* Hero: Amount & Icon */}
             <div className="bg-[#141418] border border-white/5 rounded-2xl p-4 text-center space-y-2 shadow-inner">
               <div className="w-14 h-14 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl shadow-inner">
                 {getCategoryIcon(selectedDetailTransaction.mainCategory, selectedDetailTransaction.type)}
@@ -1297,8 +1301,10 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               )}
             </div>
 
+            </div>
+
             {/* Bottom Actions */}
-            <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+            <div className="p-4 border-t border-white/10 bg-black/40 flex items-center justify-between gap-2 shrink-0">
               <button
                 onClick={() => {
                   const target = selectedDetailTransaction;

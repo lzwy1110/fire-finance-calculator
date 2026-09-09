@@ -126,10 +126,10 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
     v.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto">
-      <div className="bg-[#121216] border border-purple-500/30 w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl text-gray-200 animate-scaleUp my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+      <div className="bg-[#121216] border border-purple-500/30 w-full max-w-lg rounded-3xl shadow-2xl text-gray-200 animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+        <div className="flex items-center justify-between border-b border-white/10 p-4 sm:p-5 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2.5 rounded-2xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
               <Scissors className="w-5 h-5 stroke-[2.5]" />
@@ -156,7 +156,9 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
           </button>
         </div>
 
-        {/* Preset Ratio Chips */}
+        {/* Scrollable Body */}
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+          {/* Preset Ratio Chips */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <label className="text-gray-300 font-bold flex items-center gap-1.5">
@@ -368,8 +370,10 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
           </p>
         </div>
 
+        </div>
+
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-2.5 pt-1">
+        <div className="flex items-center justify-end gap-2.5 p-4 border-t border-white/10 bg-black/40 shrink-0">
           <button
             type="button"
             onClick={onClose}

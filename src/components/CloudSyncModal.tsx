@@ -166,12 +166,12 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-8 max-w-xl w-full shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto animate-slideUp sm:animate-none">
+      <div className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 max-w-xl w-full shadow-2xl space-y-4 max-h-[85vh] flex flex-col animate-slideUp sm:animate-scaleUp">
         {/* Mobile Drag Indicator Handle */}
-        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
+        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 sm:pb-4">
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 shrink-0">
           <div className="flex items-center space-x-3">
             <div
               className="p-2.5 rounded-2xl flex items-center justify-center text-black font-bold"
@@ -184,7 +184,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-zinc-100">全棧 Supabase 數據同步與備份</h3>
+                <h3 className="text-base sm:text-lg font-bold text-zinc-100">全棧 Supabase 數據同步與備份</h3>
                 <span className="px-2 py-0.5 text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-md">
                   Vercel + Supabase
                 </span>
@@ -200,8 +200,10 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           </button>
         </div>
 
-        {/* Backend & Supabase Status Panel */}
-        <div className="bg-zinc-950/90 border border-zinc-800 p-4 rounded-2xl space-y-3">
+        {/* Scrollable Content Body */}
+        <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-0.5">
+          {/* Backend & Supabase Status Panel */}
+          <div className="bg-zinc-950/90 border border-zinc-800 p-4 rounded-2xl space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
               <Server className="w-4 h-4 text-sky-400" /> API 與 Supabase 資料庫連線狀態
@@ -445,12 +447,13 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
             </label>
           </div>
         </div>
+        </div>
 
         {/* Footer */}
-        <div className="pt-3 border-t border-zinc-800 text-right">
+        <div className="pt-3 border-t border-zinc-800 text-right shrink-0">
           <button
             onClick={onClose}
-            className="px-5 py-2 bg-zinc-800 text-zinc-200 rounded-xl text-xs font-bold hover:bg-zinc-700 transition cursor-pointer"
+            className="px-5 py-2 bg-zinc-800 text-zinc-200 rounded-xl text-xs font-bold hover:bg-zinc-700 transition cursor-pointer active:scale-95"
           >
             關閉視窗
           </button>

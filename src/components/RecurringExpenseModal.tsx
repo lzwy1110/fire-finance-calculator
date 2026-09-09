@@ -224,12 +224,15 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-      <div className="bg-[#141419] border border-zinc-800 w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl text-gray-200 animate-scaleUp my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-[#141419] border border-zinc-800 w-full max-w-lg rounded-3xl p-4 sm:p-6 shadow-2xl text-gray-200 animate-scaleUp max-h-[85vh] flex flex-col"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3.5">
+        <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-400 border border-indigo-500/30">
+            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-400 border border-indigo-500/30 shrink-0">
               <Repeat className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
@@ -242,38 +245,40 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800/70 transition-colors"
+            className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800/70 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Quick templates (only when adding new) */}
-        {!isEditing && (
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>常用扣款範本 (點擊快速套用)：</span>
+        {/* Scrollable Form Body */}
+        <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-0.5 py-1">
+          {/* Quick templates (only when adding new) */}
+          {!isEditing && (
+            <div className="space-y-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>常用扣款範本 (點擊快速套用)：</span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {COMMON_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.name}
+                    type="button"
+                    onClick={() => applyTemplate(tpl)}
+                    className="flex-shrink-0 px-2.5 py-1 rounded-xl text-xs bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/60 text-zinc-300 hover:text-white transition-all flex items-center gap-1.5"
+                  >
+                    <span>{tpl.emoji}</span>
+                    <span className="font-medium">{tpl.name.split(' ')[0]}</span>
+                    <span className="text-indigo-300 font-semibold">${tpl.amount}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {COMMON_TEMPLATES.map((tpl) => (
-                <button
-                  key={tpl.name}
-                  type="button"
-                  onClick={() => applyTemplate(tpl)}
-                  className="flex-shrink-0 px-2.5 py-1 rounded-xl text-xs bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/60 text-zinc-300 hover:text-white transition-all flex items-center gap-1.5"
-                >
-                  <span>{tpl.emoji}</span>
-                  <span className="font-medium">{tpl.name.split(' ')[0]}</span>
-                  <span className="text-indigo-300 font-semibold">${tpl.amount}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Name */}
           <div>
             <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
@@ -508,24 +513,25 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
             </button>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex gap-2.5 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 font-semibold text-sm text-zinc-300 transition-colors"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="flex-1 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-sm text-white shadow-lg shadow-indigo-600/30 transition-all"
-            >
-              {isEditing ? '儲存變更' : '確認新增'}
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-2.5 pt-3 border-t border-zinc-800 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 font-semibold text-sm text-zinc-300 transition-colors cursor-pointer"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            className="flex-1 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-sm text-white shadow-lg shadow-indigo-600/30 transition-all cursor-pointer active:scale-95"
+          >
+            {isEditing ? '儲存變更' : '確認新增'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

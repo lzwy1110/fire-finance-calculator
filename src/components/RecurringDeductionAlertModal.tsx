@@ -47,10 +47,10 @@ export const RecurringDeductionAlertModal: React.FC<RecurringDeductionAlertModal
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-      <div className="bg-[#131318] border border-indigo-500/30 w-full max-w-md rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl shadow-indigo-500/10 text-gray-200 animate-scaleUp my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      <div className="bg-[#131318] border border-indigo-500/30 w-full max-w-md rounded-3xl p-5 sm:p-6 flex flex-col max-h-[85vh] shadow-2xl shadow-indigo-500/10 text-gray-200 animate-scaleUp overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-zinc-800 pb-3.5">
+        <div className="flex items-start justify-between border-b border-zinc-800 pb-3.5 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 relative">
               <Bell className="w-5 h-5 stroke-[2.5]" />
@@ -75,76 +75,79 @@ export const RecurringDeductionAlertModal: React.FC<RecurringDeductionAlertModal
           </button>
         </div>
 
-        {/* Deducted Items list */}
-        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-          {deductedItems.map((item, idx) => {
-            const exp = item.expense;
-            const isUSD = exp.currency === 'USD';
-            return (
-              <div
-                key={item.transaction.id || idx}
-                className="bg-zinc-900/80 border border-zinc-800/80 hover:border-zinc-700/80 rounded-2xl p-3 flex items-center justify-between transition-colors"
-              >
-                <div className="space-y-0.5 min-w-0 pr-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-white truncate">{exp.name}</span>
-                    <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50">
-                      {exp.subCategory || exp.mainCategory}
-                    </span>
+        {/* Content Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 py-1 pr-1">
+          {/* Deducted Items list */}
+          <div className="space-y-2">
+            {deductedItems.map((item, idx) => {
+              const exp = item.expense;
+              const isUSD = exp.currency === 'USD';
+              return (
+                <div
+                  key={item.transaction.id || idx}
+                  className="bg-zinc-900/80 border border-zinc-800/80 hover:border-zinc-700/80 rounded-2xl p-3 flex items-center justify-between transition-colors"
+                >
+                  <div className="space-y-0.5 min-w-0 pr-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-bold text-white truncate">{exp.name}</span>
+                      <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50">
+                        {exp.subCategory || exp.mainCategory}
+                      </span>
+                    </div>
+                    {exp.note && <div className="text-[11px] text-zinc-400 truncate">{exp.note}</div>}
                   </div>
-                  {exp.note && <div className="text-[11px] text-zinc-400 truncate">{exp.note}</div>}
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-black text-rose-400">
+                      -{isUSD ? `$${formatDec(exp.amount)}` : `NT$ ${formatNum(exp.amount)}`}
+                    </div>
+                    <div className="text-[10px] text-emerald-400 flex items-center justify-end gap-0.5">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>已扣繳</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-sm font-black text-rose-400">
-                    -{isUSD ? `$${formatDec(exp.amount)}` : `NT$ ${formatNum(exp.amount)}`}
-                  </div>
-                  <div className="text-[10px] text-emerald-400 flex items-center justify-end gap-0.5">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>已扣繳</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Total Summary Box */}
-        <div className="bg-gradient-to-br from-zinc-900 via-indigo-950/20 to-zinc-900 p-3.5 rounded-2xl border border-indigo-500/20 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-zinc-400 flex items-center gap-1.5">
-              <CreditCard className="w-3.5 h-3.5 text-indigo-400" />
-              本日總扣款金額
-            </span>
-            <span className="text-sm font-black text-white">
-              NT$ {formatNum(totalDeductedTWD)}
-              {totalDeductedUSD > 0 && (
-                <span className="text-xs text-indigo-300 ml-1.5 font-bold">
-                  + ${formatDec(totalDeductedUSD)} USD
-                </span>
-              )}
-            </span>
+              );
+            })}
           </div>
 
-          {(remainingCashTWD !== undefined || remainingCashUSD !== undefined) && (
-            <div className="flex items-center justify-between text-xs pt-1.5 border-t border-zinc-800/80">
+          {/* Total Summary Box */}
+          <div className="bg-gradient-to-br from-zinc-900 via-indigo-950/20 to-zinc-900 p-3.5 rounded-2xl border border-indigo-500/20 space-y-2">
+            <div className="flex items-center justify-between text-xs">
               <span className="text-zinc-400 flex items-center gap-1.5">
-                <Wallet className="w-3.5 h-3.5 text-emerald-400" />
-                活存扣款後餘額
+                <CreditCard className="w-3.5 h-3.5 text-indigo-400" />
+                本日總扣款金額
               </span>
-              <span className="font-bold text-emerald-400">
-                {remainingCashTWD !== undefined && `NT$ ${formatNum(remainingCashTWD)}`}
-                {remainingCashUSD !== undefined && remainingCashUSD > 0 && (
-                  <span className="ml-1.5 text-emerald-300">
-                    / ${formatDec(remainingCashUSD)} USD
+              <span className="text-sm font-black text-white">
+                NT$ {formatNum(totalDeductedTWD)}
+                {totalDeductedUSD > 0 && (
+                  <span className="text-xs text-indigo-300 ml-1.5 font-bold">
+                    + ${formatDec(totalDeductedUSD)} USD
                   </span>
                 )}
               </span>
             </div>
-          )}
+
+            {(remainingCashTWD !== undefined || remainingCashUSD !== undefined) && (
+              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-zinc-800/80">
+                <span className="text-zinc-400 flex items-center gap-1.5">
+                  <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                  活存扣款後餘額
+                </span>
+                <span className="font-bold text-emerald-400">
+                  {remainingCashTWD !== undefined && `NT$ ${formatNum(remainingCashTWD)}`}
+                  {remainingCashUSD !== undefined && remainingCashUSD > 0 && (
+                    <span className="ml-1.5 text-emerald-300">
+                      / ${formatDec(remainingCashUSD)} USD
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-2.5 pt-1">
+        <div className="flex gap-2.5 pt-3 border-t border-zinc-800 shrink-0">
           <button
             type="button"
             onClick={handleGoToLedger}

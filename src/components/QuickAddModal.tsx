@@ -97,33 +97,37 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-8 max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl space-y-5 animate-slideUp sm:animate-none">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl animate-slideUp sm:animate-scaleUp"
+      >
         {/* Mobile Drag Indicator Handle */}
-        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
+        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto sm:hidden mb-2 shrink-0" />
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 sm:pb-4">
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 shrink-0">
           <div className="flex items-center space-x-2">
             <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
               <Plus className="w-5 h-5 stroke-[3]" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-zinc-100">新增財務紀錄</h3>
+              <h3 className="text-base sm:text-lg font-bold text-zinc-100">新增財務紀錄</h3>
               <p className="text-xs text-zinc-400">快速記錄日常支出與各類收入</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-zinc-100 rounded-xl hover:bg-zinc-800 transition"
+            className="p-2 text-zinc-400 hover:text-zinc-100 rounded-xl hover:bg-zinc-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Form Body */}
+        <div className="space-y-3.5 flex-1 min-h-0 overflow-y-auto pr-0.5 py-1">
           {/* Type Selector Tabs (2 Primary Daily Life Types) */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-950 rounded-2xl border border-zinc-800">
+          <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-950 rounded-2xl border border-zinc-800 shrink-0">
             <button
               type="button"
               onClick={() => handleTypeChange('expense')}
@@ -255,30 +259,30 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
               />
             </div>
           </div>
+        </div>
 
-          {/* Submit Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-zinc-200 cursor-pointer"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={!amount}
-              className="px-6 py-2.5 text-zinc-950 font-bold text-sm rounded-xl transition disabled:opacity-40 shadow-lg cursor-pointer"
-              style={{
-                backgroundColor: currentTheme.primaryHex,
-                boxShadow: `0 0 15px rgba(${currentTheme.bgGlowRgb}, 0.3)`,
-              }}
-            >
-              確認記錄
-            </button>
-          </div>
-        </form>
-      </div>
+        {/* Submit Actions */}
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-zinc-200 cursor-pointer transition"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            disabled={!amount}
+            className="px-6 py-2.5 text-zinc-950 font-bold text-sm rounded-xl transition disabled:opacity-40 shadow-lg cursor-pointer active:scale-95"
+            style={{
+              backgroundColor: currentTheme.primaryHex,
+              boxShadow: `0 0 15px rgba(${currentTheme.bgGlowRgb}, 0.3)`,
+            }}
+          >
+            確認記錄
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

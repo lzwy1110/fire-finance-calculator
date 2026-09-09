@@ -29,8 +29,8 @@ export const InsufficientCashModal: React.FC<InsufficientCashModalProps> = ({
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(Math.round(num));
 
   return (
-    <div className="fixed inset-0 z-[125] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-      <div className="bg-[#121216] border border-amber-500/30 rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl space-y-5 sm:space-y-6 relative overflow-hidden transform transition-all scale-100 my-auto max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[125] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      <div className="bg-[#121216] border border-amber-500/30 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-4 sm:space-y-5 relative overflow-hidden animate-scaleUp">
         {/* Background Ambient Glow */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
 

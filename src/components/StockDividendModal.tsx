@@ -154,14 +154,14 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
     v.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div
-        className={`bg-[#121216] border w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl text-gray-200 animate-scaleUp my-auto ${
+        className={`bg-[#121216] border w-full max-w-lg rounded-3xl shadow-2xl text-gray-200 animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden ${
           isUpcoming ? 'border-amber-500/40 shadow-amber-500/10' : 'border-emerald-500/30 shadow-emerald-500/10'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+        <div className="flex items-center justify-between border-b border-white/10 p-4 sm:p-5 shrink-0">
           <div className="flex items-center gap-2.5">
             <div
               className={`p-2.5 rounded-2xl border ${
@@ -204,18 +204,20 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
           </button>
         </div>
 
-        {/* Zero Shares Timeline Warning */}
-        {!hasEligibleShares && (
-          <div className="bg-amber-500/15 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-300 flex items-start gap-2.5 animate-fadeIn">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <div className="font-bold text-white">⚠️ 除息基準日當天持股為 0 股</div>
-              <p className="leading-relaxed text-[11px] text-amber-200/90">
-                您選擇的除息基準日（{exDate}）當天您尚未持有任何庫存，您的買入紀錄均在此日期之後。依交易法規，除息日之後買進之部位不具備領息資格。
-              </p>
+        {/* Scrollable Body */}
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+          {/* Zero Shares Timeline Warning */}
+          {!hasEligibleShares && (
+            <div className="bg-amber-500/15 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-300 flex items-start gap-2.5 animate-fadeIn">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <div className="font-bold text-white">⚠️ 除息基準日當天持股為 0 股</div>
+                <p className="leading-relaxed text-[11px] text-amber-200/90">
+                  您選擇的除息基準日（{exDate}）當天您尚未持有任何庫存，您的買入紀錄均在此日期之後。依交易法規，除息日之後買進之部位不具備領息資格。
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Inputs Grid: Ex-Date, Payment Date, Dividend Per Share */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-black/40 border border-white/5 rounded-2xl p-3 sm:p-3.5 text-xs">
@@ -398,8 +400,10 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
           </div>
         )}
 
+        </div>
+
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-2.5 pt-1">
+        <div className="flex items-center justify-end gap-2.5 p-4 border-t border-white/10 bg-black/40 shrink-0">
           <button
             type="button"
             onClick={onClose}

@@ -962,13 +962,13 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   const isCostProfit = costDiff >= 0;
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn overflow-x-hidden overflow-y-auto">
-      <div className="bg-[#121216] border border-white/10 rounded-3xl max-w-3xl w-full shadow-2xl overflow-hidden max-h-[92vh] flex flex-col relative transform transition-all scale-100 min-w-0">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+      <div className="bg-[#121216] border border-white/10 rounded-3xl max-w-3xl w-full shadow-2xl overflow-hidden max-h-[88vh] flex flex-col relative animate-scaleUp min-w-0">
         {/* Background Ambient Glow */}
         <div className="absolute -top-32 -right-32 w-64 h-64 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* 1. Header */}
-        <div className="p-3.5 sm:p-6 border-b border-white/10 flex items-start justify-between relative z-10 flex-shrink-0 w-full">
+        <div className="p-3 sm:p-5 border-b border-white/10 flex items-start justify-between relative z-10 shrink-0 w-full">
           <div className="space-y-1 min-w-0 flex-1 pr-2">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold text-white tracking-tight truncate max-w-[200px] sm:max-w-none">
@@ -1350,34 +1350,34 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
               <canvas
                 ref={setupCanvas}
                 style={{ touchAction: 'none' }}
-                className="w-full h-[280px] sm:h-[340px] md:h-[360px] block"
+                className="w-full h-[220px] xs:h-[260px] sm:h-[320px] md:h-[350px] block"
               />
             </div>
           )}
         </div>
 
         {/* 4. Bottom Metric Cards */}
-        <div className="p-4 sm:p-6 bg-white/[0.02] border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-3 relative z-10 text-xs flex-shrink-0">
-          <div className="bg-black/30 border border-white/5 rounded-2xl p-3 space-y-1">
-            <span className="text-gray-400 font-medium">持有股數</span>
-            <div className="text-base font-bold text-white font-mono">
+        <div className="p-3 sm:p-4 bg-white/[0.02] border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 relative z-10 text-xs shrink-0">
+          <div className="bg-black/30 border border-white/5 rounded-2xl p-2.5 space-y-0.5">
+            <span className="text-gray-400 text-[11px] font-medium">持有股數</span>
+            <div className="text-sm sm:text-base font-bold text-white font-mono">
               {stock.shares.toLocaleString()} 股
             </div>
           </div>
-          <div className="bg-black/30 border border-white/5 rounded-2xl p-3 space-y-1">
-            <span className="text-gray-400 font-medium">買入均價 (成本)</span>
-            <div className="text-base font-bold text-amber-300 font-mono">
+          <div className="bg-black/30 border border-white/5 rounded-2xl p-2.5 space-y-0.5">
+            <span className="text-gray-400 text-[11px] font-medium">買入均價 (成本)</span>
+            <div className="text-sm sm:text-base font-bold text-amber-300 font-mono">
               {currencySymbol} {stock.avgCost > 0 ? stock.avgCost.toFixed(2) : '--'}
             </div>
           </div>
-          <div className="bg-black/30 border border-white/5 rounded-2xl p-3 space-y-1">
-            <span className="text-gray-400 font-medium">目前總市值</span>
-            <div className="text-base font-bold text-white font-mono">
+          <div className="bg-black/30 border border-white/5 rounded-2xl p-2.5 space-y-0.5">
+            <span className="text-gray-400 text-[11px] font-medium">目前總市值</span>
+            <div className="text-sm sm:text-base font-bold text-white font-mono">
               {currencySymbol} {(stock.shares * stock.currentPrice).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
           </div>
-          <div className="bg-black/30 border border-white/5 rounded-2xl p-3 space-y-1">
-            <span className="text-gray-400 font-medium">現價 vs 買入成本</span>
+          <div className="bg-black/30 border border-white/5 rounded-2xl p-2.5 space-y-0.5">
+            <span className="text-gray-400 text-[11px] font-medium">現價 vs 成本</span>
             {stock.avgCost > 0 ? (
               <div
                 className={`text-xs font-bold font-mono pt-0.5 flex items-center gap-1 ${

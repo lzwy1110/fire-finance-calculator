@@ -119,27 +119,28 @@ export const CurrencyExchangeModal: React.FC<CurrencyExchangeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div
-        className="bg-[#0e0e0e] border-t sm:border border-white/10 w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-7 space-y-5 shadow-2xl overflow-y-auto max-h-[92vh] text-gray-200 animate-slideUp sm:animate-none"
+      <form
+        onSubmit={handleSubmit}
+        className="bg-[#0e0e0e] border-t sm:border border-white/10 w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[85vh] flex flex-col text-gray-200 animate-slideUp sm:animate-scaleUp"
         style={{
           boxShadow: `0 0 35px rgba(${currentTheme.bgGlowRgb}, 0.2)`,
         }}
       >
         {/* Mobile Drag Indicator Handle */}
-        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
+        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3 sm:pb-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
           <div className="flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-2xl flex items-center justify-center font-bold"
+              className="w-10 h-10 rounded-2xl flex items-center justify-center font-bold shrink-0"
               style={{ backgroundColor: currentTheme.primaryHex, color: '#000' }}
             >
               <ArrowRightLeft className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                💱 雙幣現金池換匯轉帳
+              <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                雙幣自由換匯
               </h3>
               <p className="text-xs text-gray-400">
                 台幣與美金現金資產池互轉・總資產精確平衡不失真
@@ -147,15 +148,16 @@ export const CurrencyExchangeModal: React.FC<CurrencyExchangeModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/5 transition cursor-pointer"
+            className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/5 transition cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Form Body */}
+        <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-0.5 py-1">
           {/* Rate Badge */}
           <div className="bg-black/50 border border-white/5 p-3.5 rounded-2xl flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -314,29 +316,30 @@ export const CurrencyExchangeModal: React.FC<CurrencyExchangeModalProps> = ({
             </div>
           )}
 
-          {/* Footer Submit */}
-          <div className="pt-2 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs rounded-xl transition cursor-pointer"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={parsedFrom <= 0}
-              className="flex-1 py-2.5 font-bold text-xs rounded-xl shadow-lg transition cursor-pointer disabled:opacity-40"
-              style={{
-                backgroundColor: currentTheme.primaryHex,
-                color: '#000',
-              }}
-            >
-              確認執行換匯
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+
+        {/* Footer Submit */}
+        <div className="pt-3 border-t border-white/10 flex gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs rounded-xl transition cursor-pointer"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            disabled={parsedFrom <= 0}
+            className="flex-1 py-2.5 font-bold text-xs rounded-xl shadow-lg transition cursor-pointer disabled:opacity-40 active:scale-95"
+            style={{
+              backgroundColor: currentTheme.primaryHex,
+              color: '#000',
+            }}
+          >
+            確認執行換匯
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

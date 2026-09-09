@@ -94,10 +94,10 @@ export const StockCapitalReductionModal: React.FC<StockCapitalReductionModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-      <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-5 shadow-2xl text-gray-200 relative my-auto max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-lg rounded-3xl shadow-2xl text-gray-200 relative animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="flex items-center justify-between border-b border-white/10 p-4 sm:p-5 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
               <Scissors className="w-5 h-5" />
@@ -123,8 +123,9 @@ export const StockCapitalReductionModal: React.FC<StockCapitalReductionModalProp
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          {/* Inputs Grid */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 text-xs">
+            {/* Inputs Grid */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-gray-400 block mb-1 font-bold">減資基準日:</label>
@@ -292,7 +293,9 @@ export const StockCapitalReductionModal: React.FC<StockCapitalReductionModalProp
             </p>
           </div>
 
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 p-4 border-t border-white/10 bg-black/40 shrink-0">
             <button
               type="button"
               onClick={onClose}

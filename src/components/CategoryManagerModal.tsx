@@ -124,12 +124,12 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-8 max-w-2xl w-full shadow-2xl space-y-5 sm:space-y-6 max-h-[92vh] overflow-y-auto animate-slideUp sm:animate-none">
+      <div className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[85vh] flex flex-col animate-slideUp sm:animate-scaleUp">
         {/* Mobile Drag Indicator Handle */}
-        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
+        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 sm:pb-4">
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 shrink-0">
           <div className="flex items-center space-x-2.5">
             <div
               className="p-2 rounded-xl"
@@ -153,9 +153,9 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 flex-1 min-h-0 overflow-y-auto pr-0.5">
           {/* Main Category List */}
-          <div className="md:col-span-5 space-y-3 border-r border-zinc-800/80 pr-4">
+          <div className="md:col-span-5 space-y-3 md:border-r border-zinc-800/80 md:pr-4">
             <label className="block text-xs font-bold text-zinc-400">選擇大類 (Main Categories)</label>
             <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
               {categories.map((c) => {
@@ -333,10 +333,10 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="pt-4 border-t border-zinc-800 text-right">
+        <div className="pt-3 border-t border-zinc-800 text-right shrink-0">
           <button
             onClick={onClose}
-            className="px-6 py-2.5 font-bold text-xs rounded-xl transition cursor-pointer shadow-lg"
+            className="px-6 py-2.5 font-bold text-xs rounded-xl transition cursor-pointer shadow-lg active:scale-95"
             style={{
               backgroundColor: currentTheme.primaryHex,
               color: '#000',
