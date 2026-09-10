@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, X, Tag, Calendar, MessageSquare, DollarSign, Sparkles, Check, Flame } from 'lucide-react';
 import { CategoryItem, Transaction, TransactionType } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -95,8 +96,8 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
       <form
         onSubmit={handleSubmit}
         className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl animate-slideUp sm:animate-scaleUp"
@@ -262,7 +263,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         </div>
 
         {/* Submit Actions */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800 shrink-0">
+        <div className="flex items-center justify-end gap-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-zinc-800 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -285,4 +286,9 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       </form>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

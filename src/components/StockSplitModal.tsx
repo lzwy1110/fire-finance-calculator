@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Scissors,
@@ -75,6 +76,10 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
   }, [stock.transactions, stock.currentPrice]);
 
   // Simulated Post-Split Metrics
+  const simulatedPrice = useMemo(() => {
+    return ratio > 0 ? stock.currentPrice / ratio : stock.currentPrice;
+  }, [stock.currentPrice, ratio]);
+
   const postMetrics = useMemo(() => {
     const simulatedTxs = [
       ...(stock.transactions || []),
@@ -89,8 +94,8 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
         splitDenominator: denominator,
       },
     ];
-    return calculateStockMetrics(simulatedTxs, stock.currentPrice);
-  }, [stock.transactions, stock.currentPrice, splitDate, ratio, numerator, denominator]);
+    return calculateStockMetrics(simulatedTxs, simulatedPrice);
+  }, [stock.transactions, simulatedPrice, splitDate, ratio, numerator, denominator]);
 
   // Check if the split date is before any holding existed (user held 0 shares on splitDate)
   const isSplitBeforeHolding = useMemo(() => {
@@ -125,8 +130,8 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
   const formatDec = (v: number, digits = 2) =>
     v.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#121216] border border-purple-500/30 w-full max-w-lg rounded-3xl shadow-2xl text-gray-200 animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 p-4 sm:p-5 shrink-0">
@@ -326,9 +331,13 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-gray-400">最新市價 / 當前總市值</span>
               <div className="flex items-center gap-2 font-mono">
-                <span className="text-gray-500 line-through text-[11px]">{currSym}{formatNum(preMetrics.marketValue)}</span>
+                <span className="text-gray-500 line-through text-[11px]">
+                  {currSym}{formatDec(stock.currentPrice)} / {currSym}{formatNum(preMetrics.marketValue)}
+                </span>
                 <ArrowRight className="w-3 h-3 text-purple-400" />
-                <span className="font-bold text-white text-sm">{currSym}{formatNum(postMetrics.marketValue)}</span>
+                <span className="font-bold text-white text-sm">
+                  {currSym}{formatDec(simulatedPrice)} / {currSym}{formatNum(postMetrics.marketValue)}
+                </span>
               </div>
             </div>
 
@@ -340,14 +349,19 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
                   {preMetrics.unrealizedPnL >= 0 ? '+' : ''}{currSym}{formatNum(preMetrics.unrealizedPnL)}
                 </span>
                 <ArrowRight className="w-3 h-3 text-purple-400" />
-                <span
-                  className={`font-bold ${
-                    postMetrics.unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
-                >
-                  {postMetrics.unrealizedPnL >= 0 ? '+' : ''}{currSym}{formatNum(postMetrics.unrealizedPnL)}
-                  {' '}({postMetrics.unrealizedRoiPercent >= 0 ? '+' : ''}{postMetrics.unrealizedRoiPercent.toFixed(2)}%)
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`font-bold ${
+                      postMetrics.unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {postMetrics.unrealizedPnL >= 0 ? '+' : ''}{currSym}{formatNum(postMetrics.unrealizedPnL)}
+                    {' '}({postMetrics.unrealizedRoiPercent >= 0 ? '+' : ''}{postMetrics.unrealizedRoiPercent.toFixed(2)}%)
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    不變 ✅
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -373,7 +387,7 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-2.5 p-4 border-t border-white/10 bg-black/40 shrink-0">
+        <div className="flex items-center justify-end gap-2.5 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-black/40 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -398,4 +412,9 @@ export const StockSplitModal: React.FC<StockSplitModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

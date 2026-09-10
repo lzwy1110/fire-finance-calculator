@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, CheckCircle2, Info } from 'lucide-react';
 
 export interface ConfirmModalProps {
@@ -59,8 +60,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     return 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/30';
   };
 
-  return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-4 text-center relative overflow-hidden animate-scaleUp">
         {/* Ambient Top Glow */}
         <div
@@ -85,7 +86,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="relative z-10 flex items-center gap-3 pt-2">
+        <div className="relative z-10 flex items-center gap-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {!isAlert && cancelText !== null && (
             <button
               onClick={onClose}
@@ -107,4 +108,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

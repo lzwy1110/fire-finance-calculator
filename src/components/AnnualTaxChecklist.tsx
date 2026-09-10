@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Landmark,
   CheckCircle2,
@@ -382,8 +383,8 @@ export const AnnualTaxChecklist: React.FC = () => {
       </div>
 
       {/* ================= MODAL 1: 綜合所得稅試算機 ================= */}
-      {isCalculatorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      {isCalculatorOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
           <div className="bg-[#121214] border border-white/15 rounded-3xl max-w-md w-full shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 p-5 sm:p-6 shrink-0">
               <div className="flex items-center gap-2.5">
@@ -468,7 +469,7 @@ export const AnnualTaxChecklist: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex gap-3 p-4 border-t border-white/10 bg-black/40 shrink-0">
+            <div className="flex gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-black/40 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsCalculatorOpen(false)}
@@ -486,12 +487,13 @@ export const AnnualTaxChecklist: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL 2: 新增 / 編輯稅目 ================= */}
-      {(isAddModalOpen || editingTaxItem) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      {(isAddModalOpen || editingTaxItem) && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
           <div className="bg-[#121214] border border-white/15 rounded-3xl max-w-md w-full shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 p-5 shrink-0">
               <h4 className="text-base font-black text-white">
@@ -573,7 +575,7 @@ export const AnnualTaxChecklist: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-3 p-4 border-t border-white/10 bg-black/40 shrink-0">
+              <div className="flex gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-black/40 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -594,7 +596,8 @@ export const AnnualTaxChecklist: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

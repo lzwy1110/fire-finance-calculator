@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import {
   Bell,
   CheckCircle2,
@@ -46,8 +47,8 @@ export const RecurringDeductionAlertModal: React.FC<RecurringDeductionAlertModal
     onGoToLedger();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#131318] border border-indigo-500/30 w-full max-w-md rounded-3xl p-5 sm:p-6 flex flex-col max-h-[85vh] shadow-2xl shadow-indigo-500/10 text-gray-200 animate-scaleUp overflow-hidden">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-zinc-800 pb-3.5 shrink-0">
@@ -147,7 +148,7 @@ export const RecurringDeductionAlertModal: React.FC<RecurringDeductionAlertModal
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-2.5 pt-3 border-t border-zinc-800 shrink-0">
+        <div className="flex gap-2.5 pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-zinc-800 shrink-0">
           <button
             type="button"
             onClick={handleGoToLedger}
@@ -167,4 +168,9 @@ export const RecurringDeductionAlertModal: React.FC<RecurringDeductionAlertModal
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

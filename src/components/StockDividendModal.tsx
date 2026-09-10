@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Coins,
@@ -153,8 +154,8 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
   const formatDec = (v: number, digits = 2) =>
     v.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div
         className={`bg-[#121216] border w-full max-w-lg rounded-3xl shadow-2xl text-gray-200 animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden ${
           isUpcoming ? 'border-amber-500/40 shadow-amber-500/10' : 'border-emerald-500/30 shadow-emerald-500/10'
@@ -220,32 +221,32 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
           )}
 
         {/* Inputs Grid: Ex-Date, Payment Date, Dividend Per Share */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-black/40 border border-white/5 rounded-2xl p-3 sm:p-3.5 text-xs">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 bg-black/40 border border-white/5 rounded-2xl p-2.5 sm:p-3.5 text-xs">
           {/* Ex-Dividend Date */}
           <div className="space-y-1">
-            <label className="text-gray-400 font-medium block flex items-center gap-1">
-              <Calendar className="w-3 h-3 text-emerald-400" />
-              <span>除息基準日 (Ex-Date)</span>
+            <label className="text-gray-400 font-medium block flex items-center gap-1 text-[11px] sm:text-xs">
+              <Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
+              <span className="truncate">除息日 (Ex-Date)</span>
             </label>
             <input
               type="date"
               value={exDate}
               onChange={(e) => setExDate(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 focus:border-emerald-500 rounded-xl px-3 py-1.5 text-white font-mono text-xs focus:outline-none transition"
+              className="w-full bg-white/5 border border-white/10 focus:border-emerald-500 rounded-xl px-2.5 py-1.5 text-white font-mono text-[11px] sm:text-xs focus:outline-none transition"
             />
           </div>
 
           {/* Cash Payment Date */}
           <div className="space-y-1">
-            <label className="text-gray-400 font-medium block flex items-center gap-1">
-              <PiggyBank className="w-3 h-3 text-emerald-400" />
-              <span>現金發放入帳日</span>
+            <label className="text-gray-400 font-medium block flex items-center gap-1 text-[11px] sm:text-xs">
+              <PiggyBank className="w-3 h-3 text-emerald-400 shrink-0" />
+              <span className="truncate">入帳發放日</span>
             </label>
             <input
               type="date"
               value={paymentDate}
               onChange={(e) => setPaymentDate(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 focus:border-emerald-500 rounded-xl px-3 py-1.5 text-white font-mono text-xs focus:outline-none transition"
+              className="w-full bg-white/5 border border-white/10 focus:border-emerald-500 rounded-xl px-2.5 py-1.5 text-white font-mono text-[11px] sm:text-xs focus:outline-none transition"
             />
           </div>
 
@@ -403,7 +404,7 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-2.5 p-4 border-t border-white/10 bg-black/40 shrink-0">
+        <div className="flex items-center justify-end gap-2.5 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-black/40 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -443,4 +444,9 @@ export const StockDividendModal: React.FC<StockDividendModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

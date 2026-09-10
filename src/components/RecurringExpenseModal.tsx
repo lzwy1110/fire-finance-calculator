@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Plus,
@@ -223,8 +224,8 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <form
         onSubmit={handleSubmit}
         className="bg-[#141419] border border-zinc-800 w-full max-w-lg rounded-3xl p-4 sm:p-6 shadow-2xl text-gray-200 animate-scaleUp max-h-[85vh] flex flex-col"
@@ -262,7 +263,7 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 <span>常用扣款範本 (點擊快速套用)：</span>
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {COMMON_TEMPLATES.map((tpl) => (
                   <button
                     key={tpl.name}
@@ -516,7 +517,7 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2.5 pt-3 border-t border-zinc-800 shrink-0">
+        <div className="flex gap-2.5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-zinc-800 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -534,4 +535,9 @@ export const RecurringExpenseModal: React.FC<RecurringExpenseModalProps> = ({
       </form>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

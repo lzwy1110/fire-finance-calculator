@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, PlusCircle, Scissors, Trash2, Edit2 } from 'lucide-react';
 import { PortfolioStock, StockTransaction, StockSplitEvent, StockDividendEvent, StockRightEvent } from '../../types';
 import { calculateStockMetrics } from '../../utils/portfolioMath';
@@ -41,8 +42,8 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
   const metrics = calculateStockMetrics(stock.transactions, stock.currentPrice);
   const currSym = stock.market === 'US' ? '$' : 'NT$';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-xl rounded-3xl p-4 sm:p-5 shadow-2xl text-gray-200 relative max-h-[85vh] flex flex-col animate-scaleUp">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
@@ -328,7 +329,7 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
           )}
         </div>
 
-        <div className="flex items-center justify-end pt-3 border-t border-white/10 shrink-0 mt-1">
+        <div className="flex items-center justify-end pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 shrink-0 mt-1">
           <button
             onClick={onClose}
             className="px-5 py-2 bg-white/10 hover:bg-white/15 text-white font-bold rounded-xl cursor-pointer transition active:scale-95"
@@ -339,4 +340,9 @@ export const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

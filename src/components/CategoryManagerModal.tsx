@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Settings, Plus, Trash2, X, Tag, Sparkles, Check, AlertCircle } from 'lucide-react';
 import { CategoryItem } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -122,8 +123,8 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     setNewMainCatName('');
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[85vh] flex flex-col animate-slideUp sm:animate-scaleUp">
         {/* Mobile Drag Indicator Handle */}
         <div className="w-10 h-1 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
@@ -333,7 +334,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="pt-3 border-t border-zinc-800 text-right shrink-0">
+        <div className="pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-zinc-800 text-right shrink-0">
           <button
             onClick={onClose}
             className="px-6 py-2.5 font-bold text-xs rounded-xl transition cursor-pointer shadow-lg active:scale-95"
@@ -361,4 +362,9 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
       )}
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

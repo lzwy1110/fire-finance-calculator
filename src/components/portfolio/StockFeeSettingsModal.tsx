@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Settings } from 'lucide-react';
 
 export interface StockFeeSettingsModalProps {
@@ -38,8 +39,8 @@ export const StockFeeSettingsModal: React.FC<StockFeeSettingsModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-md rounded-3xl p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl text-gray-200 relative max-h-[85vh] flex flex-col animate-scaleUp">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -161,7 +162,7 @@ export const StockFeeSettingsModal: React.FC<StockFeeSettingsModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-end gap-2.5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10">
             <button
               type="button"
               onClick={onClose}
@@ -181,4 +182,9 @@ export const StockFeeSettingsModal: React.FC<StockFeeSettingsModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

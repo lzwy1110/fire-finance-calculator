@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowRightLeft, X, DollarSign, ArrowRight, ShieldCheck, Sparkles, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { getThemePreset } from '../utils/theme';
 
@@ -117,8 +118,8 @@ export const CurrencyExchangeModal: React.FC<CurrencyExchangeModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <form
         onSubmit={handleSubmit}
         className="bg-[#0e0e0e] border-t sm:border border-white/10 w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[85vh] flex flex-col text-gray-200 animate-slideUp sm:animate-scaleUp"
@@ -319,7 +320,7 @@ export const CurrencyExchangeModal: React.FC<CurrencyExchangeModalProps> = ({
         </div>
 
         {/* Footer Submit */}
-        <div className="pt-3 border-t border-white/10 flex gap-3 shrink-0">
+        <div className="pt-3 border-t border-white/10 flex gap-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={onClose}
@@ -342,4 +343,6 @@ export const CurrencyExchangeModal: React.FC<CurrencyExchangeModalProps> = ({
       </form>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

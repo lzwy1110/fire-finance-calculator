@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, Coins } from 'lucide-react';
 
 export interface InsufficientCashModalProps {
@@ -28,7 +29,7 @@ export const InsufficientCashModal: React.FC<InsufficientCashModalProps> = ({
 
   const formatNum = (num: number) => new Intl.NumberFormat('zh-TW').format(Math.round(num));
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-[125] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#121216] border border-amber-500/30 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-4 sm:space-y-5 relative overflow-hidden animate-scaleUp">
         {/* Background Ambient Glow */}
@@ -69,7 +70,7 @@ export const InsufficientCashModal: React.FC<InsufficientCashModalProps> = ({
           </p>
         </div>
 
-        <div className="space-y-2.5 pt-1 relative z-10">
+        <div className="space-y-2.5 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] relative z-10">
           <button
             onClick={onConfirmInitialHoldings}
             className="w-full py-3.5 px-5 rounded-2xl font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-lg shadow-emerald-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
@@ -92,4 +93,9 @@ export const InsufficientCashModal: React.FC<InsufficientCashModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

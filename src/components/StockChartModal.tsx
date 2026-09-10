@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   TrendingUp,
@@ -961,8 +962,8 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
   const costDiffPercent = stock.avgCost > 0 ? (costDiff / stock.avgCost) * 100 : 0;
   const isCostProfit = costDiff >= 0;
 
-  return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#121216] border border-white/10 rounded-3xl max-w-3xl w-full shadow-2xl overflow-hidden max-h-[88vh] flex flex-col relative animate-scaleUp min-w-0">
         {/* Background Ambient Glow */}
         <div className="absolute -top-32 -right-32 w-64 h-64 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -1398,4 +1399,9 @@ export const StockChartModal: React.FC<StockChartModalProps> = ({
     </div>
   </div>
 );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

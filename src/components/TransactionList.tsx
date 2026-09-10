@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
   Trash2,
@@ -1015,8 +1016,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       />
 
       {/* Custom Glassmorphism Category Picker Modal (Multi-select) */}
-      {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      {isCategoryModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
           <div className="relative w-full max-w-md bg-[#0f0f12] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
@@ -1052,16 +1053,16 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setTempSelectedCategories(categories.map((c) => c.name))}
-                  className="text-xs text-cyan-400 hover:underline cursor-pointer font-semibold"
+                  className="text-cyan-400 hover:text-cyan-300 transition cursor-pointer text-[11px] font-bold"
                 >
                   全選
                 </button>
                 <span className="text-gray-600">•</span>
                 <button
                   onClick={() => setTempSelectedCategories([])}
-                  className="text-xs text-gray-400 hover:text-gray-200 hover:underline cursor-pointer"
+                  className="text-gray-400 hover:text-gray-200 transition cursor-pointer text-[11px]"
                 >
-                  清空 (看全部)
+                  清除全部
                 </button>
               </div>
             </div>
@@ -1117,7 +1118,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             </div>
 
             {/* Bottom Actions */}
-            <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
+            <div className="pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-white/10 flex items-center justify-between gap-3">
               <button
                 onClick={() => {
                   setTempSelectedCategories([]);
@@ -1140,12 +1141,13 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Transaction Detail Modal / Electronic Receipt (Option A) */}
-      {selectedDetailTransaction && (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      {selectedDetailTransaction && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
           <div className="relative w-full max-w-md bg-[#0e0e12] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-slideUp sm:animate-none">
             {/* Header */}
             <div className="p-4 sm:p-5 border-b border-white/10 shrink-0 pb-3">
@@ -1168,21 +1170,25 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-[11px] text-gray-400 font-mono">
                         {selectedDetailTransaction.id.startsWith('t-widget-')
-                          ? `憑證 #W-${selectedDetailTransaction.id.slice(-6).toUpperCase()}`
+                          ? '小工具快記'
+                          : selectedDetailTransaction.id.startsWith('t-auto-')
+                          ? '週期固定扣款'
                           : selectedDetailTransaction.id.startsWith('stock-')
-                          ? `證券 #${selectedDetailTransaction.id.replace('stock-', '').slice(-6).toUpperCase()}`
-                          : `憑證 #TX-${selectedDetailTransaction.id.replace(/^t-/, '').slice(-6).toUpperCase()}`}
+                          ? '證券交易'
+                          : selectedDetailTransaction.id.startsWith('div-')
+                          ? '股票除息領現'
+                          : selectedDetailTransaction.id.startsWith('red-')
+                          ? '股票減資退款'
+                          : selectedDetailTransaction.id.startsWith('right-')
+                          ? '除權股票股利'
+                          : selectedDetailTransaction.id.startsWith('t-tax-')
+                          ? '年度稅目支出'
+                          : '一般記帳'}
                       </span>
-                      {selectedDetailTransaction.id.startsWith('t-widget-') && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
-                          ⚡ WIDGET
-                        </span>
-                      )}
-                      {selectedDetailTransaction.id.startsWith('stock-') && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold font-mono">
-                          📈 STOCK
-                        </span>
-                      )}
+                      <span className="text-gray-600">•</span>
+                      <span className="text-[11px] text-gray-400 font-mono">
+                        {selectedDetailTransaction.date}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1195,112 +1201,90 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               </div>
             </div>
 
-            {/* Scrollable Body */}
-            <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
-              {/* Hero: Amount & Icon */}
-            <div className="bg-[#141418] border border-white/5 rounded-2xl p-4 text-center space-y-2 shadow-inner">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl shadow-inner">
-                {getCategoryIcon(selectedDetailTransaction.mainCategory, selectedDetailTransaction.type)}
-              </div>
-              <div className="text-sm font-bold text-gray-300">
-                {selectedDetailTransaction.subCategory || selectedDetailTransaction.mainCategory}
-              </div>
-              <div
-                className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                  selectedDetailTransaction.type === 'income'
-                    ? 'text-emerald-400'
-                    : selectedDetailTransaction.type === 'tax'
-                    ? 'text-purple-400'
-                    : selectedDetailTransaction.type === 'investment'
-                    ? 'text-cyan-300'
-                    : 'text-orange-400'
-                }`}
-              >
-                {selectedDetailTransaction.type === 'income' ? '+' : '-'} {sym}{' '}
-                {formatNum(selectedDetailTransaction.amount)}
-              </div>
-              <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                <span
-                  className="text-[10px] px-2.5 py-0.5 rounded-full border font-bold uppercase"
-                  style={{
-                    backgroundColor: `rgba(${currentTheme.bgGlowRgb}, 0.15)`,
-                    color: currentTheme.primaryHex,
-                    borderColor: `rgba(${currentTheme.bgGlowRgb}, 0.3)`,
-                  }}
+            {/* Scrollable Receipt Body */}
+            <div className="p-5 overflow-y-auto flex-1 min-h-0 space-y-4">
+              {/* Amount Display */}
+              <div className="text-center py-3 bg-white/[0.03] border border-white/10 rounded-2xl">
+                <span className="text-xs text-gray-400 block mb-1">交易入扣金額</span>
+                <div
+                  className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                    selectedDetailTransaction.type === 'expense' ? 'text-rose-400' : 'text-emerald-400'
+                  }`}
                 >
-                  {selectedDetailTransaction.isStockTrade
-                    ? '📈 證券股票交易'
-                    : selectedDetailTransaction.type === 'income'
-                    ? '💰 收入紀錄'
-                    : selectedDetailTransaction.type === 'tax'
-                    ? '🏛️ 稅金與規費'
-                    : selectedDetailTransaction.type === 'investment'
-                    ? '📈 投資扣款'
-                    : '💸 日常支出'}
-                </span>
-                {selectedDetailTransaction.isQuickPreset && (
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold">
-                    ⚡ 1秒速記
+                  {selectedDetailTransaction.type === 'expense' ? '-' : '+'}
+                  {selectedDetailTransaction.currency === 'USD' ? '$' : sym}
+                  {formatNum(selectedDetailTransaction.amount)}
+                  <span className="text-xs font-normal text-gray-400 ml-1.5 font-sans">
+                    {selectedDetailTransaction.currency || 'TWD'}
                   </span>
+                </div>
+              </div>
+
+              {/* Receipt Key-Value Rows */}
+              <div className="space-y-2.5 text-xs bg-black/40 border border-white/5 rounded-2xl p-4 divide-y divide-white/5">
+                <div className="flex justify-between items-center pb-2">
+                  <span className="text-gray-400">收支類別</span>
+                  <span
+                    className={`font-bold px-2 py-0.5 rounded-md text-[11px] ${
+                      selectedDetailTransaction.type === 'expense'
+                        ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                        : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    }`}
+                  >
+                    {selectedDetailTransaction.type === 'expense' ? '支出 (Expense)' : '收入 (Income)'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-400">記帳大類</span>
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <span>{getCategoryIcon(selectedDetailTransaction.mainCategory, selectedDetailTransaction.type)}</span>
+                    <span>{selectedDetailTransaction.mainCategory}</span>
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-400">細項子類</span>
+                  <span className="font-mono text-gray-300">
+                    {selectedDetailTransaction.subCategory || '未分類'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-400">記帳日期</span>
+                  <span className="font-mono text-gray-300">
+                    {selectedDetailTransaction.date}
+                  </span>
+                </div>
+
+                {selectedDetailTransaction.tags && selectedDetailTransaction.tags.length > 0 && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-400">關聯標籤</span>
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {selectedDetailTransaction.tags.map((t: string, idx: number) => (
+                        <span
+                          key={idx}
+                          className="px-1.5 py-0.5 rounded bg-white/10 text-gray-300 text-[10px] font-mono"
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* Breakdown Details Table */}
-            <div className="bg-[#141418] border border-white/5 rounded-2xl p-3.5 space-y-2.5 text-xs">
-              <div className="flex items-center justify-between py-1 border-b border-white/5">
-                <span className="text-gray-400">記帳大類</span>
-                <span className="font-bold text-white">{selectedDetailTransaction.mainCategory}</span>
+              {/* Note / Memo Section */}
+              <div className="bg-black/40 border border-white/5 rounded-2xl p-4 space-y-1.5">
+                <span className="text-xs text-gray-400 block font-medium">備註說明</span>
+                {selectedDetailTransaction.note ? (
+                  <p className="text-xs text-gray-200 leading-relaxed whitespace-pre-line">
+                    {selectedDetailTransaction.note}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">此筆紀錄未填寫備註說明</p>
+                )}
               </div>
-              <div className="flex items-center justify-between py-1 border-b border-white/5">
-                <span className="text-gray-400">明細子類</span>
-                <span className="font-bold text-gray-200">
-                  {selectedDetailTransaction.subCategory || '未指定子類'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-white/5">
-                <span className="text-gray-400">交易日期</span>
-                <span className="font-mono font-bold text-white">{selectedDetailTransaction.date}</span>
-              </div>
-              {selectedDetailTransaction.stockOriginalAmount && (
-                <div className="flex items-center justify-between py-1 border-b border-white/5">
-                  <span className="text-gray-400">原始幣別金額</span>
-                  <span className="font-mono font-bold text-cyan-300">
-                    {selectedDetailTransaction.stockOriginalCurrency}{formatNum(selectedDetailTransaction.stockOriginalAmount)}
-                  </span>
-                </div>
-              )}
-              {selectedDetailTransaction.tags && selectedDetailTransaction.tags.length > 0 && (
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-gray-400">專屬標籤</span>
-                  <div className="flex items-center gap-1 flex-wrap justify-end">
-                    {selectedDetailTransaction.tags.map((tag: string, idx: number) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-0.5 bg-white/5 text-gray-300 border border-white/10 rounded-md text-[10px]"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Full Note Card (Zero Truncation, Multi-line Supported) */}
-            <div className="bg-[#141418] border border-white/5 rounded-2xl p-3.5 space-y-1.5">
-              <div className="text-[11px] font-bold text-gray-400 flex items-center gap-1">
-                <span>📝 完整備註說明</span>
-              </div>
-              {selectedDetailTransaction.note ? (
-                <p className="text-xs sm:text-sm text-gray-100 leading-relaxed break-words whitespace-pre-wrap select-text bg-black/40 p-2.5 rounded-xl border border-white/5">
-                  {selectedDetailTransaction.note}
-                </p>
-              ) : (
-                <p className="text-xs text-gray-500 italic">此筆紀錄未填寫備註說明</p>
-              )}
-            </div>
-
             </div>
 
             {/* Bottom Actions */}
@@ -1331,7 +1315,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
         </>
       )}

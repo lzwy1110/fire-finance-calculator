@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Palette, DollarSign, Settings, Check, Sparkles, Smartphone, Layers, Cloud, ShieldCheck, Copy, ExternalLink, Radio, Lock, Trash2, RefreshCw, Tag, AlertTriangle, TrendingUp } from 'lucide-react';
 import { FIREConfig } from '../types';
 import { THEME_PRESETS, CURRENCY_OPTIONS, getThemePreset } from '../utils/theme';
@@ -200,8 +201,8 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <form
         onSubmit={handleSubmit}
         className="bg-[#0e0e0e] border-t sm:border border-white/10 w-full max-w-2xl rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[85vh] flex flex-col text-gray-200 animate-slideUp sm:animate-scaleUp"
@@ -801,7 +802,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
         </div>
 
         {/* Pinned Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10 shrink-0">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={onClose}
@@ -838,4 +839,6 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
       )}
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

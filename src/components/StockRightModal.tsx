@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Calendar,
@@ -158,8 +159,8 @@ export const StockRightModal: React.FC<StockRightModalProps> = ({
     return Number(v.toFixed(3)).toLocaleString('en-US');
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div
         role="dialog"
         aria-modal="true"
@@ -422,7 +423,7 @@ export const StockRightModal: React.FC<StockRightModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 p-4 border-t border-white/10 bg-black/40 shrink-0">
+        <div className="flex items-center justify-end gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-black/40 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -455,4 +456,9 @@ export const StockRightModal: React.FC<StockRightModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

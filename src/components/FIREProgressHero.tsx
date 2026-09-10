@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Flame, ShieldCheck, TrendingUp, Sparkles, Sliders, Calendar, ArrowUpRight, DollarSign, Target, Award, CheckCircle2 } from 'lucide-react';
 import { FIREConfig, FIREResult } from '../types';
 import { getThemePreset } from '../utils/theme';
@@ -362,8 +363,8 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
       </div>
 
       {/* Simulator Modal */}
-      {isSimulatorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      {isSimulatorOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
           <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-scaleUp">
             <div className="flex items-center justify-between border-b border-white/10 p-5 sm:p-6 shrink-0">
               <div className="flex items-center space-x-2">
@@ -540,7 +541,7 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 p-4 border-t border-white/10 bg-black/40 shrink-0">
+          <div className="flex items-center justify-end gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-black/40 shrink-0">
               <button
                 onClick={() => setIsSimulatorOpen(false)}
                 className="px-4 py-2 rounded-xl text-gray-400 hover:text-white text-sm cursor-pointer"
@@ -559,7 +560,8 @@ export const FIREProgressHero: React.FC<FIREProgressHeroProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

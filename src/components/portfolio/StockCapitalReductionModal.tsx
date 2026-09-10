@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Scissors, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
 import { PortfolioStock } from '../../types';
 
@@ -93,8 +94,8 @@ export const StockCapitalReductionModal: React.FC<StockCapitalReductionModalProp
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#0e0e0e] border border-white/10 w-full max-w-lg rounded-3xl shadow-2xl text-gray-200 relative animate-scaleUp max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 p-4 sm:p-5 shrink-0">
@@ -295,7 +296,7 @@ export const StockCapitalReductionModal: React.FC<StockCapitalReductionModalProp
 
           </div>
 
-          <div className="flex items-center justify-end gap-2.5 p-4 border-t border-white/10 bg-black/40 shrink-0">
+          <div className="flex items-center justify-end gap-2.5 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-black/40 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -316,4 +317,9 @@ export const StockCapitalReductionModal: React.FC<StockCapitalReductionModalProp
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };
